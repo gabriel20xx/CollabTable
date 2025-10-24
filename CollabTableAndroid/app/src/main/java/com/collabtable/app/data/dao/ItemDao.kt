@@ -32,6 +32,7 @@ interface ItemDao {
     @Query("DELETE FROM items WHERE id = :itemId")
     suspend fun deleteItem(itemId: String)
 
+    // Get all items updated since timestamp, including deleted ones for sync
     @Query("SELECT * FROM items WHERE updatedAt >= :since")
     suspend fun getItemsUpdatedSince(since: Long): List<Item>
 }

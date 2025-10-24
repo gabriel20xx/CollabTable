@@ -1300,12 +1300,35 @@ fun ManageColumnsDialog(
     var showAddField by remember { mutableStateOf(false) }
     var fieldToEdit by remember { mutableStateOf<Field?>(null) }
     var fieldToDelete by remember { mutableStateOf<Field?>(null) }
-    val reorderedFields = remember { mutableStateListOf<Field>().apply { addAll(fields) } }
     
-    // Update reordered list when fields change
+    // Use derivedStateOf to keep reorderedFields in sync with fields
+    val reorderedFields = remember(fields) { 
+        mutableStateListOf<Field>().apply { 
+            clear()
+            addAll(fields) 
+        } 
+    }
+    
+    // Watch for changes in fields and update reorderedFields
     LaunchedEffect(fields) {
-        reorderedFields.clear()
-        reorderedFields.addAll(fields)
+        val currentIds = reorderedFields.map { it.id }.toSet()
+        val newIds = fields.map { it.id }.toSet()
+        
+        // Add new fields
+        fields.filter { it.id !in currentIds }.forEach { newField ->
+            reorderedFields.add(newField)
+        }
+        
+        // Remove deleted fields
+        reorderedFields.removeAll { it.id !in newIds }
+        
+        // Update existing fields (in case of edits)
+        fields.forEach { updatedField ->
+            val index = reorderedFields.indexOfFirst { it.id == updatedField.id }
+            if (index >= 0 && reorderedFields[index] != updatedField) {
+                reorderedFields[index] = updatedField
+            }
+        }
     }
     
     Dialog(
@@ -1358,17 +1381,20 @@ fun ManageColumnsDialog(
                             field = field,
                             onEdit = { fieldToEdit = field },
                             onDelete = { fieldToDelete = field },
-                            onDragStart = { _ ->
-                                // Store the dragged item index if needed
-                            },
-                            onDragEnd = { fromIndex, toIndex ->
-                                if (fromIndex != toIndex) {
-                                    val item = reorderedFields.removeAt(fromIndex)
-                                    reorderedFields.add(toIndex, item)
+                            onMoveUp = { 
+                                if (index > 0) {
+                                    val item = reorderedFields.removeAt(index)
+                                    reorderedFields.add(index - 1, item)
                                 }
                             },
-                            currentIndex = index,
-                            totalItems = reorderedFields.size
+                            onMoveDown = { 
+                                if (index < reorderedFields.size - 1) {
+                                    val item = reorderedFields.removeAt(index)
+                                    reorderedFields.add(index + 1, item)
+                                }
+                            },
+                            canMoveUp = index > 0,
+                            canMoveDown = index < reorderedFields.size - 1
                         )
                     }
                 }
@@ -1456,52 +1482,17 @@ fun ColumnItem(
     field: Field,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onDragStart: (Int) -> Unit,
-    onDragEnd: (Int, Int) -> Unit,
-    currentIndex: Int,
-    totalItems: Int
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+    canMoveUp: Boolean,
+    canMoveDown: Boolean
 ) {
-    var isDragging by remember { mutableStateOf(false) }
-    var dragOffset by remember { mutableStateOf(0f) }
-    
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .offset { IntOffset(0, dragOffset.toInt()) }
-            .pointerInput(Unit) {
-                detectDragGestures(
-                    onDragStart = {
-                        isDragging = true
-                        onDragStart(currentIndex)
-                    },
-                    onDragEnd = {
-                        val itemHeight = 80.dp.toPx() // Approximate item height with spacing
-                        val movedItems = (dragOffset / itemHeight).toInt()
-                        val targetIndex = (currentIndex + movedItems).coerceIn(0, totalItems - 1)
-                        
-                        onDragEnd(currentIndex, targetIndex)
-                        isDragging = false
-                        dragOffset = 0f
-                    },
-                    onDragCancel = {
-                        isDragging = false
-                        dragOffset = 0f
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        dragOffset += dragAmount.y
-                    }
-                )
-            },
+        modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = if (isDragging) 
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
-            else 
-                MaterialTheme.colorScheme.surfaceVariant
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
         ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isDragging) 8.dp else 1.dp
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
@@ -1510,13 +1501,37 @@ fun ColumnItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Drag handle on the left
-            Icon(
-                Icons.Default.Menu,
-                contentDescription = "Drag to reorder",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp)
-            )
+            // Move up/down buttons
+            Column {
+                IconButton(
+                    onClick = onMoveUp,
+                    enabled = canMoveUp,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowUp,
+                        contentDescription = "Move up",
+                        tint = if (canMoveUp) 
+                            MaterialTheme.colorScheme.onSurfaceVariant 
+                        else 
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                    )
+                }
+                IconButton(
+                    onClick = onMoveDown,
+                    enabled = canMoveDown,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.KeyboardArrowDown,
+                        contentDescription = "Move down",
+                        tint = if (canMoveDown) 
+                            MaterialTheme.colorScheme.onSurfaceVariant 
+                        else 
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                    )
+                }
+            }
             
             Spacer(modifier = Modifier.width(12.dp))
             

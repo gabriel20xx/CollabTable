@@ -179,19 +179,21 @@ router.post('/sync', async (req: Request, res: Response) => {
 
     // Get updates from server since last sync
     // If lastSyncTimestamp is 0, get all data (initial sync)
-    // Exclude deleted items from being sent
+    // IMPORTANT: Include deleted items so clients can sync deletions
     let serverLists, serverFields, serverItems, serverItemValues;
 
     if (lastSyncTimestamp === 0) {
+      // Initial sync: send all non-deleted items
       serverLists = db.prepare('SELECT * FROM lists WHERE isDeleted = 0').all();
       serverFields = db.prepare('SELECT * FROM fields WHERE isDeleted = 0').all();
       serverItems = db.prepare('SELECT * FROM items WHERE isDeleted = 0').all();
       serverItemValues = db.prepare('SELECT * FROM item_values').all();
     } else {
-      serverLists = db.prepare('SELECT * FROM lists WHERE updatedAt > ? AND isDeleted = 0').all(lastSyncTimestamp);
-      serverFields = db.prepare('SELECT * FROM fields WHERE updatedAt > ? AND isDeleted = 0').all(lastSyncTimestamp);
-      serverItems = db.prepare('SELECT * FROM items WHERE updatedAt > ? AND isDeleted = 0').all(lastSyncTimestamp);
-      serverItemValues = db.prepare('SELECT * FROM item_values WHERE updatedAt > ?').all(lastSyncTimestamp);
+      // Incremental sync: send all updates including deletions (use >= to include items updated exactly at lastSyncTimestamp)
+      serverLists = db.prepare('SELECT * FROM lists WHERE updatedAt >= ?').all(lastSyncTimestamp);
+      serverFields = db.prepare('SELECT * FROM fields WHERE updatedAt >= ?').all(lastSyncTimestamp);
+      serverItems = db.prepare('SELECT * FROM items WHERE updatedAt >= ?').all(lastSyncTimestamp);
+      serverItemValues = db.prepare('SELECT * FROM item_values WHERE updatedAt >= ?').all(lastSyncTimestamp);
     }
 
     // Convert isDeleted from INTEGER (0/1) to BOOLEAN

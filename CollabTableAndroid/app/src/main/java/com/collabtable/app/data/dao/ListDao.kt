@@ -32,6 +32,7 @@ interface ListDao {
     @Query("DELETE FROM lists WHERE id = :listId")
     suspend fun deleteList(listId: String)
 
+    // Get all lists updated since timestamp, including deleted ones for sync
     @Query("SELECT * FROM lists WHERE updatedAt >= :since")
     suspend fun getListsUpdatedSince(since: Long): List<CollabList>
 }

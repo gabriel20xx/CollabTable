@@ -27,6 +27,7 @@ interface FieldDao {
     @Query("DELETE FROM fields WHERE id = :fieldId")
     suspend fun deleteField(fieldId: String)
 
+    // Get all fields updated since timestamp, including deleted ones for sync
     @Query("SELECT * FROM fields WHERE updatedAt >= :since")
     suspend fun getFieldsUpdatedSince(since: Long): List<Field>
 }
