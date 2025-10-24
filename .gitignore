@@ -1,0 +1,26 @@
+# Android
+CollabTableAndroid/.gradle/
+CollabTableAndroid/.idea/
+CollabTableAndroid/local.properties
+CollabTableAndroid/build/
+CollabTableAndroid/app/build/
+CollabTableAndroid/*.iml
+CollabTableAndroid/.DS_Store
+CollabTableAndroid/captures/
+
+# Server
+CollabTableServer/node_modules/
+CollabTableServer/dist/
+CollabTableServer/.env
+CollabTableServer/*.log
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

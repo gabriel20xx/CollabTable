@@ -1,0 +1,1977 @@
+package com.collabtable.app.ui.screens
+
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.TimePicker
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
+import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
+import androidx.compose.runtime.toMutableStateList
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import com.collabtable.app.R
+import com.collabtable.app.data.database.CollabTableDatabase
+import com.collabtable.app.data.model.Field
+import com.collabtable.app.data.model.ItemValue
+import com.collabtable.app.data.model.ItemWithValues
+import java.text.SimpleDateFormat
+import java.util.*
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
+@Composable
+fun ListDetailScreen(
+    listId: String,
+    onNavigateBack: () -> Unit
+) {
+    val context = LocalContext.current
+    val database = remember { CollabTableDatabase.getDatabase(context) }
+    val viewModel = remember { ListDetailViewModel(database, listId, context) }
+    
+    val list by viewModel.list.collectAsState()
+    val fields by viewModel.fields.collectAsState()
+    val items by viewModel.items.collectAsState()
+    
+    var showManageColumnsDialog by remember { mutableStateOf(false) }
+    var showAddItemDialog by remember { mutableStateOf(false) }
+    var itemToEdit by remember { mutableStateOf<ItemWithValues?>(null) }
+    var showFilterSortDialog by remember { mutableStateOf(false) }
+    
+    // Filter/Sort state
+    var sortField by remember { mutableStateOf<Field?>(null) }
+    var sortAscending by remember { mutableStateOf(true) }
+    var groupByField by remember { mutableStateOf<Field?>(null) }
+    var filterField by remember { mutableStateOf<Field?>(null) }
+    var filterValue by remember { mutableStateOf("") }
+    
+    // Shared scroll state for synchronized horizontal scrolling
+    val horizontalScrollState = rememberScrollState()
+    
+    // Field widths state (resizable columns)
+    val fieldWidths = remember { mutableStateMapOf<String, Dp>() }
+    
+    // Initialize field widths
+    LaunchedEffect(fields) {
+        fields.forEach { field ->
+            if (!fieldWidths.containsKey(field.id)) {
+                fieldWidths[field.id] = 150.dp
+            }
+        }
+    }
+    
+    // Apply filtering, sorting, and grouping
+    val processedItems = remember(items, filterField, filterValue, sortField, sortAscending, groupByField) {
+        var result = items
+        
+        // Apply filter
+        if (filterField != null && filterValue.isNotBlank()) {
+            result = result.filter { itemWithValues ->
+                val value = itemWithValues.values.find { it.fieldId == filterField!!.id }?.value ?: ""
+                value.contains(filterValue, ignoreCase = true)
+            }
+        }
+        
+        // Apply sort
+        if (sortField != null) {
+            result = result.sortedWith(compareBy { itemWithValues ->
+                val value = itemWithValues.values.find { it.fieldId == sortField!!.id }?.value ?: ""
+                if (sortAscending) value else value
+            })
+            if (!sortAscending) {
+                result = result.reversed()
+            }
+        }
+        
+        result
+    }
+    
+    // Group items if groupByField is set
+    val groupedItems = remember(processedItems, groupByField) {
+        if (groupByField != null) {
+            processedItems.groupBy { itemWithValues ->
+                itemWithValues.values.find { it.fieldId == groupByField!!.id }?.value ?: "(Empty)"
+            }
+        } else {
+            mapOf("" to processedItems)
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(list?.name ?: "") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { showManageColumnsDialog = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Manage Columns")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showAddItemDialog = true }
+            ) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_item))
+            }
+        }
+    ) { padding ->
+        if (fields.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "No fields yet. Add fields to get started!",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(onClick = { showManageColumnsDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(stringResource(R.string.add_field))
+                    }
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+            ) {
+                // Filter/Sort Toolbar
+                if (sortField != null || filterField != null || groupByField != null) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .padding(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (sortField != null) {
+                            FilterChip(
+                                selected = true,
+                                onClick = { 
+                                    sortField = null
+                                    sortAscending = true
+                                },
+                                label = { 
+                                    Text("Sort: ${sortField!!.name} ${if (sortAscending) "↑" else "↓"}") 
+                                },
+                                trailingIcon = {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove", 
+                                         modifier = Modifier.size(16.dp))
+                                }
+                            )
+                        }
+                        
+                        if (groupByField != null) {
+                            FilterChip(
+                                selected = true,
+                                onClick = { groupByField = null },
+                                label = { Text("Group: ${groupByField!!.name}") },
+                                trailingIcon = {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove", 
+                                         modifier = Modifier.size(16.dp))
+                                }
+                            )
+                        }
+                        
+                        if (filterField != null) {
+                            FilterChip(
+                                selected = true,
+                                onClick = { 
+                                    filterField = null
+                                    filterValue = ""
+                                },
+                                label = { Text("Filter: ${filterField!!.name} = \"$filterValue\"") },
+                                trailingIcon = {
+                                    Icon(Icons.Default.Close, contentDescription = "Remove", 
+                                         modifier = Modifier.size(16.dp))
+                                }
+                            )
+                        }
+                        
+                        IconButton(onClick = { showFilterSortDialog = true }) {
+                            Icon(Icons.Default.Settings, contentDescription = "Configure")
+                        }
+                    }
+                }
+                
+                // Field headers with long-press to delete and resize handles
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(horizontalScrollState),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    fields.forEach { field ->
+                        FieldHeader(
+                            field = field,
+                            width = fieldWidths[field.id] ?: 150.dp,
+                            onWidthChange = { delta ->
+                                val currentWidth = fieldWidths[field.id] ?: 150.dp
+                                val newWidth = (currentWidth.value + delta).coerceIn(100f, 400f)
+                                fieldWidths[field.id] = newWidth.dp
+                            }
+                        )
+                    }
+                    
+                    // Filter/Sort button
+                    if (items.isNotEmpty() && sortField == null && filterField == null && groupByField == null) {
+                        IconButton(
+                            onClick = { showFilterSortDialog = true },
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Settings, 
+                                contentDescription = "Filter/Sort",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                }
+
+                // Items list with synchronized scrolling
+                if (items.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.no_items),
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                } else if (processedItems.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "No items match the current filter",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            TextButton(onClick = { 
+                                filterField = null
+                                filterValue = ""
+                            }) {
+                                Text("Clear Filter")
+                            }
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        groupedItems.forEach { (groupName, groupItems) ->
+                            // Show group header if grouping is enabled
+                            if (groupByField != null) {
+                                item(key = "group_$groupName") {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = MaterialTheme.colorScheme.secondaryContainer
+                                    ) {
+                                        Text(
+                                            text = "$groupName (${groupItems.size})",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            modifier = Modifier.padding(12.dp),
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                                        )
+                                    }
+                                }
+                            }
+                            
+                            // Show items in the group
+                            items(groupItems, key = { it.item.id }) { itemWithValues ->
+                                ItemRow(
+                                    fields = fields,
+                                    fieldWidths = fieldWidths,
+                                    itemWithValues = itemWithValues,
+                                    scrollState = horizontalScrollState,
+                                    onClick = { itemToEdit = itemWithValues }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showManageColumnsDialog) {
+        ManageColumnsDialog(
+            fields = fields,
+            onDismiss = { showManageColumnsDialog = false },
+            onAddField = { name, fieldType, fieldOptions ->
+                viewModel.addField(name, fieldType, fieldOptions)
+            },
+            onUpdateField = { fieldId, fieldType, fieldOptions ->
+                viewModel.updateField(fieldId, fieldType, fieldOptions)
+            },
+            onDeleteField = { fieldId ->
+                viewModel.deleteField(fieldId)
+            },
+            onReorderFields = { reorderedFields ->
+                viewModel.reorderFields(reorderedFields)
+            }
+        )
+    }
+
+    if (showAddItemDialog) {
+        AddItemDialog(
+            fields = fields,
+            onDismiss = { showAddItemDialog = false },
+            onAdd = { fieldValues ->
+                viewModel.addItemWithValues(fieldValues)
+                showAddItemDialog = false
+            }
+        )
+    }
+
+    if (showFilterSortDialog) {
+        FilterSortDialog(
+            fields = fields,
+            currentSortField = sortField,
+            currentSortAscending = sortAscending,
+            currentGroupByField = groupByField,
+            currentFilterField = filterField,
+            currentFilterValue = filterValue,
+            onDismiss = { showFilterSortDialog = false },
+            onApply = { newSortField, newSortAscending, newGroupByField, newFilterField, newFilterValue ->
+                sortField = newSortField
+                sortAscending = newSortAscending
+                groupByField = newGroupByField
+                filterField = newFilterField
+                filterValue = newFilterValue
+                showFilterSortDialog = false
+            },
+            onClearAll = {
+                sortField = null
+                sortAscending = true
+                groupByField = null
+                filterField = null
+                filterValue = ""
+                showFilterSortDialog = false
+            }
+        )
+    }
+
+    itemToEdit?.let { itemWithValues ->
+        EditItemDialog(
+            fields = fields,
+            itemWithValues = itemWithValues,
+            onDismiss = { itemToEdit = null },
+            onUpdate = { fieldValues ->
+                fieldValues.forEach { (valueId, newValue) ->
+                    viewModel.updateItemValue(valueId, newValue)
+                }
+                itemToEdit = null
+            },
+            onDelete = {
+                viewModel.deleteItem(itemWithValues.item.id)
+                itemToEdit = null
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun FieldHeader(
+    field: Field,
+    width: Dp,
+    onWidthChange: (Float) -> Unit
+) {
+    val density = LocalDensity.current
+    
+    Box(
+        modifier = Modifier
+            .width(width)
+            .border(1.dp, MaterialTheme.colorScheme.outline)
+    ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = field.name,
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Resize handle
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                with(density) {
+                                    onWidthChange(dragAmount.x.toDp().value)
+                                }
+                            }
+                        }
+                ) {
+                    Icon(
+                        Icons.Default.Menu,
+                        contentDescription = "Resize",
+                        modifier = Modifier
+                            .size(16.dp)
+                            .align(Alignment.Center),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ItemRow(
+    fields: List<Field>,
+    fieldWidths: Map<String, Dp>,
+    itemWithValues: ItemWithValues,
+    scrollState: androidx.compose.foundation.ScrollState,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .horizontalScroll(scrollState),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        fields.forEachIndexed { _, field ->
+            val value = itemWithValues.values.find { it.fieldId == field.id }
+            val fieldWidth = fieldWidths[field.id] ?: 150.dp
+            
+            Box(
+                modifier = Modifier
+                    .width(fieldWidth)
+                    .border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    .padding(8.dp)
+            ) {
+                    when (field.getType()) {
+                        com.collabtable.app.data.model.FieldType.STRING -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.PRICE -> {
+                            Text(
+                                text = if (value?.value.isNullOrBlank()) "" 
+                                       else "${field.getCurrency()}${value?.value}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.DROPDOWN -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.URL -> {
+                            val uriHandler = LocalUriHandler.current
+                            val urlValue = value?.value ?: ""
+                            if (urlValue.isNotBlank()) {
+                                ClickableText(
+                                    text = buildAnnotatedString {
+                                        withStyle(
+                                            style = SpanStyle(
+                                                color = MaterialTheme.colorScheme.primary,
+                                                textDecoration = TextDecoration.Underline
+                                            )
+                                        ) {
+                                            append(urlValue)
+                                        }
+                                    },
+                                    onClick = {
+                                        try {
+                                            uriHandler.openUri(urlValue)
+                                        } catch (e: Exception) {
+                                            // Handle invalid URL
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            } else {
+                                Text(
+                                    text = "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            }
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.DATE -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.TIME -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.DATETIME -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddFieldDialog(
+    onDismiss: () -> Unit,
+    onAdd: (String, String, String) -> Unit
+) {
+    var fieldName by remember { mutableStateOf("") }
+    var selectedFieldType by remember { mutableStateOf("STRING") }
+    var dropdownOptions by remember { mutableStateOf("") }
+    var currency by remember { mutableStateOf("$") }
+    var expanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.add_field)) },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = fieldName,
+                    onValueChange = { fieldName = it },
+                    label = { Text(stringResource(R.string.field_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                // Field Type Selector
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = when(selectedFieldType) {
+                            "STRING" -> "Text"
+                            "PRICE" -> "Price"
+                            "DROPDOWN" -> "Dropdown"
+                            "URL" -> "URL"
+                            "DATE" -> "Date"
+                            "TIME" -> "Time"
+                            "DATETIME" -> "Date & Time"
+                            else -> "Text"
+                        },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Field Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Text") },
+                            onClick = {
+                                selectedFieldType = "STRING"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Price") },
+                            onClick = {
+                                selectedFieldType = "PRICE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Dropdown") },
+                            onClick = {
+                                selectedFieldType = "DROPDOWN"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("URL") },
+                            onClick = {
+                                selectedFieldType = "URL"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Date") },
+                            onClick = {
+                                selectedFieldType = "DATE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Time") },
+                            onClick = {
+                                selectedFieldType = "TIME"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Date & Time") },
+                            onClick = {
+                                selectedFieldType = "DATETIME"
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+                
+                // Price-specific options
+                if (selectedFieldType == "PRICE") {
+                    OutlinedTextField(
+                        value = currency,
+                        onValueChange = { currency = it },
+                        label = { Text("Currency Symbol") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("$, €, £, etc.") }
+                    )
+                }
+                
+                // Dropdown-specific options
+                if (selectedFieldType == "DROPDOWN") {
+                    OutlinedTextField(
+                        value = dropdownOptions,
+                        onValueChange = { dropdownOptions = it },
+                        label = { Text("Options (comma-separated)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Option 1, Option 2, Option 3") },
+                        supportingText = { Text("Enter dropdown choices separated by commas") }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    if (fieldName.isNotBlank()) {
+                        val options = when(selectedFieldType) {
+                            "PRICE" -> currency.trim()
+                            "DROPDOWN" -> dropdownOptions.split(",")
+                                .map { it.trim() }
+                                .filter { it.isNotBlank() }
+                                .joinToString("|")
+                            else -> ""
+                        }
+                        onAdd(fieldName.trim(), selectedFieldType, options)
+                    }
+                },
+                enabled = fieldName.isNotBlank() && 
+                    (selectedFieldType != "DROPDOWN" || dropdownOptions.isNotBlank())
+            ) {
+                Text(stringResource(R.string.add))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditFieldDialog(
+    field: Field,
+    onDismiss: () -> Unit,
+    onUpdate: (String, String) -> Unit
+) {
+    var selectedFieldType by remember { mutableStateOf(field.fieldType ?: "STRING") }
+    var dropdownOptions by remember { mutableStateOf(field.getDropdownOptions().joinToString(", ")) }
+    var currency by remember { mutableStateOf(field.getCurrency()) }
+    var expanded by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Field: ${field.name}") },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // Field Type Selector
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = when(selectedFieldType) {
+                            "STRING" -> "Text"
+                            "PRICE" -> "Price"
+                            "DROPDOWN" -> "Dropdown"
+                            "URL" -> "URL"
+                            "DATE" -> "Date"
+                            "TIME" -> "Time"
+                            "DATETIME" -> "Date & Time"
+                            else -> "Text"
+                        },
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Field Type") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth()
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Text") },
+                            onClick = {
+                                selectedFieldType = "STRING"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Price") },
+                            onClick = {
+                                selectedFieldType = "PRICE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Dropdown") },
+                            onClick = {
+                                selectedFieldType = "DROPDOWN"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("URL") },
+                            onClick = {
+                                selectedFieldType = "URL"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Date") },
+                            onClick = {
+                                selectedFieldType = "DATE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Time") },
+                            onClick = {
+                                selectedFieldType = "TIME"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Date & Time") },
+                            onClick = {
+                                selectedFieldType = "DATETIME"
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+                
+                // Price-specific options
+                if (selectedFieldType == "PRICE") {
+                    OutlinedTextField(
+                        value = currency,
+                        onValueChange = { currency = it },
+                        label = { Text("Currency Symbol") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("$, €, £, etc.") }
+                    )
+                }
+                
+                // Dropdown-specific options
+                if (selectedFieldType == "DROPDOWN") {
+                    OutlinedTextField(
+                        value = dropdownOptions,
+                        onValueChange = { dropdownOptions = it },
+                        label = { Text("Options (comma-separated)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Option 1, Option 2, Option 3") },
+                        supportingText = { Text("Enter dropdown choices separated by commas") }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val options = when(selectedFieldType) {
+                        "PRICE" -> currency.trim()
+                        "DROPDOWN" -> dropdownOptions.split(",")
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() }
+                            .joinToString("|")
+                        else -> ""
+                    }
+                    onUpdate(selectedFieldType, options)
+                },
+                enabled = selectedFieldType != "DROPDOWN" || dropdownOptions.isNotBlank()
+            ) {
+                Text("Update")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddItemDialog(
+    fields: List<Field>,
+    onDismiss: () -> Unit,
+    onAdd: (Map<String, String>) -> Unit
+) {
+    val fieldValues = remember { mutableStateMapOf<String, String>() }
+    
+    // Initialize all field values to empty strings
+    LaunchedEffect(fields) {
+        fields.forEach { field ->
+            if (!fieldValues.containsKey(field.id)) {
+                fieldValues[field.id] = ""
+            }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.add_item)) },
+        text = {
+            LazyColumn(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                items(fields, key = { it.id }) { field ->
+                    FieldInput(
+                        field = field,
+                        value = fieldValues[field.id].orEmpty(),
+                        onValueChange = { newValue ->
+                            fieldValues[field.id] = newValue
+                        }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onAdd(fieldValues.toMap()) }
+            ) {
+                Text(stringResource(R.string.add))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun FieldInput(
+    field: Field,
+    value: String,
+    onValueChange: (String) -> Unit
+) {
+    when (field.getType()) {
+        com.collabtable.app.data.model.FieldType.STRING -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.PRICE -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { newValue ->
+                    val filtered = newValue.filter { it.isDigit() || it == '.' }
+                    onValueChange(filtered)
+                },
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                leadingIcon = { Text(field.getCurrency()) },
+                placeholder = { Text("0.00") }
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.DROPDOWN -> {
+            val options = field.getDropdownOptions()
+            var dropdownExpanded by remember { mutableStateOf(false) }
+            
+            ExposedDropdownMenuBox(
+                expanded = dropdownExpanded,
+                onExpandedChange = { dropdownExpanded = !dropdownExpanded }
+            ) {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(field.name) },
+                    trailingIcon = { 
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded) 
+                    },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth()
+                )
+                
+                ExposedDropdownMenu(
+                    expanded = dropdownExpanded,
+                    onDismissRequest = { dropdownExpanded = false }
+                ) {
+                    options.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                onValueChange(option)
+                                dropdownExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+        
+        com.collabtable.app.data.model.FieldType.URL -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("https://example.com") }
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.DATE -> {
+            val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+            val calendar = remember { Calendar.getInstance() }
+            var showDatePicker by remember { mutableStateOf(false) }
+            
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(field.name) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true },
+                singleLine = true,
+                placeholder = { Text("Select date") },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Pick date")
+                    }
+                }
+            )
+            
+            if (showDatePicker) {
+                val datePickerState = rememberDatePickerState(
+                    initialSelectedDateMillis = if (value.isBlank()) {
+                        System.currentTimeMillis()
+                    } else {
+                        try {
+                            dateFormat.parse(value)?.time
+                        } catch (e: Exception) {
+                            System.currentTimeMillis()
+                        }
+                    }
+                )
+                
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                calendar.timeInMillis = millis
+                                val formattedDate = dateFormat.format(calendar.time)
+                                onValueChange(formattedDate)
+                            }
+                            showDatePicker = false
+                        }) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                ) {
+                    DatePicker(state = datePickerState)
+                }
+            }
+        }
+        
+        com.collabtable.app.data.model.FieldType.TIME -> {
+            val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+            val calendar = remember { Calendar.getInstance() }
+            var showTimePicker by remember { mutableStateOf(false) }
+            
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(field.name) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showTimePicker = true },
+                singleLine = true,
+                placeholder = { Text("Select time") },
+                trailingIcon = {
+                    IconButton(onClick = { showTimePicker = true }) {
+                        Icon(Icons.Default.AccountBox, contentDescription = "Pick time")
+                    }
+                }
+            )
+            
+            if (showTimePicker) {
+                val timePickerState = rememberTimePickerState(
+                    initialHour = if (value.isBlank()) {
+                        Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+                    } else {
+                        try {
+                            timeFormat.parse(value)?.let {
+                                calendar.time = it
+                                calendar.get(Calendar.HOUR_OF_DAY)
+                            } ?: 12
+                        } catch (e: Exception) {
+                            12
+                        }
+                    },
+                    initialMinute = if (value.isBlank()) {
+                        Calendar.getInstance().get(Calendar.MINUTE)
+                    } else {
+                        try {
+                            timeFormat.parse(value)?.let {
+                                calendar.time = it
+                                calendar.get(Calendar.MINUTE)
+                            } ?: 0
+                        } catch (e: Exception) {
+                            0
+                        }
+                    }
+                )
+                
+                AlertDialog(
+                    onDismissRequest = { showTimePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            calendar.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                            calendar.set(Calendar.MINUTE, timePickerState.minute)
+                            val formattedTime = timeFormat.format(calendar.time)
+                            onValueChange(formattedTime)
+                            showTimePicker = false
+                        }) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showTimePicker = false }) {
+                            Text("Cancel")
+                        }
+                    },
+                    text = {
+                        TimePicker(state = timePickerState)
+                    }
+                )
+            }
+        }
+        
+        com.collabtable.app.data.model.FieldType.DATETIME -> {
+            val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+            val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
+            val calendar = remember { Calendar.getInstance() }
+            var showDatePicker by remember { mutableStateOf(false) }
+            var showTimePicker by remember { mutableStateOf(false) }
+            var tempDate by remember { mutableStateOf("") }
+            
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(field.name) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showDatePicker = true },
+                singleLine = true,
+                placeholder = { Text("Select date & time") },
+                trailingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Pick date & time")
+                    }
+                }
+            )
+            
+            if (showDatePicker) {
+                val datePickerState = rememberDatePickerState(
+                    initialSelectedDateMillis = System.currentTimeMillis()
+                )
+                
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                calendar.timeInMillis = millis
+                                tempDate = dateFormat.format(calendar.time)
+                            }
+                            showDatePicker = false
+                            showTimePicker = true
+                        }) {
+                            Text("Next")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDatePicker = false }) {
+                            Text("Cancel")
+                        }
+                    }
+                ) {
+                    DatePicker(state = datePickerState)
+                }
+            }
+            
+            if (showTimePicker) {
+                val timePickerState = rememberTimePickerState(
+                    initialHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY),
+                    initialMinute = Calendar.getInstance().get(Calendar.MINUTE)
+                )
+                
+                AlertDialog(
+                    onDismissRequest = { showTimePicker = false },
+                    confirmButton = {
+                        TextButton(onClick = {
+                            calendar.set(Calendar.HOUR_OF_DAY, timePickerState.hour)
+                            calendar.set(Calendar.MINUTE, timePickerState.minute)
+                            val time = timeFormat.format(calendar.time)
+                            val dateTime = "$tempDate $time"
+                            onValueChange(dateTime)
+                            showTimePicker = false
+                        }) {
+                            Text("OK")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showTimePicker = false }) {
+                            Text("Cancel")
+                        }
+                    },
+                    text = {
+                        TimePicker(state = timePickerState)
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ManageColumnsDialog(
+    fields: List<Field>,
+    onDismiss: () -> Unit,
+    onAddField: (String, String, String) -> Unit,
+    onUpdateField: (String, String, String) -> Unit,
+    onDeleteField: (String) -> Unit,
+    onReorderFields: (List<Field>) -> Unit
+) {
+    var showAddField by remember { mutableStateOf(false) }
+    var fieldToEdit by remember { mutableStateOf<Field?>(null) }
+    var fieldToDelete by remember { mutableStateOf<Field?>(null) }
+    val reorderedFields = remember { mutableStateListOf<Field>().apply { addAll(fields) } }
+    
+    // Update reordered list when fields change
+    LaunchedEffect(fields) {
+        reorderedFields.clear()
+        reorderedFields.addAll(fields)
+    }
+    
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.8f),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Manage Columns",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    }
+                }
+                
+                Divider()
+                
+                // Column list
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(
+                        items = reorderedFields,
+                        key = { _, field -> field.id }
+                    ) { index, field ->
+                        ColumnItem(
+                            field = field,
+                            onEdit = { fieldToEdit = field },
+                            onDelete = { fieldToDelete = field },
+                            onDragStart = { _ ->
+                                // Store the dragged item index if needed
+                            },
+                            onDragEnd = { fromIndex, toIndex ->
+                                if (fromIndex != toIndex) {
+                                    val item = reorderedFields.removeAt(fromIndex)
+                                    reorderedFields.add(toIndex, item)
+                                }
+                            },
+                            currentIndex = index,
+                            totalItems = reorderedFields.size
+                        )
+                    }
+                }
+                
+                Divider()
+                
+                // Add button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Button(
+                        onClick = { showAddField = true },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Add Column")
+                    }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Button(
+                        onClick = {
+                            onReorderFields(reorderedFields.toList())
+                            onDismiss()
+                        }
+                    ) {
+                        Text("Done")
+                    }
+                }
+            }
+        }
+    }
+    
+    if (showAddField) {
+        AddFieldDialog(
+            onDismiss = { showAddField = false },
+            onAdd = { name, fieldType, fieldOptions ->
+                onAddField(name, fieldType, fieldOptions)
+                showAddField = false
+            }
+        )
+    }
+    
+    fieldToEdit?.let { field ->
+        EditFieldDialog(
+            field = field,
+            onDismiss = { fieldToEdit = null },
+            onUpdate = { fieldType, fieldOptions ->
+                onUpdateField(field.id, fieldType, fieldOptions)
+                fieldToEdit = null
+            }
+        )
+    }
+    
+    fieldToDelete?.let { field ->
+        AlertDialog(
+            onDismissRequest = { fieldToDelete = null },
+            title = { Text("Delete Column") },
+            text = { Text("Are you sure you want to delete '${field.name}'? All data in this column will be lost.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDeleteField(field.id)
+                        fieldToDelete = null
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { fieldToDelete = null }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+fun ColumnItem(
+    field: Field,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    onDragStart: (Int) -> Unit,
+    onDragEnd: (Int, Int) -> Unit,
+    currentIndex: Int,
+    totalItems: Int
+) {
+    var isDragging by remember { mutableStateOf(false) }
+    var dragOffset by remember { mutableStateOf(0f) }
+    
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .offset { IntOffset(0, dragOffset.toInt()) }
+            .pointerInput(Unit) {
+                detectDragGestures(
+                    onDragStart = {
+                        isDragging = true
+                        onDragStart(currentIndex)
+                    },
+                    onDragEnd = {
+                        val itemHeight = 80.dp.toPx() // Approximate item height with spacing
+                        val movedItems = (dragOffset / itemHeight).toInt()
+                        val targetIndex = (currentIndex + movedItems).coerceIn(0, totalItems - 1)
+                        
+                        onDragEnd(currentIndex, targetIndex)
+                        isDragging = false
+                        dragOffset = 0f
+                    },
+                    onDragCancel = {
+                        isDragging = false
+                        dragOffset = 0f
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        dragOffset += dragAmount.y
+                    }
+                )
+            },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDragging) 
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+            else 
+                MaterialTheme.colorScheme.surfaceVariant
+        ),
+        elevation = CardDefaults.cardElevation(
+            defaultElevation = if (isDragging) 8.dp else 1.dp
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Drag handle on the left
+            Icon(
+                Icons.Default.Menu,
+                contentDescription = "Drag to reorder",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(24.dp)
+            )
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = field.name,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = when (field.getType()) {
+                        com.collabtable.app.data.model.FieldType.STRING -> "Text"
+                        com.collabtable.app.data.model.FieldType.PRICE -> "Price (${field.getCurrency()})"
+                        com.collabtable.app.data.model.FieldType.DROPDOWN -> "Dropdown (${field.getDropdownOptions().size} options)"
+                        com.collabtable.app.data.model.FieldType.URL -> "URL"
+                        com.collabtable.app.data.model.FieldType.DATE -> "Date"
+                        com.collabtable.app.data.model.FieldType.TIME -> "Time"
+                        com.collabtable.app.data.model.FieldType.DATETIME -> "Date & Time"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            
+            // Edit button
+            IconButton(onClick = onEdit) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Edit",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            // Delete button
+            IconButton(onClick = onDelete) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun EditItemDialog(
+    fields: List<Field>,
+    itemWithValues: ItemWithValues,
+    onDismiss: () -> Unit,
+    onUpdate: (Map<String, String>) -> Unit,
+    onDelete: () -> Unit
+) {
+    val fieldValues = remember { mutableStateMapOf<String, String>() }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+    
+    // Initialize field values from existing item
+    LaunchedEffect(itemWithValues) {
+        itemWithValues.values.forEach { itemValue ->
+            fieldValues[itemValue.id] = itemValue.value
+        }
+    }
+    
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.85f),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize()
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Edit Item",
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    }
+                }
+                
+                Divider()
+                
+                // Fields list
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(fields, key = { it.id }) { field ->
+                        val itemValue = itemWithValues.values.find { it.fieldId == field.id }
+                        if (itemValue != null) {
+                            FieldInput(
+                                field = field,
+                                value = fieldValues[itemValue.id].orEmpty(),
+                                onValueChange = { newValue ->
+                                    fieldValues[itemValue.id] = newValue
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                Divider()
+                
+                // Action buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Button(
+                        onClick = { showDeleteConfirmation = true },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Delete")
+                    }
+                    
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onDismiss) {
+                            Text("Cancel")
+                        }
+                        
+                        Button(
+                            onClick = {
+                                onUpdate(fieldValues.toMap())
+                            }
+                        ) {
+                            Text("Save")
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    if (showDeleteConfirmation) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete Item") },
+            text = { Text("Are you sure you want to delete this item? This action cannot be undone.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onDelete()
+                        showDeleteConfirmation = false
+                    }
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterSortDialog(
+    fields: List<Field>,
+    currentSortField: Field?,
+    currentSortAscending: Boolean,
+    currentGroupByField: Field?,
+    currentFilterField: Field?,
+    currentFilterValue: String,
+    onDismiss: () -> Unit,
+    onApply: (sortField: Field?, sortAscending: Boolean, groupByField: Field?, filterField: Field?, filterValue: String) -> Unit,
+    onClearAll: () -> Unit
+) {
+    var sortField by remember { mutableStateOf(currentSortField) }
+    var sortAscending by remember { mutableStateOf(currentSortAscending) }
+    var groupByField by remember { mutableStateOf(currentGroupByField) }
+    var filterField by remember { mutableStateOf(currentFilterField) }
+    var filterValue by remember { mutableStateOf(currentFilterValue) }
+    
+    var sortFieldExpanded by remember { mutableStateOf(false) }
+    var groupByFieldExpanded by remember { mutableStateOf(false) }
+    var filterFieldExpanded by remember { mutableStateOf(false) }
+    
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.95f)
+                .fillMaxHeight(0.7f),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Filter, Sort & Group",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Content
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(24.dp)
+                ) {
+                    // Sort Section
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Sort By",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        ExposedDropdownMenuBox(
+                            expanded = sortFieldExpanded,
+                            onExpandedChange = { sortFieldExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = sortField?.name ?: "None",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Sort Field") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sortFieldExpanded) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor()
+                            )
+                            
+                            ExposedDropdownMenu(
+                                expanded = sortFieldExpanded,
+                                onDismissRequest = { sortFieldExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("None") },
+                                    onClick = {
+                                        sortField = null
+                                        sortFieldExpanded = false
+                                    }
+                                )
+                                fields.forEach { field ->
+                                    DropdownMenuItem(
+                                        text = { Text(field.name) },
+                                        onClick = {
+                                            sortField = field
+                                            sortFieldExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        
+                        if (sortField != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("Order:", modifier = Modifier.padding(end = 8.dp))
+                                FilterChip(
+                                    selected = sortAscending,
+                                    onClick = { sortAscending = true },
+                                    label = { Text("Ascending") },
+                                    leadingIcon = if (sortAscending) {
+                                        { Icon(Icons.Default.Check, contentDescription = null) }
+                                    } else null
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                FilterChip(
+                                    selected = !sortAscending,
+                                    onClick = { sortAscending = false },
+                                    label = { Text("Descending") },
+                                    leadingIcon = if (!sortAscending) {
+                                        { Icon(Icons.Default.Check, contentDescription = null) }
+                                    } else null
+                                )
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // Group By Section
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Group By",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        ExposedDropdownMenuBox(
+                            expanded = groupByFieldExpanded,
+                            onExpandedChange = { groupByFieldExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = groupByField?.name ?: "None",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Group By Field") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = groupByFieldExpanded) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor()
+                            )
+                            
+                            ExposedDropdownMenu(
+                                expanded = groupByFieldExpanded,
+                                onDismissRequest = { groupByFieldExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("None") },
+                                    onClick = {
+                                        groupByField = null
+                                        groupByFieldExpanded = false
+                                    }
+                                )
+                                fields.forEach { field ->
+                                    DropdownMenuItem(
+                                        text = { Text(field.name) },
+                                        onClick = {
+                                            groupByField = field
+                                            groupByFieldExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
+                    // Filter Section
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Filter",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        
+                        ExposedDropdownMenuBox(
+                            expanded = filterFieldExpanded,
+                            onExpandedChange = { filterFieldExpanded = it }
+                        ) {
+                            OutlinedTextField(
+                                value = filterField?.name ?: "None",
+                                onValueChange = {},
+                                readOnly = true,
+                                label = { Text("Filter Field") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = filterFieldExpanded) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor()
+                            )
+                            
+                            ExposedDropdownMenu(
+                                expanded = filterFieldExpanded,
+                                onDismissRequest = { filterFieldExpanded = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("None") },
+                                    onClick = {
+                                        filterField = null
+                                        filterValue = ""
+                                        filterFieldExpanded = false
+                                    }
+                                )
+                                fields.forEach { field ->
+                                    DropdownMenuItem(
+                                        text = { Text(field.name) },
+                                        onClick = {
+                                            filterField = field
+                                            filterFieldExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        
+                        if (filterField != null) {
+                            OutlinedTextField(
+                                value = filterValue,
+                                onValueChange = { filterValue = it },
+                                label = { Text("Filter Value") },
+                                placeholder = { Text("Enter text to filter...") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    }
+                }
+                
+                Divider()
+                
+                // Action buttons
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    OutlinedButton(onClick = onClearAll) {
+                        Text("Clear All")
+                    }
+                    
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onDismiss) {
+                            Text("Cancel")
+                        }
+                        
+                        Button(
+                            onClick = {
+                                onApply(sortField, sortAscending, groupByField, filterField, filterValue)
+                            }
+                        ) {
+                            Text("Apply")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

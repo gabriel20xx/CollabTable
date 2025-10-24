@@ -1,0 +1,16 @@
+Initialized native services in: C:\Users\gabri\.gradle\native
+Initialized jansi services in: C:\Users\gabri\.gradle\native
+Received JVM installation metadata from 'C:\Programs\Java 22 JDK': {JAVA_HOME=C:\Programs\Java 22 JDK, JAVA_VERSION=22.0.1, JAVA_VENDOR=Oracle Corporation, RUNTIME_NAME=Java(TM) SE Runtime Environment, RUNTIME_VERSION=22.0.1+8-16, VM_NAME=Java HotSpot(TM) 64-Bit Server VM, VM_VERSION=22.0.1+8-16, VM_VENDOR=Oracle Corporation, OS_ARCH=amd64}
+Removing 0 daemon stop events from registry
+Starting a Gradle Daemon (subsequent builds will be faster)
+Starting process 'Gradle build daemon'. Working directory: C:\Users\gabri\.gradle\daemon\8.5 Command: C:\Programs\Java 22 JDK\bin\java.exe --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Xmx2048m -Dfile.encoding=UTF-8 -Duser.country=GB -Duser.language=en -Duser.variant -cp C:\Users\gabri\.gradle\wrapper\dists\gradle-8.5-bin\5t9huq95ubn472n8rpzujfbqh\gradle-8.5\lib\gradle-launcher-8.5.jar -javaagent:C:\Users\gabri\.gradle\wrapper\dists\gradle-8.5-bin\5t9huq95ubn472n8rpzujfbqh\gradle-8.5\lib\agents\gradle-instrumentation-agent-8.5.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.5
+Successfully started process 'Gradle build daemon'
+An attempt to start the daemon took 8.895 secs.
+The client will now receive all logging from the daemon (pid: 35040). The daemon log file: C:\Users\gabri\.gradle\daemon\8.5\daemon-35040.out.log
+Starting build in new daemon [memory: 2 GiB]
+Using 16 worker leases.
+Received JVM installation metadata from 'C:\Programs\Java 22 JDK': {JAVA_HOME=C:\Programs\Java 22 JDK, JAVA_VERSION=22.0.1, JAVA_VENDOR=Oracle Corporation, RUNTIME_NAME=Java(TM) SE Runtime Environment, RUNTIME_VERSION=22.0.1+8-16, VM_NAME=Java HotSpot(TM) 64-Bit Server VM, VM_VERSION=22.0.1+8-16, VM_VENDOR=Oracle Corporation, OS_ARCH=amd64}
+Watching the file system is configured to be enabled if available
+Now considering [C:\Users\gabri\VSCode Projects\CollabTable\CollabTableAndroid] as hierarchies to watch
+File system watching is active
+Terminate batch job (Y/N)? 
