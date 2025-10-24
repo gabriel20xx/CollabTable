@@ -27,9 +27,11 @@ class ListsViewModel(
 
     init {
         loadLists()
-        // Do initial sync immediately, then start periodic sync
+        // Perform initial sync immediately on startup, then start periodic sync
         viewModelScope.launch {
-            performSync() // Initial sync on startup
+            _isLoading.value = true
+            performSync()
+            _isLoading.value = false
             startPeriodicSync()
         }
     }
@@ -50,12 +52,15 @@ class ListsViewModel(
     }
     
     private suspend fun performSync() {
-        syncRepository.performSync()
+        val result = syncRepository.performSync()
+        result.onFailure { error ->
+            Logger.e("Lists", "❌ Sync failed: ${error.message}")
+        }
     }
 
     fun createList(name: String) {
         viewModelScope.launch {
-            Logger.i("ListsViewModel", "Creating list: $name")
+            Logger.i("Lists", "➕ Creating list: \"$name\"")
             val timestamp = System.currentTimeMillis()
             val newList = CollabList(
                 id = UUID.randomUUID().toString(),
@@ -71,9 +76,9 @@ class ListsViewModel(
 
     fun renameList(listId: String, newName: String) {
         viewModelScope.launch {
-            Logger.i("ListsViewModel", "Renaming list: $listId to $newName")
             val list = database.listDao().getListById(listId)
             if (list != null && newName.isNotBlank()) {
+                Logger.i("Lists", "✏️ Renaming: \"${list.name}\" → \"$newName\"")
                 database.listDao().updateList(
                     list.copy(
                         name = newName.trim(),
@@ -88,16 +93,19 @@ class ListsViewModel(
 
     fun deleteList(listId: String) {
         viewModelScope.launch {
-            Logger.i("ListsViewModel", "Deleting list: $listId")
-            database.listDao().softDeleteList(listId, System.currentTimeMillis())
-            // Sync immediately after deleting
-            performSync()
+            val list = database.listDao().getListById(listId)
+            if (list != null) {
+                Logger.i("Lists", "🗑️ Deleting list: \"${list.name}\"")
+                database.listDao().softDeleteList(listId, System.currentTimeMillis())
+                // Sync immediately after deleting
+                performSync()
+            }
         }
     }
     
     fun manualSync() {
         viewModelScope.launch {
-            Logger.i("ListsViewModel", "Manual sync triggered")
+            Logger.i("Lists", "🔄 Manual sync requested")
             _isLoading.value = true
             performSync()
             _isLoading.value = false

@@ -24,7 +24,11 @@ class SyncRepository(context: Context) {
     suspend fun performSync(): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val lastSync = getLastSyncTimestamp()
-            Logger.d("Sync", "Starting sync with lastSyncTimestamp: $lastSync")
+            val isInitialSync = lastSync == 0L
+            
+            if (isInitialSync) {
+                Logger.i("Sync", "🔄 Starting initial sync with server")
+            }
 
             // Gather local changes since last sync
             val localLists = database.listDao().getListsUpdatedSince(lastSync)
@@ -32,11 +36,19 @@ class SyncRepository(context: Context) {
             val localItems = database.itemDao().getItemsUpdatedSince(lastSync)
             val localValues = database.itemValueDao().getValuesUpdatedSince(lastSync)
 
-            Logger.i("Sync", "Sending to server: ${localLists.size} lists, ${localFields.size} fields, ${localItems.size} items")
-            
-            // Log details of lists being sent
-            localLists.forEach { list ->
-                Logger.d("Sync", "  List: ${list.id} - ${list.name} (updated: ${list.updatedAt})")
+            // Only log when sending data
+            if (localLists.isNotEmpty() || localFields.isNotEmpty() || localItems.isNotEmpty()) {
+                Logger.i("Sync", "⬆️ Sending to server:")
+                if (localLists.isNotEmpty()) {
+                    Logger.i("Sync", "   📋 ${localLists.size} list(s)")
+                    localLists.forEach { list ->
+                        val action = if (list.isDeleted) "Deleted" else "Updated"
+                        Logger.i("Sync", "      $action: ${list.name}")
+                    }
+                }
+                if (localFields.isNotEmpty()) Logger.i("Sync", "   🏷️ ${localFields.size} field(s)")
+                if (localItems.isNotEmpty()) Logger.i("Sync", "   📝 ${localItems.size} item(s)")
+                if (localValues.isNotEmpty()) Logger.i("Sync", "   💾 ${localValues.size} value(s)")
             }
 
             // Send to server and get updates
@@ -53,44 +65,43 @@ class SyncRepository(context: Context) {
             if (response.isSuccessful) {
                 val syncResponse = response.body()!!
 
-                Logger.i("Sync", "Received from server: ${syncResponse.lists.size} lists, ${syncResponse.fields.size} fields, ${syncResponse.items.size} items")
-
-                // Log details of lists being received
-                syncResponse.lists.forEach { list ->
-                    Logger.d("Sync", "  Received list: ${list.id} - ${list.name} (updated: ${list.updatedAt}, deleted: ${list.isDeleted})")
+                // Only log when receiving data
+                if (syncResponse.lists.isNotEmpty() || syncResponse.fields.isNotEmpty() || 
+                    syncResponse.items.isNotEmpty() || syncResponse.itemValues.isNotEmpty()) {
+                    Logger.i("Sync", "⬇️ Received from server:")
+                    if (syncResponse.lists.isNotEmpty()) {
+                        Logger.i("Sync", "   📋 ${syncResponse.lists.size} list(s)")
+                        syncResponse.lists.forEach { list ->
+                            if (!list.isDeleted) {
+                                Logger.i("Sync", "      ${list.name}")
+                            }
+                        }
+                    }
+                    if (syncResponse.fields.isNotEmpty()) Logger.i("Sync", "   🏷️ ${syncResponse.fields.size} field(s)")
+                    if (syncResponse.items.isNotEmpty()) Logger.i("Sync", "   📝 ${syncResponse.items.size} item(s)")
+                    if (syncResponse.itemValues.isNotEmpty()) Logger.i("Sync", "   💾 ${syncResponse.itemValues.size} value(s)")
                 }
 
                 // Apply server changes to local database
-                Logger.d("Sync", "Inserting ${syncResponse.lists.size} lists into local database")
                 database.listDao().insertLists(syncResponse.lists)
-                
-                Logger.d("Sync", "Inserting ${syncResponse.fields.size} fields into local database")
                 database.fieldDao().insertFields(syncResponse.fields)
-                
-                Logger.d("Sync", "Inserting ${syncResponse.items.size} items into local database")
                 database.itemDao().insertItems(syncResponse.items)
-                
-                Logger.d("Sync", "Inserting ${syncResponse.itemValues.size} item values into local database")
                 database.itemValueDao().insertValues(syncResponse.itemValues)
-
-                // Verify what was actually saved
-                val savedLists = database.listDao().getListsUpdatedSince(0)
-                Logger.d("Sync", "After insert, total lists in DB: ${savedLists.size}")
-                savedLists.forEach { list ->
-                    Logger.d("Sync", "  DB list: ${list.id} - ${list.name} (deleted: ${list.isDeleted})")
-                }
 
                 // Update last sync timestamp
                 setLastSyncTimestamp(syncResponse.serverTimestamp)
 
-                Logger.i("Sync", "Sync completed successfully. Timestamp updated to: ${syncResponse.serverTimestamp}")
+                if (isInitialSync) {
+                    Logger.i("Sync", "✅ Initial sync completed")
+                }
+
                 return@withContext Result.success(Unit)
             } else {
-                Logger.e("Sync", "Sync failed with code: ${response.code()}, message: ${response.message()}")
+                Logger.e("Sync", "❌ Sync failed: HTTP ${response.code()}")
                 return@withContext Result.failure(Exception("Sync failed: ${response.code()}"))
             }
         } catch (e: Exception) {
-            Logger.e("Sync", "Sync error", e)
+            Logger.e("Sync", "❌ Sync error: ${e.message}")
             return@withContext Result.failure(e)
         }
     }

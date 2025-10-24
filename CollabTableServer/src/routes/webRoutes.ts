@@ -189,7 +189,10 @@ router.get('/', (req: Request, res: Response) => {
     <script>
         async function loadData() {
             try {
-                const response = await fetch('/web/data');
+                // Add cache-busting timestamp to URL
+                const response = await fetch('/web/data?_=' + Date.now(), {
+                    cache: 'no-store'
+                });
                 if (!response.ok) {
                     throw new Error('HTTP ' + response.status + ': ' + response.statusText);
                 }
@@ -298,6 +301,11 @@ router.get('/', (req: Request, res: Response) => {
 // API endpoint to get all data (no auth required for web UI)
 router.get('/web/data', async (req: Request, res: Response) => {
   try {
+    // Add cache control headers to prevent stale data
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     const lists = db.prepare('SELECT * FROM lists ORDER BY updatedAt DESC').all();
     const fields = db.prepare('SELECT * FROM fields ORDER BY listId ASC, `order` ASC').all();
     const items = db.prepare('SELECT * FROM items ORDER BY listId ASC, updatedAt DESC').all();
@@ -318,7 +326,8 @@ router.get('/web/data', async (req: Request, res: Response) => {
         fields: formattedFields.length,
         items: formattedItems.length,
         values: (values as any[]).length
-      }
+      },
+      timestamp: Date.now() // Add timestamp for debugging
     });
   } catch (error) {
     console.error('Error fetching data:', error);

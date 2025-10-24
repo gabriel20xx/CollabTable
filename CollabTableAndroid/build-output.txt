@@ -32,12 +32,8 @@
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
 > Task :app:kspDebugKotlin
-
 > Task :app:compileDebugKotlin
-w: file:///C:/Users/gabri/VSCode%20Projects/CollabTable/CollabTableAndroid/app/src/main/java/com/collabtable/app/ui/screens/ListDetailScreen.kt:1336:72 Elvis operator (?:) always returns the left operand of non-nullable type String
-w: file:///C:/Users/gabri/VSCode%20Projects/CollabTable/CollabTableAndroid/app/src/main/java/com/collabtable/app/ui/screens/ListDetailScreen.kt:2126:28 The expression is unused
-
-> Task :app:compileDebugJavaWithJavac
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
 > Task :app:dexBuilderDebug
 > Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
 > Task :app:processDebugJavaRes UP-TO-DATE
@@ -53,5 +49,5 @@ You can use '--warning-mode all' to show the individual deprecation warnings and
 
 For more on this, please refer to https://docs.gradle.org/8.10/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
 
-BUILD SUCCESSFUL in 38s
-36 actionable tasks: 7 executed, 29 up-to-date
+BUILD SUCCESSFUL in 10s
+36 actionable tasks: 6 executed, 30 up-to-date

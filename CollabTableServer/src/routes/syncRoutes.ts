@@ -25,13 +25,20 @@ let syncStats = {
   lastReset: Date.now()
 };
 
-// Print stats every 30 seconds
+// Print stats every 60 seconds (reduced spam)
 setInterval(() => {
   if (syncStats.totalSyncs > 0) {
     const elapsed = Math.round((Date.now() - syncStats.lastReset) / 1000);
-    console.log(`\n[STATS] Last ${elapsed}s: ${syncStats.totalSyncs} syncs`);
-    console.log(`  Received: ${syncStats.listsReceived} lists, ${syncStats.fieldsReceived} fields, ${syncStats.itemsReceived} items, ${syncStats.valuesReceived} values`);
-    console.log(`  Sent: ${syncStats.listsSent} lists, ${syncStats.fieldsSent} fields, ${syncStats.itemsSent} items, ${syncStats.valuesSent} values\n`);
+    console.log(`\n[STATS] Sync Summary (last ${elapsed}s):`);
+    console.log(`   ${syncStats.totalSyncs} sync requests processed`);
+    
+    if (syncStats.listsReceived > 0 || syncStats.fieldsReceived > 0 || syncStats.itemsReceived > 0 || syncStats.valuesReceived > 0) {
+      console.log(`   [IN] Received: ${syncStats.listsReceived} lists, ${syncStats.fieldsReceived} fields, ${syncStats.itemsReceived} items, ${syncStats.valuesReceived} values`);
+    }
+    
+    if (syncStats.listsSent > 0 || syncStats.fieldsSent > 0 || syncStats.itemsSent > 0 || syncStats.valuesSent > 0) {
+      console.log(`   [OUT] Sent: ${syncStats.listsSent} lists, ${syncStats.fieldsSent} fields, ${syncStats.itemsSent} items, ${syncStats.valuesSent} values`);
+    }
     
     // Reset stats
     syncStats = {
@@ -47,7 +54,7 @@ setInterval(() => {
       lastReset: Date.now()
     };
   }
-}, 30000);
+}, 60000); // Changed from 30s to 60s
 
 // Helper function to get prepared statements (lazy initialization)
 function getUpsertStatements() {
@@ -104,16 +111,36 @@ router.post('/sync', async (req: Request, res: Response) => {
     syncStats.itemsReceived += incomingItems;
     syncStats.valuesReceived += incomingValues;
     
-    // Log only when there's actual data being synced
+    // Only log significant sync events (not empty syncs)
     const hasIncomingData = incomingLists > 0 || incomingFields > 0 || incomingItems > 0 || incomingValues > 0;
+    const isInitialSync = lastSyncTimestamp === 0;
+    
     if (hasIncomingData) {
-      console.log(`[SYNC] Received: ${incomingLists} lists, ${incomingFields} fields, ${incomingItems} items, ${incomingValues} values`);
-      // Log list details
-      if (lists && lists.length > 0) {
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`\n[SYNC] [${timestamp}] Receiving data from client`);
+      
+      if (incomingLists > 0) {
+        console.log(`   [LISTS] ${incomingLists} list(s)`);
         lists.forEach(list => {
-          console.log(`  List: ${list.id} - "${list.name}" (updated: ${list.updatedAt}, deleted: ${list.isDeleted})`);
+          const action = list.isDeleted ? 'Deleted' : (lastSyncTimestamp === 0 ? 'Created' : 'Updated');
+          console.log(`      ${action}: "${list.name}"`);
         });
       }
+      
+      if (incomingFields > 0) {
+        console.log(`   [FIELDS] ${incomingFields} field(s)`);
+      }
+      
+      if (incomingItems > 0) {
+        console.log(`   [ITEMS] ${incomingItems} item(s)`);
+      }
+      
+      if (incomingValues > 0) {
+        console.log(`   [VALUES] ${incomingValues} value(s)`);
+      }
+    } else if (isInitialSync) {
+      const timestamp = new Date().toLocaleTimeString();
+      console.log(`\n[SYNC] [${timestamp}] Initial sync from new client`);
     }
 
     // Save incoming data from client using a transaction
@@ -130,7 +157,6 @@ router.post('/sync', async (req: Request, res: Response) => {
             updatedAt: list.updatedAt,
             isDeleted: list.isDeleted ? 1 : 0
           });
-          console.log(`  Saved list ${list.id}`);
         }
       }
 
@@ -210,10 +236,12 @@ router.post('/sync', async (req: Request, res: Response) => {
     syncStats.itemsSent += (serverItems as any[]).length;
     syncStats.valuesSent += (serverItemValues as any[]).length;
     
-    // Log only when sending data back
+    // Only log when sending significant data back
     const hasOutgoingData = (serverLists as any[]).length > 0 || (serverFields as any[]).length > 0 || (serverItems as any[]).length > 0 || (serverItemValues as any[]).length > 0;
-    if (hasOutgoingData) {
-      console.log(`[SYNC] Sending: ${(serverLists as any[]).length} lists, ${(serverFields as any[]).length} fields, ${(serverItems as any[]).length} items, ${(serverItemValues as any[]).length} values`);
+    if (hasOutgoingData && !isInitialSync) {
+      console.log(`   [OUT] Sending back: ${(serverLists as any[]).length} lists, ${(serverFields as any[]).length} fields, ${(serverItems as any[]).length} items, ${(serverItemValues as any[]).length} values`);
+    } else if (isInitialSync && hasOutgoingData) {
+      console.log(`   [OUT] Sending initial data: ${(serverLists as any[]).length} lists, ${(serverFields as any[]).length} fields, ${(serverItems as any[]).length} items, ${(serverItemValues as any[]).length} values`);
     }
 
     res.json({
@@ -224,7 +252,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       serverTimestamp
     });
   } catch (error) {
-    console.error('[SYNC] Error:', error);
+    console.error('[ERROR] Sync error:', error);
     res.status(500).json({ error: 'Sync failed' });
   }
 });
