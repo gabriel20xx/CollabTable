@@ -61,6 +61,21 @@ class ListDetailViewModel(
         syncRepository.performSync()
     }
 
+    fun renameList(newName: String) {
+        viewModelScope.launch {
+            val currentList = _list.value
+            if (currentList != null && newName.isNotBlank()) {
+                database.listDao().updateList(
+                    currentList.copy(
+                        name = newName.trim(),
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
+                performSync()
+            }
+        }
+    }
+
     fun addField(name: String, fieldType: String = "STRING", fieldOptions: String = "") {
         viewModelScope.launch {
             val timestamp = System.currentTimeMillis()

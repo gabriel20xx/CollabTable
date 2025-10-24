@@ -67,7 +67,10 @@ fun ListDetailScreen(
     var showManageColumnsDialog by remember { mutableStateOf(false) }
     var showAddItemDialog by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<ItemWithValues?>(null) }
-    var showFilterSortDialog by remember { mutableStateOf(false) }
+    var showSortDialog by remember { mutableStateOf(false) }
+    var showGroupDialog by remember { mutableStateOf(false) }
+    var showFilterDialog by remember { mutableStateOf(false) }
+    var showRenameListDialog by remember { mutableStateOf(false) }
     
     // Filter/Sort state
     var sortField by remember { mutableStateOf<Field?>(null) }
@@ -131,7 +134,20 @@ fun ListDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(list?.name ?: "") },
+                title = { 
+                    Row(
+                        modifier = Modifier.clickable { showRenameListDialog = true },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(list?.name ?: "")
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Rename",
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
@@ -183,64 +199,125 @@ fun ListDetailScreen(
                     .fillMaxSize()
                     .padding(padding)
             ) {
-                // Filter/Sort Toolbar
-                if (sortField != null || filterField != null || groupByField != null) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (sortField != null) {
-                            FilterChip(
-                                selected = true,
-                                onClick = { 
-                                    sortField = null
-                                    sortAscending = true
-                                },
-                                label = { 
-                                    Text("Sort: ${sortField!!.name} ${if (sortAscending) "↑" else "↓"}") 
-                                },
-                                trailingIcon = {
-                                    Icon(Icons.Default.Close, contentDescription = "Remove", 
-                                         modifier = Modifier.size(16.dp))
-                                }
+                // Filter/Sort/Group Controls - Always visible above table
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Sort button
+                    FilterChip(
+                        selected = sortField != null,
+                        onClick = { showSortDialog = true },
+                        label = { 
+                            Text(
+                                if (sortField != null) 
+                                    "Sort: ${sortField!!.name} ${if (sortAscending) "↑" else "↓"}" 
+                                else 
+                                    "Sort"
+                            ) 
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Search, 
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
                             )
-                        }
-                        
-                        if (groupByField != null) {
-                            FilterChip(
-                                selected = true,
-                                onClick = { groupByField = null },
-                                label = { Text("Group: ${groupByField!!.name}") },
-                                trailingIcon = {
-                                    Icon(Icons.Default.Close, contentDescription = "Remove", 
-                                         modifier = Modifier.size(16.dp))
+                        },
+                        trailingIcon = if (sortField != null) {
+                            {
+                                IconButton(
+                                    onClick = { 
+                                        sortField = null
+                                        sortAscending = true
+                                    },
+                                    modifier = Modifier.size(18.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close, 
+                                        contentDescription = "Clear",
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
+                            }
+                        } else null
+                    )
+                    
+                    // Group button
+                    FilterChip(
+                        selected = groupByField != null,
+                        onClick = { showGroupDialog = true },
+                        label = { 
+                            Text(
+                                if (groupByField != null) 
+                                    "Group: ${groupByField!!.name}" 
+                                else 
+                                    "Group"
+                            ) 
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.List, 
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
                             )
-                        }
-                        
-                        if (filterField != null) {
-                            FilterChip(
-                                selected = true,
-                                onClick = { 
-                                    filterField = null
-                                    filterValue = ""
-                                },
-                                label = { Text("Filter: ${filterField!!.name} = \"$filterValue\"") },
-                                trailingIcon = {
-                                    Icon(Icons.Default.Close, contentDescription = "Remove", 
-                                         modifier = Modifier.size(16.dp))
+                        },
+                        trailingIcon = if (groupByField != null) {
+                            {
+                                IconButton(
+                                    onClick = { groupByField = null },
+                                    modifier = Modifier.size(18.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close, 
+                                        contentDescription = "Clear",
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
+                            }
+                        } else null
+                    )
+                    
+                    // Filter button
+                    FilterChip(
+                        selected = filterField != null,
+                        onClick = { showFilterDialog = true },
+                        label = { 
+                            Text(
+                                if (filterField != null) 
+                                    "Filter: ${filterField!!.name}" 
+                                else 
+                                    "Filter"
+                            ) 
+                        },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Add, 
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
                             )
-                        }
-                        
-                        IconButton(onClick = { showFilterSortDialog = true }) {
-                            Icon(Icons.Default.Settings, contentDescription = "Configure")
-                        }
-                    }
+                        },
+                        trailingIcon = if (filterField != null) {
+                            {
+                                IconButton(
+                                    onClick = { 
+                                        filterField = null
+                                        filterValue = ""
+                                    },
+                                    modifier = Modifier.size(18.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close, 
+                                        contentDescription = "Clear",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        } else null
+                    )
                 }
                 
                 // Field headers with long-press to delete and resize handles
@@ -260,20 +337,6 @@ fun ListDetailScreen(
                                 fieldWidths[field.id] = newWidth.dp
                             }
                         )
-                    }
-                    
-                    // Filter/Sort button
-                    if (items.isNotEmpty() && sortField == null && filterField == null && groupByField == null) {
-                        IconButton(
-                            onClick = { showFilterSortDialog = true },
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Settings, 
-                                contentDescription = "Filter/Sort",
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
                     }
                 }
 
@@ -378,32 +441,61 @@ fun ListDetailScreen(
         )
     }
 
-    if (showFilterSortDialog) {
-        FilterSortDialog(
+    // Sort Dialog
+    if (showSortDialog) {
+        SortDialog(
             fields = fields,
             currentSortField = sortField,
             currentSortAscending = sortAscending,
-            currentGroupByField = groupByField,
-            currentFilterField = filterField,
-            currentFilterValue = filterValue,
-            onDismiss = { showFilterSortDialog = false },
-            onApply = { newSortField, newSortAscending, newGroupByField, newFilterField, newFilterValue ->
+            onDismiss = { showSortDialog = false },
+            onApply = { newSortField, newSortAscending ->
                 sortField = newSortField
                 sortAscending = newSortAscending
-                groupByField = newGroupByField
-                filterField = newFilterField
-                filterValue = newFilterValue
-                showFilterSortDialog = false
-            },
-            onClearAll = {
-                sortField = null
-                sortAscending = true
-                groupByField = null
-                filterField = null
-                filterValue = ""
-                showFilterSortDialog = false
+                showSortDialog = false
             }
         )
+    }
+
+    // Group Dialog
+    if (showGroupDialog) {
+        GroupDialog(
+            fields = fields,
+            currentGroupByField = groupByField,
+            onDismiss = { showGroupDialog = false },
+            onApply = { newGroupByField ->
+                groupByField = newGroupByField
+                showGroupDialog = false
+            }
+        )
+    }
+
+    // Filter Dialog
+    if (showFilterDialog) {
+        FilterDialog(
+            fields = fields,
+            currentFilterField = filterField,
+            currentFilterValue = filterValue,
+            onDismiss = { showFilterDialog = false },
+            onApply = { newFilterField, newFilterValue ->
+                filterField = newFilterField
+                filterValue = newFilterValue
+                showFilterDialog = false
+            }
+        )
+    }
+
+    // Rename List Dialog
+    if (showRenameListDialog) {
+        list?.let { currentList ->
+            RenameListDialog(
+                currentName = currentList.name,
+                onDismiss = { showRenameListDialog = false },
+                onRename = { newName ->
+                    viewModel.renameList(newName)
+                    showRenameListDialog = false
+                }
+            )
+        }
     }
 
     itemToEdit?.let { itemWithValues ->
@@ -1989,4 +2081,440 @@ private fun FilterSortDialog(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SortDialog(
+    fields: List<Field>,
+    currentSortField: Field?,
+    currentSortAscending: Boolean,
+    onDismiss: () -> Unit,
+    onApply: (sortField: Field?, sortAscending: Boolean) -> Unit
+) {
+    var sortField by remember { mutableStateOf(currentSortField) }
+    var sortAscending by remember { mutableStateOf(currentSortAscending) }
+    var sortFieldExpanded by remember { mutableStateOf(false) }
+    
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Sort Items",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Sort Field Selection
+                ExposedDropdownMenuBox(
+                    expanded = sortFieldExpanded,
+                    onExpandedChange = { sortFieldExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = sortField?.name ?: "None",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Sort Field") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = sortFieldExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = sortFieldExpanded,
+                        onDismissRequest = { sortFieldExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("None") },
+                            onClick = {
+                                sortField = null
+                                sortFieldExpanded = false
+                            }
+                        )
+                        fields.forEach { field ->
+                            DropdownMenuItem(
+                                text = { Text(field.name) },
+                                onClick = {
+                                    sortField = field
+                                    sortFieldExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                // Sort Order Selection
+                if (sortField != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Order",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = sortAscending,
+                            onClick = { sortAscending = true },
+                            label = { Text("Ascending ↑") },
+                            modifier = Modifier.weight(1f),
+                            leadingIcon = if (sortAscending) {
+                                { Icon(Icons.Default.Check, contentDescription = null) }
+                            } else null
+                        )
+                        FilterChip(
+                            selected = !sortAscending,
+                            onClick = { sortAscending = false },
+                            label = { Text("Descending ↓") },
+                            modifier = Modifier.weight(1f),
+                            leadingIcon = if (!sortAscending) {
+                                { Icon(Icons.Default.Check, contentDescription = null) }
+                            } else null
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onApply(sortField, sortAscending) }
+                    ) {
+                        Text("Apply")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GroupDialog(
+    fields: List<Field>,
+    currentGroupByField: Field?,
+    onDismiss: () -> Unit,
+    onApply: (groupByField: Field?) -> Unit
+) {
+    var groupByField by remember { mutableStateOf(currentGroupByField) }
+    var groupByFieldExpanded by remember { mutableStateOf(false) }
+    
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Group Items",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "Group items by a field to organize them into categories",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Group By Field Selection
+                ExposedDropdownMenuBox(
+                    expanded = groupByFieldExpanded,
+                    onExpandedChange = { groupByFieldExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = groupByField?.name ?: "None",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Group By Field") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = groupByFieldExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = groupByFieldExpanded,
+                        onDismissRequest = { groupByFieldExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("None") },
+                            onClick = {
+                                groupByField = null
+                                groupByFieldExpanded = false
+                            }
+                        )
+                        fields.forEach { field ->
+                            DropdownMenuItem(
+                                text = { Text(field.name) },
+                                onClick = {
+                                    groupByField = field
+                                    groupByFieldExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onApply(groupByField) }
+                    ) {
+                        Text("Apply")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FilterDialog(
+    fields: List<Field>,
+    currentFilterField: Field?,
+    currentFilterValue: String,
+    onDismiss: () -> Unit,
+    onApply: (filterField: Field?, filterValue: String) -> Unit
+) {
+    var filterField by remember { mutableStateOf(currentFilterField) }
+    var filterValue by remember { mutableStateOf(currentFilterValue) }
+    var filterFieldExpanded by remember { mutableStateOf(false) }
+    
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.9f)
+                .wrapContentHeight(),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Filter Items",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                Text(
+                    text = "Show only items that contain specific text in a field",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Filter Field Selection
+                ExposedDropdownMenuBox(
+                    expanded = filterFieldExpanded,
+                    onExpandedChange = { filterFieldExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = filterField?.name ?: "None",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Filter Field") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = filterFieldExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = filterFieldExpanded,
+                        onDismissRequest = { filterFieldExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("None") },
+                            onClick = {
+                                filterField = null
+                                filterFieldExpanded = false
+                            }
+                        )
+                        fields.forEach { field ->
+                            DropdownMenuItem(
+                                text = { Text(field.name) },
+                                onClick = {
+                                    filterField = field
+                                    filterFieldExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                // Filter Value Input
+                if (filterField != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = filterValue,
+                        onValueChange = { filterValue = it },
+                        label = { Text("Filter Value") },
+                        placeholder = { Text("Enter text to filter...") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Action Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedButton(onClick = onDismiss) {
+                        Text("Cancel")
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Button(
+                        onClick = { onApply(filterField, filterValue) },
+                        enabled = filterField == null || filterValue.isNotBlank()
+                    ) {
+                        Text("Apply")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RenameListDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit
+) {
+    var newName by remember { mutableStateOf(currentName) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { 
+            Text(
+                text = "Rename List",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Column {
+                Text(
+                    text = "Enter a new name for this list",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                OutlinedTextField(
+                    value = newName,
+                    onValueChange = { newName = it },
+                    label = { Text("List Name") },
+                    placeholder = { Text("Enter list name...") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onRename(newName) },
+                enabled = newName.isNotBlank() && newName.trim() != currentName
+            ) {
+                Text("Rename")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
