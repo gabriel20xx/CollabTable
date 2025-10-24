@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
@@ -39,6 +40,7 @@ fun ListsScreen(
     
     var showCreateDialog by remember { mutableStateOf(false) }
     var listToDelete by remember { mutableStateOf<CollabList?>(null) }
+    var listToEdit by remember { mutableStateOf<CollabList?>(null) }
 
     Scaffold(
         topBar = {
@@ -94,6 +96,7 @@ fun ListsScreen(
                     ListItem(
                         list = list,
                         onListClick = { onNavigateToList(list.id) },
+                        onEditClick = { listToEdit = list },
                         onDeleteClick = { listToDelete = list }
                     )
                 }
@@ -107,6 +110,17 @@ fun ListsScreen(
             onCreate = { name ->
                 viewModel.createList(name)
                 showCreateDialog = false
+            }
+        )
+    }
+
+    listToEdit?.let { list ->
+        RenameListDialog(
+            currentName = list.name,
+            onDismiss = { listToEdit = null },
+            onRename = { newName ->
+                viewModel.renameList(list.id, newName)
+                listToEdit = null
             }
         )
     }
@@ -139,6 +153,7 @@ fun ListsScreen(
 fun ListItem(
     list: CollabList,
     onListClick: () -> Unit,
+    onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     Card(
@@ -165,12 +180,21 @@ fun ListItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(onClick = onDeleteClick) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = stringResource(R.string.delete),
-                    tint = MaterialTheme.colorScheme.error
-                )
+            Row {
+                IconButton(onClick = onEditClick) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
+                IconButton(onClick = onDeleteClick) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = stringResource(R.string.delete),
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
     }
@@ -200,6 +224,41 @@ fun CreateListDialog(
                 enabled = listName.isNotBlank()
             ) {
                 Text(stringResource(R.string.save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun RenameListDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onRename: (String) -> Unit
+) {
+    var listName by remember { mutableStateOf(currentName) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Rename List") },
+        text = {
+            OutlinedTextField(
+                value = listName,
+                onValueChange = { listName = it },
+                label = { Text(stringResource(R.string.list_name)) },
+                singleLine = true
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { if (listName.isNotBlank()) onRename(listName.trim()) },
+                enabled = listName.isNotBlank() && listName.trim() != currentName
+            ) {
+                Text("Rename")
             }
         },
         dismissButton = {

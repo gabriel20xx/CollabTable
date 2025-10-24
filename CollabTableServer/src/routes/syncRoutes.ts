@@ -177,13 +177,14 @@ router.post('/sync', async (req: Request, res: Response) => {
 
     transaction({ lastSyncTimestamp, lists, fields, items, itemValues });
 
-    // Get updates from server since last sync
+    // IMPORTANT: Get updates from server AFTER saving incoming data
+    // This ensures clients receive back any data they just sent (for confirmation)
     // If lastSyncTimestamp is 0, get all data (initial sync)
     // IMPORTANT: Include deleted items so clients can sync deletions
     let serverLists, serverFields, serverItems, serverItemValues;
 
     if (lastSyncTimestamp === 0) {
-      // Initial sync: send all non-deleted items
+      // Initial sync: send all non-deleted items (AFTER processing incoming data)
       serverLists = db.prepare('SELECT * FROM lists WHERE isDeleted = 0').all();
       serverFields = db.prepare('SELECT * FROM fields WHERE isDeleted = 0').all();
       serverItems = db.prepare('SELECT * FROM items WHERE isDeleted = 0').all();

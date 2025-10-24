@@ -6,13 +6,42 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 enum class FieldType {
-    STRING,
-    PRICE,
+    // Text types
+    TEXT,
+    MULTILINE_TEXT,
+    
+    // Number types
+    NUMBER,
+    CURRENCY,
+    PERCENTAGE,
+    
+    // Selection types
     DROPDOWN,
+    AUTOCOMPLETE,
+    CHECKBOX,
+    SWITCH,
+    
+    // Link types
     URL,
+    EMAIL,
+    PHONE,
+    
+    // Date/Time types
     DATE,
     TIME,
-    DATETIME
+    DATETIME,
+    DURATION,
+    
+    // Media types
+    IMAGE,
+    FILE,
+    BARCODE,
+    SIGNATURE,
+    
+    // Other types
+    RATING,
+    COLOR,
+    LOCATION
 }
 
 @Entity(
@@ -31,8 +60,8 @@ data class Field(
     @PrimaryKey val id: String,
     val listId: String,
     val name: String,
-    val fieldType: String = "STRING", // STRING, PRICE, DROPDOWN
-    val fieldOptions: String = "", // JSON string for dropdown options or currency for price
+    val fieldType: String = "TEXT",
+    val fieldOptions: String = "", // JSON string for dropdown options, currency symbol, etc.
     val order: Int,
     val createdAt: Long,
     val updatedAt: Long,
@@ -42,7 +71,14 @@ data class Field(
         return try {
             FieldType.valueOf(fieldType)
         } catch (e: Exception) {
-            FieldType.STRING
+            // Handle legacy field types
+            when (fieldType) {
+                "STRING" -> FieldType.TEXT
+                "PRICE" -> FieldType.CURRENCY
+                "AMOUNT" -> FieldType.NUMBER
+                "SIZE" -> FieldType.TEXT
+                else -> FieldType.TEXT
+            }
         }
     }
     
@@ -55,10 +91,26 @@ data class Field(
     }
     
     fun getCurrency(): String {
-        return if (fieldType == "PRICE" && fieldOptions.isNotBlank()) {
+        return if ((fieldType == "CURRENCY" || fieldType == "PRICE") && fieldOptions.isNotBlank()) {
             fieldOptions
         } else {
-            "$"
+            "CHF"
+        }
+    }
+    
+    fun getMaxRating(): Int {
+        return if (fieldType == "RATING" && fieldOptions.isNotBlank()) {
+            fieldOptions.toIntOrNull() ?: 5
+        } else {
+            5
+        }
+    }
+    
+    fun getAutocompleteOptions(): List<String> {
+        return if (fieldType == "AUTOCOMPLETE" && fieldOptions.isNotBlank()) {
+            fieldOptions.split("|")
+        } else {
+            emptyList()
         }
     }
 }

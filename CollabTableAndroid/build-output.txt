@@ -1,16 +1,57 @@
-Initialized native services in: C:\Users\gabri\.gradle\native
-Initialized jansi services in: C:\Users\gabri\.gradle\native
-Received JVM installation metadata from 'C:\Programs\Java 22 JDK': {JAVA_HOME=C:\Programs\Java 22 JDK, JAVA_VERSION=22.0.1, JAVA_VENDOR=Oracle Corporation, RUNTIME_NAME=Java(TM) SE Runtime Environment, RUNTIME_VERSION=22.0.1+8-16, VM_NAME=Java HotSpot(TM) 64-Bit Server VM, VM_VERSION=22.0.1+8-16, VM_VENDOR=Oracle Corporation, OS_ARCH=amd64}
-Removing 0 daemon stop events from registry
-Starting a Gradle Daemon (subsequent builds will be faster)
-Starting process 'Gradle build daemon'. Working directory: C:\Users\gabri\.gradle\daemon\8.5 Command: C:\Programs\Java 22 JDK\bin\java.exe --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.invoke=ALL-UNNAMED --add-opens=java.prefs/java.util.prefs=ALL-UNNAMED --add-opens=java.base/java.nio.charset=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED -Xmx2048m -Dfile.encoding=UTF-8 -Duser.country=GB -Duser.language=en -Duser.variant -cp C:\Users\gabri\.gradle\wrapper\dists\gradle-8.5-bin\5t9huq95ubn472n8rpzujfbqh\gradle-8.5\lib\gradle-launcher-8.5.jar -javaagent:C:\Users\gabri\.gradle\wrapper\dists\gradle-8.5-bin\5t9huq95ubn472n8rpzujfbqh\gradle-8.5\lib\agents\gradle-instrumentation-agent-8.5.jar org.gradle.launcher.daemon.bootstrap.GradleDaemon 8.5
-Successfully started process 'Gradle build daemon'
-An attempt to start the daemon took 8.895 secs.
-The client will now receive all logging from the daemon (pid: 35040). The daemon log file: C:\Users\gabri\.gradle\daemon\8.5\daemon-35040.out.log
-Starting build in new daemon [memory: 2 GiB]
-Using 16 worker leases.
-Received JVM installation metadata from 'C:\Programs\Java 22 JDK': {JAVA_HOME=C:\Programs\Java 22 JDK, JAVA_VERSION=22.0.1, JAVA_VENDOR=Oracle Corporation, RUNTIME_NAME=Java(TM) SE Runtime Environment, RUNTIME_VERSION=22.0.1+8-16, VM_NAME=Java HotSpot(TM) 64-Bit Server VM, VM_VERSION=22.0.1+8-16, VM_VENDOR=Oracle Corporation, OS_ARCH=amd64}
-Watching the file system is configured to be enabled if available
-Now considering [C:\Users\gabri\VSCode Projects\CollabTable\CollabTableAndroid] as hierarchies to watch
-File system watching is active
-Terminate batch job (Y/N)? 
+﻿> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
+> Task :app:checkKotlinGradlePluginConfigurationErrors
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:mergeDebugShaders UP-TO-DATE
+> Task :app:compileDebugShaders NO-SOURCE
+> Task :app:generateDebugAssets UP-TO-DATE
+> Task :app:mergeDebugAssets UP-TO-DATE
+> Task :app:compressDebugAssets UP-TO-DATE
+> Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:checkDebugDuplicateClasses UP-TO-DATE
+> Task :app:mergeExtDexDebug UP-TO-DATE
+> Task :app:mergeLibDexDebug UP-TO-DATE
+> Task :app:mergeDebugJniLibFolders UP-TO-DATE
+> Task :app:mergeDebugNativeLibs NO-SOURCE
+> Task :app:stripDebugDebugSymbols NO-SOURCE
+> Task :app:validateSigningDebug UP-TO-DATE
+> Task :app:writeDebugAppMetadata UP-TO-DATE
+> Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+> Task :app:kspDebugKotlin
+
+> Task :app:compileDebugKotlin
+w: file:///C:/Users/gabri/VSCode%20Projects/CollabTable/CollabTableAndroid/app/src/main/java/com/collabtable/app/ui/screens/ListDetailScreen.kt:1336:72 Elvis operator (?:) always returns the left operand of non-nullable type String
+w: file:///C:/Users/gabri/VSCode%20Projects/CollabTable/CollabTableAndroid/app/src/main/java/com/collabtable/app/ui/screens/ListDetailScreen.kt:2126:28 The expression is unused
+
+> Task :app:compileDebugJavaWithJavac
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
+> Task :app:mergeProjectDexDebug
+> Task :app:packageDebug
+> Task :app:createDebugApkListingFileRedirect UP-TO-DATE
+> Task :app:assembleDebug
+
+Deprecated Gradle features were used in this build, making it incompatible with Gradle 9.0.
+
+You can use '--warning-mode all' to show the individual deprecation warnings and determine if they come from your own scripts or plugins.
+
+For more on this, please refer to https://docs.gradle.org/8.10/userguide/command_line_interface.html#sec:command_line_warnings in the Gradle documentation.
+
+BUILD SUCCESSFUL in 38s
+36 actionable tasks: 7 executed, 29 up-to-date

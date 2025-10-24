@@ -69,6 +69,23 @@ class ListsViewModel(
         }
     }
 
+    fun renameList(listId: String, newName: String) {
+        viewModelScope.launch {
+            Logger.i("ListsViewModel", "Renaming list: $listId to $newName")
+            val list = database.listDao().getListById(listId)
+            if (list != null && newName.isNotBlank()) {
+                database.listDao().updateList(
+                    list.copy(
+                        name = newName.trim(),
+                        updatedAt = System.currentTimeMillis()
+                    )
+                )
+                // Sync immediately after renaming
+                performSync()
+            }
+        }
+    }
+
     fun deleteList(listId: String) {
         viewModelScope.launch {
             Logger.i("ListsViewModel", "Deleting list: $listId")

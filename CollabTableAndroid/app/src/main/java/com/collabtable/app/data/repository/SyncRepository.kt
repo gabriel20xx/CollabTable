@@ -57,14 +57,28 @@ class SyncRepository(context: Context) {
 
                 // Log details of lists being received
                 syncResponse.lists.forEach { list ->
-                    Logger.d("Sync", "  Inserting list: ${list.id} - ${list.name} (updated: ${list.updatedAt})")
+                    Logger.d("Sync", "  Received list: ${list.id} - ${list.name} (updated: ${list.updatedAt}, deleted: ${list.isDeleted})")
                 }
 
                 // Apply server changes to local database
+                Logger.d("Sync", "Inserting ${syncResponse.lists.size} lists into local database")
                 database.listDao().insertLists(syncResponse.lists)
+                
+                Logger.d("Sync", "Inserting ${syncResponse.fields.size} fields into local database")
                 database.fieldDao().insertFields(syncResponse.fields)
+                
+                Logger.d("Sync", "Inserting ${syncResponse.items.size} items into local database")
                 database.itemDao().insertItems(syncResponse.items)
+                
+                Logger.d("Sync", "Inserting ${syncResponse.itemValues.size} item values into local database")
                 database.itemValueDao().insertValues(syncResponse.itemValues)
+
+                // Verify what was actually saved
+                val savedLists = database.listDao().getListsUpdatedSince(0)
+                Logger.d("Sync", "After insert, total lists in DB: ${savedLists.size}")
+                savedLists.forEach { list ->
+                    Logger.d("Sync", "  DB list: ${list.id} - ${list.name} (deleted: ${list.isDeleted})")
+                }
 
                 // Update last sync timestamp
                 setLastSyncTimestamp(syncResponse.serverTimestamp)

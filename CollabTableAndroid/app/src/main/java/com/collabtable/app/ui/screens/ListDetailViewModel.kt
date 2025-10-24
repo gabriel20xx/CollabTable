@@ -91,6 +91,22 @@ class ListDetailViewModel(
                 updatedAt = timestamp
             )
             database.fieldDao().insertField(newField)
+            
+            // Create empty ItemValue entries for this new field for all existing items
+            val existingItems = _items.value
+            if (existingItems.isNotEmpty()) {
+                val newValues = existingItems.map { itemWithValues ->
+                    ItemValue(
+                        id = UUID.randomUUID().toString(),
+                        itemId = itemWithValues.item.id,
+                        fieldId = newField.id,
+                        value = "",
+                        updatedAt = timestamp
+                    )
+                }
+                database.itemValueDao().insertValues(newValues)
+            }
+            
             performSync()
         }
     }

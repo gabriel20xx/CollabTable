@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -35,6 +36,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
@@ -605,7 +607,7 @@ fun ItemRow(
                     .padding(8.dp)
             ) {
                     when (field.getType()) {
-                        com.collabtable.app.data.model.FieldType.STRING -> {
+                        com.collabtable.app.data.model.FieldType.TEXT -> {
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -615,10 +617,40 @@ fun ItemRow(
                             )
                         }
                         
-                        com.collabtable.app.data.model.FieldType.PRICE -> {
+                        com.collabtable.app.data.model.FieldType.MULTILINE_TEXT -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.NUMBER -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.CURRENCY -> {
                             Text(
                                 text = if (value?.value.isNullOrBlank()) "" 
                                        else "${field.getCurrency()}${value?.value}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.PERCENTAGE -> {
+                            Text(
+                                text = if (value?.value.isNullOrBlank()) "" else "${value?.value}%",
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -630,6 +662,16 @@ fun ItemRow(
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.CHECKBOX -> {
+                            Text(
+                                text = if (value?.value == "true") "✓" else "",
+                                style = MaterialTheme.typography.bodyLarge,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 8.dp)
@@ -656,6 +698,82 @@ fun ItemRow(
                                             uriHandler.openUri(urlValue)
                                         } catch (e: Exception) {
                                             // Handle invalid URL
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            } else {
+                                Text(
+                                    text = "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            }
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.EMAIL -> {
+                            val uriHandler = LocalUriHandler.current
+                            val emailValue = value?.value ?: ""
+                            if (emailValue.isNotBlank()) {
+                                ClickableText(
+                                    text = buildAnnotatedString {
+                                        withStyle(
+                                            style = SpanStyle(
+                                                color = MaterialTheme.colorScheme.primary,
+                                                textDecoration = TextDecoration.Underline
+                                            )
+                                        ) {
+                                            append(emailValue)
+                                        }
+                                    },
+                                    onClick = {
+                                        try {
+                                            uriHandler.openUri("mailto:$emailValue")
+                                        } catch (e: Exception) {
+                                            // Handle invalid email
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            } else {
+                                Text(
+                                    text = "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            }
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.PHONE -> {
+                            val uriHandler = LocalUriHandler.current
+                            val phoneValue = value?.value ?: ""
+                            if (phoneValue.isNotBlank()) {
+                                ClickableText(
+                                    text = buildAnnotatedString {
+                                        withStyle(
+                                            style = SpanStyle(
+                                                color = MaterialTheme.colorScheme.primary,
+                                                textDecoration = TextDecoration.Underline
+                                            )
+                                        ) {
+                                            append(phoneValue)
+                                        }
+                                    },
+                                    onClick = {
+                                        try {
+                                            uriHandler.openUri("tel:$phoneValue")
+                                        } catch (e: Exception) {
+                                            // Handle invalid phone
                                         }
                                     },
                                     modifier = Modifier
@@ -703,6 +821,182 @@ fun ItemRow(
                                     .padding(vertical = 8.dp)
                             )
                         }
+                        
+                        // New field types
+                        com.collabtable.app.data.model.FieldType.SWITCH -> {
+                            Text(
+                                text = if (value?.value == "true") "ON" else "OFF",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = if (value?.value == "true") 
+                                    MaterialTheme.colorScheme.primary 
+                                else 
+                                    MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.AUTOCOMPLETE -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.DURATION -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.RATING -> {
+                            val rating = value?.value?.toIntOrNull() ?: 0
+                            val maxRating = field.getMaxRating()
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            ) {
+                                repeat(maxRating) { index ->
+                                    Icon(
+                                        imageVector = Icons.Default.Star,
+                                        contentDescription = null,
+                                        tint = if (index < rating) 
+                                            MaterialTheme.colorScheme.primary 
+                                        else 
+                                            MaterialTheme.colorScheme.outlineVariant,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.COLOR -> {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (value?.value?.isNotBlank() == true) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .background(
+                                                color = try {
+                                                    androidx.compose.ui.graphics.Color(
+                                                        android.graphics.Color.parseColor(value.value)
+                                                    )
+                                                } catch (e: Exception) {
+                                                    MaterialTheme.colorScheme.surface
+                                                },
+                                                shape = RoundedCornerShape(4.dp)
+                                            )
+                                            .border(
+                                                1.dp,
+                                                MaterialTheme.colorScheme.outline,
+                                                RoundedCornerShape(4.dp)
+                                            )
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                                Text(
+                                    text = value?.value ?: "",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.LOCATION -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.IMAGE -> {
+                            if (value?.value?.isNotBlank() == true) {
+                                Text(
+                                    text = "🖼️ ${value.value}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            }
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.FILE -> {
+                            if (value?.value?.isNotBlank() == true) {
+                                Text(
+                                    text = "📎 ${value.value}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            }
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.BARCODE -> {
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                        
+                        com.collabtable.app.data.model.FieldType.SIGNATURE -> {
+                            if (value?.value?.isNotBlank() == true) {
+                                Text(
+                                    text = "✍️ Signed",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            } else {
+                                Text(
+                                    text = "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -716,7 +1010,7 @@ fun AddFieldDialog(
     onAdd: (String, String, String) -> Unit
 ) {
     var fieldName by remember { mutableStateOf("") }
-    var selectedFieldType by remember { mutableStateOf("STRING") }
+    var selectedFieldType by remember { mutableStateOf("TEXT") }
     var dropdownOptions by remember { mutableStateOf("") }
     var currency by remember { mutableStateOf("$") }
     var expanded by remember { mutableStateOf(false) }
@@ -743,10 +1037,16 @@ fun AddFieldDialog(
                 ) {
                     OutlinedTextField(
                         value = when(selectedFieldType) {
-                            "STRING" -> "Text"
-                            "PRICE" -> "Price"
+                            "TEXT" -> "Text"
+                            "MULTILINE_TEXT" -> "Multi-line Text"
+                            "NUMBER" -> "Number"
+                            "CURRENCY" -> "Currency"
+                            "PERCENTAGE" -> "Percentage"
                             "DROPDOWN" -> "Dropdown"
+                            "CHECKBOX" -> "Checkbox"
                             "URL" -> "URL"
+                            "EMAIL" -> "Email"
+                            "PHONE" -> "Phone"
                             "DATE" -> "Date"
                             "TIME" -> "Time"
                             "DATETIME" -> "Date & Time"
@@ -765,20 +1065,46 @@ fun AddFieldDialog(
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
                     ) {
+                        // Text types
                         DropdownMenuItem(
                             text = { Text("Text") },
                             onClick = {
-                                selectedFieldType = "STRING"
+                                selectedFieldType = "TEXT"
                                 expanded = false
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Price") },
+                            text = { Text("Multi-line Text") },
                             onClick = {
-                                selectedFieldType = "PRICE"
+                                selectedFieldType = "MULTILINE_TEXT"
                                 expanded = false
                             }
                         )
+                        
+                        // Number types
+                        DropdownMenuItem(
+                            text = { Text("Number") },
+                            onClick = {
+                                selectedFieldType = "NUMBER"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Currency") },
+                            onClick = {
+                                selectedFieldType = "CURRENCY"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Percentage") },
+                            onClick = {
+                                selectedFieldType = "PERCENTAGE"
+                                expanded = false
+                            }
+                        )
+                        
+                        // Selection types
                         DropdownMenuItem(
                             text = { Text("Dropdown") },
                             onClick = {
@@ -787,12 +1113,51 @@ fun AddFieldDialog(
                             }
                         )
                         DropdownMenuItem(
+                            text = { Text("Autocomplete") },
+                            onClick = {
+                                selectedFieldType = "AUTOCOMPLETE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Checkbox") },
+                            onClick = {
+                                selectedFieldType = "CHECKBOX"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Switch") },
+                            onClick = {
+                                selectedFieldType = "SWITCH"
+                                expanded = false
+                            }
+                        )
+                        
+                        // Link types
+                        DropdownMenuItem(
                             text = { Text("URL") },
                             onClick = {
                                 selectedFieldType = "URL"
                                 expanded = false
                             }
                         )
+                        DropdownMenuItem(
+                            text = { Text("Email") },
+                            onClick = {
+                                selectedFieldType = "EMAIL"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Phone") },
+                            onClick = {
+                                selectedFieldType = "PHONE"
+                                expanded = false
+                            }
+                        )
+                        
+                        // Date/Time types
                         DropdownMenuItem(
                             text = { Text("Date") },
                             onClick = {
@@ -814,11 +1179,71 @@ fun AddFieldDialog(
                                 expanded = false
                             }
                         )
+                        DropdownMenuItem(
+                            text = { Text("Duration") },
+                            onClick = {
+                                selectedFieldType = "DURATION"
+                                expanded = false
+                            }
+                        )
+                        
+                        // Media types
+                        DropdownMenuItem(
+                            text = { Text("Image") },
+                            onClick = {
+                                selectedFieldType = "IMAGE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("File") },
+                            onClick = {
+                                selectedFieldType = "FILE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Barcode") },
+                            onClick = {
+                                selectedFieldType = "BARCODE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Signature") },
+                            onClick = {
+                                selectedFieldType = "SIGNATURE"
+                                expanded = false
+                            }
+                        )
+                        
+                        // Other types
+                        DropdownMenuItem(
+                            text = { Text("Rating") },
+                            onClick = {
+                                selectedFieldType = "RATING"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Color") },
+                            onClick = {
+                                selectedFieldType = "COLOR"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Location") },
+                            onClick = {
+                                selectedFieldType = "LOCATION"
+                                expanded = false
+                            }
+                        )
                     }
                 }
                 
-                // Price-specific options
-                if (selectedFieldType == "PRICE") {
+                // Currency-specific options
+                if (selectedFieldType == "CURRENCY") {
                     OutlinedTextField(
                         value = currency,
                         onValueChange = { currency = it },
@@ -840,6 +1265,31 @@ fun AddFieldDialog(
                         supportingText = { Text("Enter dropdown choices separated by commas") }
                     )
                 }
+                
+                // Autocomplete-specific options
+                if (selectedFieldType == "AUTOCOMPLETE") {
+                    OutlinedTextField(
+                        value = dropdownOptions,
+                        onValueChange = { dropdownOptions = it },
+                        label = { Text("Options (comma-separated)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Option 1, Option 2, Option 3") },
+                        supportingText = { Text("Enter autocomplete suggestions separated by commas") }
+                    )
+                }
+                
+                // Rating-specific options
+                if (selectedFieldType == "RATING") {
+                    OutlinedTextField(
+                        value = currency,
+                        onValueChange = { currency = it },
+                        label = { Text("Max Rating") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("5") },
+                        supportingText = { Text("Maximum number of stars (default: 5)") }
+                    )
+                }
             }
         },
         confirmButton = {
@@ -847,18 +1297,23 @@ fun AddFieldDialog(
                 onClick = {
                     if (fieldName.isNotBlank()) {
                         val options = when(selectedFieldType) {
-                            "PRICE" -> currency.trim()
+                            "CURRENCY" -> currency.trim()
                             "DROPDOWN" -> dropdownOptions.split(",")
                                 .map { it.trim() }
                                 .filter { it.isNotBlank() }
                                 .joinToString("|")
+                            "AUTOCOMPLETE" -> dropdownOptions.split(",")
+                                .map { it.trim() }
+                                .filter { it.isNotBlank() }
+                                .joinToString("|")
+                            "RATING" -> currency.trim().ifBlank { "5" }
                             else -> ""
                         }
                         onAdd(fieldName.trim(), selectedFieldType, options)
                     }
                 },
                 enabled = fieldName.isNotBlank() && 
-                    (selectedFieldType != "DROPDOWN" || dropdownOptions.isNotBlank())
+                    (selectedFieldType !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank())
             ) {
                 Text(stringResource(R.string.add))
             }
@@ -878,7 +1333,7 @@ fun EditFieldDialog(
     onDismiss: () -> Unit,
     onUpdate: (String, String) -> Unit
 ) {
-    var selectedFieldType by remember { mutableStateOf(field.fieldType ?: "STRING") }
+    var selectedFieldType by remember { mutableStateOf(field.fieldType ?: "TEXT") }
     var dropdownOptions by remember { mutableStateOf(field.getDropdownOptions().joinToString(", ")) }
     var currency by remember { mutableStateOf(field.getCurrency()) }
     var expanded by remember { mutableStateOf(false) }
@@ -897,10 +1352,16 @@ fun EditFieldDialog(
                 ) {
                     OutlinedTextField(
                         value = when(selectedFieldType) {
-                            "STRING" -> "Text"
-                            "PRICE" -> "Price"
+                            "TEXT", "STRING" -> "Text"
+                            "MULTILINE_TEXT" -> "Multi-line Text"
+                            "NUMBER" -> "Number"
+                            "CURRENCY", "PRICE" -> "Currency"
+                            "PERCENTAGE" -> "Percentage"
                             "DROPDOWN" -> "Dropdown"
+                            "CHECKBOX" -> "Checkbox"
                             "URL" -> "URL"
+                            "EMAIL" -> "Email"
+                            "PHONE" -> "Phone"
                             "DATE" -> "Date"
                             "TIME" -> "Time"
                             "DATETIME" -> "Date & Time"
@@ -919,20 +1380,46 @@ fun EditFieldDialog(
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
                     ) {
+                        // Text types
                         DropdownMenuItem(
                             text = { Text("Text") },
                             onClick = {
-                                selectedFieldType = "STRING"
+                                selectedFieldType = "TEXT"
                                 expanded = false
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Price") },
+                            text = { Text("Multi-line Text") },
                             onClick = {
-                                selectedFieldType = "PRICE"
+                                selectedFieldType = "MULTILINE_TEXT"
                                 expanded = false
                             }
                         )
+                        
+                        // Number types
+                        DropdownMenuItem(
+                            text = { Text("Number") },
+                            onClick = {
+                                selectedFieldType = "NUMBER"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Currency") },
+                            onClick = {
+                                selectedFieldType = "CURRENCY"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Percentage") },
+                            onClick = {
+                                selectedFieldType = "PERCENTAGE"
+                                expanded = false
+                            }
+                        )
+                        
+                        // Selection types
                         DropdownMenuItem(
                             text = { Text("Dropdown") },
                             onClick = {
@@ -941,12 +1428,51 @@ fun EditFieldDialog(
                             }
                         )
                         DropdownMenuItem(
+                            text = { Text("Autocomplete") },
+                            onClick = {
+                                selectedFieldType = "AUTOCOMPLETE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Checkbox") },
+                            onClick = {
+                                selectedFieldType = "CHECKBOX"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Switch") },
+                            onClick = {
+                                selectedFieldType = "SWITCH"
+                                expanded = false
+                            }
+                        )
+                        
+                        // Link types
+                        DropdownMenuItem(
                             text = { Text("URL") },
                             onClick = {
                                 selectedFieldType = "URL"
                                 expanded = false
                             }
                         )
+                        DropdownMenuItem(
+                            text = { Text("Email") },
+                            onClick = {
+                                selectedFieldType = "EMAIL"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Phone") },
+                            onClick = {
+                                selectedFieldType = "PHONE"
+                                expanded = false
+                            }
+                        )
+                        
+                        // Date/Time types
                         DropdownMenuItem(
                             text = { Text("Date") },
                             onClick = {
@@ -968,11 +1494,71 @@ fun EditFieldDialog(
                                 expanded = false
                             }
                         )
+                        DropdownMenuItem(
+                            text = { Text("Duration") },
+                            onClick = {
+                                selectedFieldType = "DURATION"
+                                expanded = false
+                            }
+                        )
+                        
+                        // Media types
+                        DropdownMenuItem(
+                            text = { Text("Image") },
+                            onClick = {
+                                selectedFieldType = "IMAGE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("File") },
+                            onClick = {
+                                selectedFieldType = "FILE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Barcode") },
+                            onClick = {
+                                selectedFieldType = "BARCODE"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Signature") },
+                            onClick = {
+                                selectedFieldType = "SIGNATURE"
+                                expanded = false
+                            }
+                        )
+                        
+                        // Other types
+                        DropdownMenuItem(
+                            text = { Text("Rating") },
+                            onClick = {
+                                selectedFieldType = "RATING"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Color") },
+                            onClick = {
+                                selectedFieldType = "COLOR"
+                                expanded = false
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Location") },
+                            onClick = {
+                                selectedFieldType = "LOCATION"
+                                expanded = false
+                            }
+                        )
                     }
                 }
                 
-                // Price-specific options
-                if (selectedFieldType == "PRICE") {
+                // Currency-specific options
+                if (selectedFieldType == "CURRENCY" || selectedFieldType == "PRICE") {
                     OutlinedTextField(
                         value = currency,
                         onValueChange = { currency = it },
@@ -994,22 +1580,52 @@ fun EditFieldDialog(
                         supportingText = { Text("Enter dropdown choices separated by commas") }
                     )
                 }
+                
+                // Autocomplete-specific options
+                if (selectedFieldType == "AUTOCOMPLETE") {
+                    OutlinedTextField(
+                        value = dropdownOptions,
+                        onValueChange = { dropdownOptions = it },
+                        label = { Text("Options (comma-separated)") },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Option 1, Option 2, Option 3") },
+                        supportingText = { Text("Enter autocomplete suggestions separated by commas") }
+                    )
+                }
+                
+                // Rating-specific options
+                if (selectedFieldType == "RATING") {
+                    OutlinedTextField(
+                        value = currency,
+                        onValueChange = { currency = it },
+                        label = { Text("Max Rating") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("5") },
+                        supportingText = { Text("Maximum number of stars (default: 5)") }
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
                 onClick = {
                     val options = when(selectedFieldType) {
-                        "PRICE" -> currency.trim()
+                        "CURRENCY", "PRICE" -> currency.trim()
                         "DROPDOWN" -> dropdownOptions.split(",")
                             .map { it.trim() }
                             .filter { it.isNotBlank() }
                             .joinToString("|")
+                        "AUTOCOMPLETE" -> dropdownOptions.split(",")
+                            .map { it.trim() }
+                            .filter { it.isNotBlank() }
+                            .joinToString("|")
+                        "RATING" -> currency.trim().ifBlank { "5" }
                         else -> ""
                     }
                     onUpdate(selectedFieldType, options)
                 },
-                enabled = selectedFieldType != "DROPDOWN" || dropdownOptions.isNotBlank()
+                enabled = selectedFieldType !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()
             ) {
                 Text("Update")
             }
@@ -1082,7 +1698,8 @@ fun FieldInput(
     onValueChange: (String) -> Unit
 ) {
     when (field.getType()) {
-        com.collabtable.app.data.model.FieldType.STRING -> {
+        // Text types
+        com.collabtable.app.data.model.FieldType.TEXT -> {
             OutlinedTextField(
                 value = value,
                 onValueChange = onValueChange,
@@ -1092,7 +1709,35 @@ fun FieldInput(
             )
         }
         
-        com.collabtable.app.data.model.FieldType.PRICE -> {
+        com.collabtable.app.data.model.FieldType.MULTILINE_TEXT -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = false,
+                minLines = 3,
+                maxLines = 6
+            )
+        }
+        
+        // Number types
+        com.collabtable.app.data.model.FieldType.NUMBER -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { newValue ->
+                    val filtered = newValue.filter { it.isDigit() || it == '.' || it == '-' }
+                    onValueChange(filtered)
+                },
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                placeholder = { Text("0") }
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.CURRENCY -> {
             OutlinedTextField(
                 value = value,
                 onValueChange = { newValue ->
@@ -1103,8 +1748,48 @@ fun FieldInput(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 leadingIcon = { Text(field.getCurrency()) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 placeholder = { Text("0.00") }
             )
+        }
+        
+        com.collabtable.app.data.model.FieldType.PERCENTAGE -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { newValue ->
+                    val filtered = newValue.filter { it.isDigit() || it == '.' }
+                    onValueChange(filtered)
+                },
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                trailingIcon = { Text("%") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                placeholder = { Text("0") }
+            )
+        }
+        
+        // Selection types
+        com.collabtable.app.data.model.FieldType.CHECKBOX -> {
+            var checked by remember { mutableStateOf(value == "true") }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Checkbox(
+                    checked = checked,
+                    onCheckedChange = { 
+                        checked = it
+                        onValueChange(it.toString())
+                    }
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = field.name,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+            }
         }
         
         com.collabtable.app.data.model.FieldType.DROPDOWN -> {
@@ -1152,10 +1837,36 @@ fun FieldInput(
                 label = { Text(field.name) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
                 placeholder = { Text("https://example.com") }
             )
         }
         
+        com.collabtable.app.data.model.FieldType.EMAIL -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                placeholder = { Text("email@example.com") }
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.PHONE -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                placeholder = { Text("+1 (555) 123-4567") }
+            )
+        }
+        
+        // Date/Time types
         com.collabtable.app.data.model.FieldType.DATE -> {
             val dateFormat = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
             val calendar = remember { Calendar.getInstance() }
@@ -1375,6 +2086,183 @@ fun FieldInput(
                     }
                 )
             }
+        }
+        
+        // New field types
+        com.collabtable.app.data.model.FieldType.SWITCH -> {
+            var checked by remember { mutableStateOf(value == "true") }
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = field.name,
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Switch(
+                    checked = checked,
+                    onCheckedChange = { 
+                        checked = it
+                        onValueChange(it.toString())
+                    }
+                )
+            }
+        }
+        
+        com.collabtable.app.data.model.FieldType.AUTOCOMPLETE -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("Start typing...") },
+                supportingText = { 
+                    val options = field.getAutocompleteOptions()
+                    if (options.isNotEmpty()) {
+                        Text("Suggestions: ${options.take(3).joinToString(", ")}")
+                    } else null
+                }
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.DURATION -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("2:30 (hours:minutes)") },
+                supportingText = { Text("Format: HH:MM") }
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.RATING -> {
+            val maxRating = field.getMaxRating()
+            var rating by remember { mutableStateOf(value.toIntOrNull() ?: 0) }
+            
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = field.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    for (i in 1..maxRating) {
+                        IconButton(
+                            onClick = {
+                                rating = i
+                                onValueChange(i.toString())
+                            }
+                        ) {
+                            Icon(
+                                imageVector = if (i <= rating) Icons.Default.Star else Icons.Default.Star,
+                                contentDescription = "Star $i",
+                                tint = if (i <= rating) 
+                                    MaterialTheme.colorScheme.primary 
+                                else 
+                                    MaterialTheme.colorScheme.outlineVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        
+        com.collabtable.app.data.model.FieldType.COLOR -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("#FF5733 or red") },
+                leadingIcon = {
+                    // Show color preview if valid
+                    if (value.isNotBlank()) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .background(
+                                    color = try {
+                                        androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(value))
+                                    } catch (e: Exception) {
+                                        MaterialTheme.colorScheme.surface
+                                    },
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .border(
+                                    1.dp,
+                                    MaterialTheme.colorScheme.outline,
+                                    RoundedCornerShape(4.dp)
+                                )
+                        )
+                    }
+                }
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.LOCATION -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("Address or coordinates") }
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.IMAGE -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("Image URL") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.FILE -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("File path or URL") }
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.BARCODE -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("Scan or enter barcode") }
+            )
+        }
+        
+        com.collabtable.app.data.model.FieldType.SIGNATURE -> {
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text(field.name) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("Tap to sign") }
+            )
         }
     }
 }
@@ -1634,13 +2522,42 @@ fun ColumnItem(
                 )
                 Text(
                     text = when (field.getType()) {
-                        com.collabtable.app.data.model.FieldType.STRING -> "Text"
-                        com.collabtable.app.data.model.FieldType.PRICE -> "Price (${field.getCurrency()})"
+                        // Text types
+                        com.collabtable.app.data.model.FieldType.TEXT -> "Text"
+                        com.collabtable.app.data.model.FieldType.MULTILINE_TEXT -> "Multiline Text"
+                        
+                        // Number types
+                        com.collabtable.app.data.model.FieldType.NUMBER -> "Number"
+                        com.collabtable.app.data.model.FieldType.CURRENCY -> "Currency (${field.getCurrency()})"
+                        com.collabtable.app.data.model.FieldType.PERCENTAGE -> "Percentage"
+                        
+                        // Selection types
+                        com.collabtable.app.data.model.FieldType.CHECKBOX -> "Checkbox"
+                        com.collabtable.app.data.model.FieldType.SWITCH -> "Switch"
                         com.collabtable.app.data.model.FieldType.DROPDOWN -> "Dropdown (${field.getDropdownOptions().size} options)"
+                        com.collabtable.app.data.model.FieldType.AUTOCOMPLETE -> "Autocomplete (${field.getAutocompleteOptions().size} options)"
+                        
+                        // Link types
                         com.collabtable.app.data.model.FieldType.URL -> "URL"
+                        com.collabtable.app.data.model.FieldType.EMAIL -> "Email"
+                        com.collabtable.app.data.model.FieldType.PHONE -> "Phone"
+                        
+                        // Date/Time types
                         com.collabtable.app.data.model.FieldType.DATE -> "Date"
                         com.collabtable.app.data.model.FieldType.TIME -> "Time"
                         com.collabtable.app.data.model.FieldType.DATETIME -> "Date & Time"
+                        com.collabtable.app.data.model.FieldType.DURATION -> "Duration"
+                        
+                        // Media types
+                        com.collabtable.app.data.model.FieldType.IMAGE -> "Image"
+                        com.collabtable.app.data.model.FieldType.FILE -> "File"
+                        com.collabtable.app.data.model.FieldType.BARCODE -> "Barcode"
+                        com.collabtable.app.data.model.FieldType.SIGNATURE -> "Signature"
+                        
+                        // Other types
+                        com.collabtable.app.data.model.FieldType.RATING -> "Rating (${field.getMaxRating()} stars)"
+                        com.collabtable.app.data.model.FieldType.COLOR -> "Color"
+                        com.collabtable.app.data.model.FieldType.LOCATION -> "Location"
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
