@@ -12,10 +12,10 @@ interface FieldDao {
     @Query("SELECT * FROM fields WHERE id = :fieldId")
     suspend fun getFieldById(fieldId: String): Field?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertField(field: Field)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertFields(fields: List<Field>)
 
     @Update
@@ -30,4 +30,17 @@ interface FieldDao {
     // Get all fields updated since timestamp, including deleted ones for sync
     @Query("SELECT * FROM fields WHERE updatedAt >= :since")
     suspend fun getFieldsUpdatedSince(since: Long): List<Field>
+
+    // Reorder fields in a single transaction for clarity and consistency
+    @Transaction
+    suspend fun reorderFieldsInTransaction(reorderedFields: List<Field>, timestamp: Long) {
+        reorderedFields.forEachIndexed { index, field ->
+            updateField(
+                field.copy(
+                    order = index,
+                    updatedAt = timestamp
+                )
+            )
+        }
+    }
 }

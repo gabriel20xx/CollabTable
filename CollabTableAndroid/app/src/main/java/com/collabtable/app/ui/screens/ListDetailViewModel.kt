@@ -3,12 +3,14 @@ package com.collabtable.app.ui.screens
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.room.withTransaction
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.*
 import com.collabtable.app.data.repository.SyncRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -35,7 +37,9 @@ class ListDetailViewModel(
 
     private fun loadListData() {
         viewModelScope.launch {
-            database.listDao().getListWithFields(listId).collect { listWithFields ->
+            database.listDao().getListWithFields(listId)
+                .debounce(75)
+                .collect { listWithFields ->
                 _list.value = listWithFields?.list
                 _fields.value = listWithFields?.fields ?: emptyList()
             }
@@ -90,12 +94,11 @@ class ListDetailViewModel(
                 createdAt = timestamp,
                 updatedAt = timestamp
             )
-            database.fieldDao().insertField(newField)
             
             // Create empty ItemValue entries for this new field for all existing items
             val existingItems = _items.value
-            if (existingItems.isNotEmpty()) {
-                val newValues = existingItems.map { itemWithValues ->
+            val newValues = if (existingItems.isNotEmpty()) {
+                existingItems.map { itemWithValues ->
                     ItemValue(
                         id = UUID.randomUUID().toString(),
                         itemId = itemWithValues.item.id,
@@ -104,7 +107,16 @@ class ListDetailViewModel(
                         updatedAt = timestamp
                     )
                 }
-                database.itemValueDao().insertValues(newValues)
+            } else {
+                emptyList()
+            }
+            
+            // Insert atomically to avoid intermediate inconsistent states
+            database.withTransaction {
+                database.fieldDao().insertField(newField)
+                if (newValues.isNotEmpty()) {
+                    database.itemValueDao().insertValues(newValues)
+                }
             }
             
             performSync()
@@ -143,19 +155,23 @@ class ListDetailViewModel(
                 createdAt = timestamp,
                 updatedAt = timestamp
             )
-            database.itemDao().insertItem(newItem)
-            
-            // Create empty values for each field
-            val values = _fields.value.map { field ->
-                ItemValue(
-                    id = UUID.randomUUID().toString(),
-                    itemId = newItem.id,
-                    fieldId = field.id,
-                    value = "",
-                    updatedAt = timestamp
-                )
+            // Insert item and its values atomically
+            database.withTransaction {
+                database.itemDao().insertItem(newItem)
+                // Create empty values for each field
+                val values = _fields.value.map { field ->
+                    ItemValue(
+                        id = UUID.randomUUID().toString(),
+                        itemId = newItem.id,
+                        fieldId = field.id,
+                        value = "",
+                        updatedAt = timestamp
+                    )
+                }
+                if (values.isNotEmpty()) {
+                    database.itemValueDao().insertValues(values)
+                }
             }
-            database.itemValueDao().insertValues(values)
             performSync()
         }
     }
@@ -169,19 +185,23 @@ class ListDetailViewModel(
                 createdAt = timestamp,
                 updatedAt = timestamp
             )
-            database.itemDao().insertItem(newItem)
-            
-            // Create values for each field with the provided values
-            val values = _fields.value.map { field ->
-                ItemValue(
-                    id = UUID.randomUUID().toString(),
-                    itemId = newItem.id,
-                    fieldId = field.id,
-                    value = fieldValues[field.id] ?: "",
-                    updatedAt = timestamp
-                )
+            // Insert item and provided values atomically
+            database.withTransaction {
+                database.itemDao().insertItem(newItem)
+                // Create values for each field with the provided values
+                val values = _fields.value.map { field ->
+                    ItemValue(
+                        id = UUID.randomUUID().toString(),
+                        itemId = newItem.id,
+                        fieldId = field.id,
+                        value = fieldValues[field.id] ?: "",
+                        updatedAt = timestamp
+                    )
+                }
+                if (values.isNotEmpty()) {
+                    database.itemValueDao().insertValues(values)
+                }
             }
-            database.itemValueDao().insertValues(values)
             performSync()
         }
     }
@@ -211,14 +231,8 @@ class ListDetailViewModel(
     fun reorderFields(reorderedFields: List<Field>) {
         viewModelScope.launch {
             val timestamp = System.currentTimeMillis()
-            reorderedFields.forEachIndexed { index, field ->
-                database.fieldDao().updateField(
-                    field.copy(
-                        order = index,
-                        updatedAt = timestamp
-                    )
-                )
-            }
+            // Use DAO-level transaction for clarity
+            database.fieldDao().reorderFieldsInTransaction(reorderedFields, timestamp)
             performSync()
         }
     }

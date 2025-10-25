@@ -17,10 +17,10 @@ interface ListDao {
     @Query("SELECT * FROM lists WHERE id = :listId")
     suspend fun getListById(listId: String): CollabList?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertList(list: CollabList)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertLists(lists: List<CollabList>)
 
     @Update

@@ -17,10 +17,10 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE id = :itemId")
     suspend fun getItemById(itemId: String): Item?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertItem(item: Item)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertItems(items: List<Item>)
 
     @Update

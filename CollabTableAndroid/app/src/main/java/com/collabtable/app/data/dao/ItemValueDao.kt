@@ -12,10 +12,10 @@ interface ItemValueDao {
     @Query("SELECT * FROM item_values WHERE id = :valueId")
     suspend fun getValueById(valueId: String): ItemValue?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertValue(value: ItemValue)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Upsert
     suspend fun insertValues(values: List<ItemValue>)
 
     @Update

@@ -66,6 +66,10 @@ fun ListDetailScreen(
     val fields by viewModel.fields.collectAsState()
     val items by viewModel.items.collectAsState()
     
+    // Use derivedStateOf to create stable references
+    val stableFields by remember { derivedStateOf { fields } }
+    val stableItems by remember { derivedStateOf { items } }
+    
     var showManageColumnsDialog by remember { mutableStateOf(false) }
     var showAddItemDialog by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<ItemWithValues?>(null) }
@@ -88,8 +92,8 @@ fun ListDetailScreen(
     val fieldWidths = remember { mutableStateMapOf<String, Dp>() }
     
     // Initialize field widths
-    LaunchedEffect(fields) {
-        fields.forEach { field ->
+    LaunchedEffect(stableFields) {
+        stableFields.forEach { field ->
             if (!fieldWidths.containsKey(field.id)) {
                 fieldWidths[field.id] = 150.dp
             }
@@ -97,8 +101,8 @@ fun ListDetailScreen(
     }
     
     // Apply filtering, sorting, and grouping
-    val processedItems = remember(items, filterField, filterValue, sortField, sortAscending, groupByField) {
-        var result = items
+    val processedItems = remember(stableItems, stableFields, filterField, filterValue, sortField, sortAscending, groupByField) {
+        var result = stableItems
         
         // Apply filter
         if (filterField != null && filterValue.isNotBlank()) {
@@ -174,7 +178,7 @@ fun ListDetailScreen(
             }
         }
     ) { padding ->
-        if (fields.isEmpty()) {
+        if (stableFields.isEmpty()) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -329,21 +333,23 @@ fun ListDetailScreen(
                         .horizontalScroll(horizontalScrollState),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    fields.forEach { field ->
-                        FieldHeader(
-                            field = field,
-                            width = fieldWidths[field.id] ?: 150.dp,
-                            onWidthChange = { delta ->
-                                val currentWidth = fieldWidths[field.id] ?: 150.dp
-                                val newWidth = (currentWidth.value + delta).coerceIn(100f, 400f)
-                                fieldWidths[field.id] = newWidth.dp
-                            }
-                        )
+                    stableFields.forEach { field ->
+                        key(field.id) {
+                            FieldHeader(
+                                field = field,
+                                width = fieldWidths[field.id] ?: 150.dp,
+                                onWidthChange = { delta ->
+                                    val currentWidth = fieldWidths[field.id] ?: 150.dp
+                                    val newWidth = (currentWidth.value + delta).coerceIn(100f, 400f)
+                                    fieldWidths[field.id] = newWidth.dp
+                                }
+                            )
+                        }
                     }
                 }
 
                 // Items list with synchronized scrolling
-                if (items.isEmpty()) {
+                if (stableItems.isEmpty()) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
                         contentAlignment = Alignment.Center
@@ -378,7 +384,7 @@ fun ListDetailScreen(
                     LazyColumn(
                         modifier = Modifier.fillMaxSize()
                     ) {
-                        groupedItems.forEach { (groupName, groupItems) ->
+                        groupedItems.entries.forEach { (groupName, groupItems) ->
                             // Show group header if grouping is enabled
                             if (groupByField != null) {
                                 item(key = "group_$groupName") {
@@ -397,9 +403,12 @@ fun ListDetailScreen(
                             }
                             
                             // Show items in the group
-                            items(groupItems, key = { it.item.id }) { itemWithValues ->
+                            items(
+                                items = groupItems, 
+                                key = { it.item.id }
+                            ) { itemWithValues ->
                                 ItemRow(
-                                    fields = fields,
+                                    fields = stableFields,
                                     fieldWidths = fieldWidths,
                                     itemWithValues = itemWithValues,
                                     scrollState = horizontalScrollState,
@@ -415,7 +424,7 @@ fun ListDetailScreen(
 
     if (showManageColumnsDialog) {
         ManageColumnsDialog(
-            fields = fields,
+            fields = stableFields,
             onDismiss = { showManageColumnsDialog = false },
             onAddField = { name, fieldType, fieldOptions ->
                 viewModel.addField(name, fieldType, fieldOptions)
@@ -434,7 +443,7 @@ fun ListDetailScreen(
 
     if (showAddItemDialog) {
         AddItemDialog(
-            fields = fields,
+            fields = stableFields,
             onDismiss = { showAddItemDialog = false },
             onAdd = { fieldValues ->
                 viewModel.addItemWithValues(fieldValues)
@@ -446,7 +455,7 @@ fun ListDetailScreen(
     // Sort Dialog
     if (showSortDialog) {
         SortDialog(
-            fields = fields,
+            fields = stableFields,
             currentSortField = sortField,
             currentSortAscending = sortAscending,
             onDismiss = { showSortDialog = false },
@@ -461,7 +470,7 @@ fun ListDetailScreen(
     // Group Dialog
     if (showGroupDialog) {
         GroupDialog(
-            fields = fields,
+            fields = stableFields,
             currentGroupByField = groupByField,
             onDismiss = { showGroupDialog = false },
             onApply = { newGroupByField ->
@@ -474,7 +483,7 @@ fun ListDetailScreen(
     // Filter Dialog
     if (showFilterDialog) {
         FilterDialog(
-            fields = fields,
+            fields = stableFields,
             currentFilterField = filterField,
             currentFilterValue = filterValue,
             onDismiss = { showFilterDialog = false },
@@ -502,7 +511,7 @@ fun ListDetailScreen(
 
     itemToEdit?.let { itemWithValues ->
         EditItemDialog(
-            fields = fields,
+            fields = stableFields,
             itemWithValues = itemWithValues,
             onDismiss = { itemToEdit = null },
             onUpdate = { fieldValues ->
@@ -586,6 +595,10 @@ fun ItemRow(
     scrollState: androidx.compose.foundation.ScrollState,
     onClick: () -> Unit
 ) {
+    // Map values by fieldId to ensure correct value-column alignment regardless of original order
+    val valuesByFieldId = remember(itemWithValues.values) {
+        itemWithValues.values.associateBy { it.fieldId }
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -593,19 +606,20 @@ fun ItemRow(
             .horizontalScroll(scrollState),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        fields.forEachIndexed { _, field ->
-            val value = itemWithValues.values.find { it.fieldId == field.id }
-            val fieldWidth = fieldWidths[field.id] ?: 150.dp
-            
-            Box(
-                modifier = Modifier
-                    .width(fieldWidth)
-                    .border(
-                        width = 1.dp,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                    .padding(8.dp)
-            ) {
+    fields.forEach { field ->
+            key(field.id) {
+        val value = valuesByFieldId[field.id]
+                val fieldWidth = fieldWidths[field.id] ?: 150.dp
+                
+                Box(
+                    modifier = Modifier
+                        .width(fieldWidth)
+                        .border(
+                            width = 1.dp,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        .padding(8.dp)
+                ) {
                     when (field.getType()) {
                         com.collabtable.app.data.model.FieldType.TEXT -> {
                             Text(
@@ -1001,6 +1015,7 @@ fun ItemRow(
                 }
             }
         }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2596,6 +2611,10 @@ fun EditItemDialog(
 ) {
     val fieldValues = remember { mutableStateMapOf<String, String>() }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    // Map values by field to avoid linear lookups and ensure consistent mapping when fields reorder
+    val valuesByFieldId = remember(itemWithValues.values) {
+        itemWithValues.values.associateBy { it.fieldId }
+    }
     
     // Initialize field values from existing item
     LaunchedEffect(itemWithValues) {
@@ -2647,7 +2666,7 @@ fun EditItemDialog(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(fields, key = { it.id }) { field ->
-                        val itemValue = itemWithValues.values.find { it.fieldId == field.id }
+                        val itemValue = valuesByFieldId[field.id]
                         if (itemValue != null) {
                             FieldInput(
                                 field = field,
