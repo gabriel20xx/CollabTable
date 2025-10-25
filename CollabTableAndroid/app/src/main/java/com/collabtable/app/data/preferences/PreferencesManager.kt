@@ -18,9 +18,14 @@ class PreferencesManager(context: Context) {
     }
 
     fun setServerUrl(url: String) {
-        val cleanUrl = url.trim().let {
-            if (it.endsWith("/")) it else "$it/"
+        val raw = url.trim()
+        if (raw.isBlank()) {
+            // Remove the key entirely to fall back to default URL on reads
+            prefs.edit().remove(KEY_SERVER_URL).apply()
+            _serverUrl.value = getServerUrl()
+            return
         }
+        val cleanUrl = raw.let { if (it.endsWith("/")) it else "$it/" }
         prefs.edit().putString(KEY_SERVER_URL, cleanUrl).apply()
         _serverUrl.value = cleanUrl
     }
@@ -38,13 +43,32 @@ class PreferencesManager(context: Context) {
     }
 
     fun setServerPassword(password: String) {
-        prefs.edit().putString(KEY_SERVER_PASSWORD, password).apply()
+        if (password.isBlank()) {
+            prefs.edit().remove(KEY_SERVER_PASSWORD).apply()
+        } else {
+            prefs.edit().putString(KEY_SERVER_PASSWORD, password).apply()
+        }
+    }
+
+    // Clear sync-related state so the next sync starts from scratch
+    fun clearSyncState() {
+        prefs.edit().remove(KEY_LAST_SYNC_TIMESTAMP).apply()
+    }
+
+    fun clearServerSettings() {
+        prefs.edit()
+            .remove(KEY_SERVER_URL)
+            .remove(KEY_SERVER_PASSWORD)
+            .remove(KEY_LAST_SYNC_TIMESTAMP)
+            .apply()
+        _serverUrl.value = getServerUrl()
     }
 
     companion object {
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_FIRST_RUN = "first_run"
         private const val KEY_SERVER_PASSWORD = "server_password"
+    private const val KEY_LAST_SYNC_TIMESTAMP = "last_sync_timestamp"
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"
         
         @Volatile

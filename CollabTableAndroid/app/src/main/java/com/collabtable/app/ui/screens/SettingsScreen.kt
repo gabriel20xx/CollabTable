@@ -11,6 +11,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.collabtable.app.R
 import com.collabtable.app.data.database.CollabTableDatabase
+import com.collabtable.app.data.api.ApiClient
 import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.data.repository.SyncRepository
 import com.collabtable.app.utils.Logger
@@ -174,10 +175,13 @@ fun SettingsScreen(
                                         CollabTableDatabase.clearDatabase(context)
                                     }
                                     
-                                    // Clear preferences
-                                    preferencesManager.setServerUrl("")
-                                    preferencesManager.setServerPassword("")
+                                    // Clear preferences (URL, password, last sync)
+                                    preferencesManager.clearServerSettings()
                                     preferencesManager.setIsFirstRun(true)
+                                    // Clear in-memory logs as part of local data
+                                    Logger.clear()
+                                    // Reset API client base URL to current preference (default)
+                                    ApiClient.setBaseUrl(preferencesManager.getServerUrl())
                                     
                                     Logger.i("Settings", "Left server successfully")
                                     

@@ -121,6 +121,12 @@ class SyncRepository(context: Context) {
 
                 return@withContext Result.success(Unit)
             } else {
+                if (response.code() == 401) {
+                    // Unauthorized: likely bad/missing password. Reset sync baseline and surface a clear error.
+                    Logger.e("Sync", "[ERROR] Unauthorized (401). Check server password in Settings.")
+                    setLastSyncTimestamp(0)
+                    return@withContext Result.failure(Exception("Unauthorized (401). Please verify server password."))
+                }
                 Logger.e("Sync", "[ERROR] Sync failed: HTTP ${response.code()}")
                 return@withContext Result.failure(Exception("Sync failed: ${response.code()}"))
             }

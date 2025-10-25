@@ -160,6 +160,8 @@ class ServerSetupViewModel(
                         // Password is valid, save both URL and password
                         preferencesManager.setServerUrl(finalUrl)
                         preferencesManager.setServerPassword(password)
+                        // Reset sync baseline for a fresh initial sync on new server
+                        preferencesManager.clearSyncState()
                         preferencesManager.setIsFirstRun(false)
                         ApiClient.setBaseUrl(finalUrl)
                         _validationResult.value = true
