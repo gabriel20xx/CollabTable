@@ -1,6 +1,9 @@
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+
 package com.collabtable.app.ui.screens
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -195,8 +198,9 @@ fun ListsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     itemsIndexed(working, key = { _, it -> it.id }) { index, list ->
-                        ReorderableItem(reorderState, key = list.id) { isDragging ->
-                            ListItem(
+                        ReorderableItem(reorderState, key = list.id) { _ ->
+                            Box(modifier = Modifier.animateItemPlacement()) {
+                                ListItem(
                                 list = list,
                                 onListClick = { onNavigateToList(list.id) },
                                 onEditClick = { listToEdit = list },
@@ -209,7 +213,8 @@ fun ListsScreen(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 },
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -283,6 +288,13 @@ fun ListItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // Drag handle on the far left
+            if (dragHandle != null) {
+                dragHandle()
+                Spacer(modifier = Modifier.padding(start = 8.dp))
+            }
+
+            // Table name centered/left and clickable
             Column(
                 modifier =
                     Modifier
@@ -292,11 +304,9 @@ fun ListItem(
                 Text(text = list.name, style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(2.dp))
             }
+
+            // Actions on the right
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (dragHandle != null) {
-                    dragHandle()
-                    Spacer(modifier = Modifier.height(0.dp).padding(end = 4.dp))
-                }
                 IconButton(onClick = onEditClick) {
                     Icon(
                         Icons.Default.Edit,

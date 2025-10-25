@@ -1,4 +1,5 @@
 @file:Suppress("ktlint:standard:no-wildcard-imports")
+@file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.collabtable.app.ui.screens
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -2536,7 +2537,8 @@ fun ManageColumnsDialog(
                         key = { _, field -> field.id },
                     ) { index, field ->
                         ReorderableItem(reorderState, key = field.id) { _ ->
-                            ColumnItem(
+                            Box(modifier = Modifier.animateItemPlacement()) {
+                                ColumnItem(
                                 field = field,
                                 onEdit = { fieldToEdit = field },
                                 onDelete = { fieldToDelete = field },
@@ -2562,7 +2564,8 @@ fun ManageColumnsDialog(
                                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     )
                                 },
-                            )
+                                )
+                            }
                         }
                     }
                 }
@@ -2658,7 +2661,8 @@ fun ColumnItem(
     dragHandle: (@Composable () -> Unit)? = null,
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth(),
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
