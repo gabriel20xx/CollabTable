@@ -25,7 +25,10 @@ interface FieldDao {
     suspend fun updateField(field: Field)
 
     @Query("UPDATE fields SET isDeleted = 1, updatedAt = :timestamp WHERE id = :fieldId")
-    suspend fun softDeleteField(fieldId: String, timestamp: Long)
+    suspend fun softDeleteField(
+        fieldId: String,
+        timestamp: Long,
+    )
 
     @Query("DELETE FROM fields WHERE id = :fieldId")
     suspend fun deleteField(fieldId: String)
@@ -36,13 +39,16 @@ interface FieldDao {
 
     // Reorder fields in a single transaction for clarity and consistency
     @Transaction
-    suspend fun reorderFieldsInTransaction(reorderedFields: List<Field>, timestamp: Long) {
+    suspend fun reorderFieldsInTransaction(
+        reorderedFields: List<Field>,
+        timestamp: Long,
+    ) {
         reorderedFields.forEachIndexed { index, field ->
             updateField(
                 field.copy(
                     order = index,
-                    updatedAt = timestamp
-                )
+                    updatedAt = timestamp,
+                ),
             )
         }
     }

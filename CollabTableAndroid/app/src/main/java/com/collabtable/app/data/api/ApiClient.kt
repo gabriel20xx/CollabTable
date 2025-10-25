@@ -14,34 +14,39 @@ object ApiClient {
     private var retrofit: Retrofit? = null
     private var context: Context? = null
 
-    private val loggingInterceptor = HttpLoggingInterceptor().apply {
-        level = HttpLoggingInterceptor.Level.BODY
-    }
-    
-    private val authInterceptor = Interceptor { chain ->
-        val request = chain.request()
-        val password = context?.let { 
-            PreferencesManager.getInstance(it).getServerPassword() 
+    private val loggingInterceptor =
+        HttpLoggingInterceptor().apply {
+            level = HttpLoggingInterceptor.Level.BODY
         }
-        
-        val newRequest = if (!password.isNullOrBlank()) {
-            request.newBuilder()
-                .header("Authorization", "Bearer $password")
-                .build()
-        } else {
-            request
-        }
-        
-        chain.proceed(newRequest)
-    }
 
-    private val okHttpClient = OkHttpClient.Builder()
-        .addInterceptor(authInterceptor)
-        .addInterceptor(loggingInterceptor)
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
+    private val authInterceptor =
+        Interceptor { chain ->
+            val request = chain.request()
+            val password =
+                context?.let {
+                    PreferencesManager.getInstance(it).getServerPassword()
+                }
+
+            val newRequest =
+                if (!password.isNullOrBlank()) {
+                    request.newBuilder()
+                        .header("Authorization", "Bearer $password")
+                        .build()
+                } else {
+                    request
+                }
+
+            chain.proceed(newRequest)
+        }
+
+    private val okHttpClient =
+        OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)
+            .addInterceptor(loggingInterceptor)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
 
     private fun buildRetrofit(): Retrofit {
         return Retrofit.Builder()

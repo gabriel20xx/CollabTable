@@ -7,7 +7,7 @@ data class ItemWithValues(
     @Embedded val item: Item,
     @Relation(
         parentColumn = "id",
-        entityColumn = "itemId"
+        entityColumn = "itemId",
     )
-    val values: List<ItemValue>
+    val values: List<ItemValue>,
 )

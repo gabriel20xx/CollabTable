@@ -9,39 +9,39 @@ enum class FieldType {
     // Text types
     TEXT,
     MULTILINE_TEXT,
-    
+
     // Number types
     NUMBER,
     CURRENCY,
     PERCENTAGE,
-    
+
     // Selection types
     DROPDOWN,
     AUTOCOMPLETE,
     CHECKBOX,
     SWITCH,
-    
+
     // Link types
     URL,
     EMAIL,
     PHONE,
-    
+
     // Date/Time types
     DATE,
     TIME,
     DATETIME,
     DURATION,
-    
+
     // Media types
     IMAGE,
     FILE,
     BARCODE,
     SIGNATURE,
-    
+
     // Other types
     RATING,
     COLOR,
-    LOCATION
+    LOCATION,
 }
 
 @Entity(
@@ -51,10 +51,10 @@ enum class FieldType {
             entity = CollabList::class,
             parentColumns = ["id"],
             childColumns = ["listId"],
-            onDelete = ForeignKey.CASCADE
-        )
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
-    indices = [Index("listId")]
+    indices = [Index("listId")],
 )
 data class Field(
     @PrimaryKey val id: String,
@@ -65,7 +65,7 @@ data class Field(
     val order: Int,
     val createdAt: Long,
     val updatedAt: Long,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
 ) {
     fun getType(): FieldType {
         return try {
@@ -81,7 +81,7 @@ data class Field(
             }
         }
     }
-    
+
     fun getDropdownOptions(): List<String> {
         return if (fieldType == "DROPDOWN" && fieldOptions.isNotBlank()) {
             fieldOptions.split("|")
@@ -89,7 +89,7 @@ data class Field(
             emptyList()
         }
     }
-    
+
     fun getCurrency(): String {
         return if ((fieldType == "CURRENCY" || fieldType == "PRICE") && fieldOptions.isNotBlank()) {
             fieldOptions
@@ -97,7 +97,7 @@ data class Field(
             "CHF"
         }
     }
-    
+
     fun getMaxRating(): Int {
         return if (fieldType == "RATING" && fieldOptions.isNotBlank()) {
             fieldOptions.toIntOrNull() ?: 5
@@ -105,7 +105,7 @@ data class Field(
             5
         }
     }
-    
+
     fun getAutocompleteOptions(): List<String> {
         return if (fieldType == "AUTOCOMPLETE" && fieldOptions.isNotBlank()) {
             fieldOptions.split("|")

@@ -12,21 +12,21 @@ import androidx.room.PrimaryKey
             entity = Item::class,
             parentColumns = ["id"],
             childColumns = ["itemId"],
-            onDelete = ForeignKey.CASCADE
+            onDelete = ForeignKey.CASCADE,
         ),
         ForeignKey(
             entity = Field::class,
             parentColumns = ["id"],
             childColumns = ["fieldId"],
-            onDelete = ForeignKey.CASCADE
-        )
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
-    indices = [Index("itemId"), Index("fieldId")]
+    indices = [Index("itemId"), Index("fieldId")],
 )
 data class ItemValue(
     @PrimaryKey val id: String,
     val itemId: String,
     val fieldId: String,
     val value: String,
-    val updatedAt: Long
+    val updatedAt: Long,
 )

@@ -12,15 +12,15 @@ import androidx.room.PrimaryKey
             entity = CollabList::class,
             parentColumns = ["id"],
             childColumns = ["listId"],
-            onDelete = ForeignKey.CASCADE
-        )
+            onDelete = ForeignKey.CASCADE,
+        ),
     ],
-    indices = [Index("listId")]
+    indices = [Index("listId")],
 )
 data class Item(
     @PrimaryKey val id: String,
     val listId: String,
     val createdAt: Long,
     val updatedAt: Long,
-    val isDeleted: Boolean = false
+    val isDeleted: Boolean = false,
 )

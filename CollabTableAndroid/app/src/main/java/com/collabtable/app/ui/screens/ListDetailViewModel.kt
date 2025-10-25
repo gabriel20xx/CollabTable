@@ -17,7 +17,7 @@ import java.util.UUID
 class ListDetailViewModel(
     private val database: CollabTableDatabase,
     private val listId: String,
-    private val context: Context
+    private val context: Context,
 ) : ViewModel() {
     private val _list = MutableStateFlow<CollabList?>(null)
     val list: StateFlow<CollabList?> = _list.asStateFlow()
@@ -27,7 +27,7 @@ class ListDetailViewModel(
 
     private val _items = MutableStateFlow<List<ItemWithValues>>(emptyList())
     val items: StateFlow<List<ItemWithValues>> = _items.asStateFlow()
-    
+
     private val syncRepository = SyncRepository(context)
 
     init {
@@ -40,10 +40,10 @@ class ListDetailViewModel(
             database.listDao().getListWithFields(listId)
                 .debounce(75)
                 .collect { listWithFields ->
-                _list.value = listWithFields?.list
-            }
+                    _list.value = listWithFields?.list
+                }
         }
-        
+
         viewModelScope.launch {
             database.itemDao().getItemsWithValuesForList(listId).collect { itemsData ->
                 _items.value = itemsData
@@ -58,7 +58,7 @@ class ListDetailViewModel(
                 }
         }
     }
-    
+
     private fun startPeriodicSync() {
         viewModelScope.launch {
             while (true) {
@@ -67,7 +67,7 @@ class ListDetailViewModel(
             }
         }
     }
-    
+
     private suspend fun performSync() {
         syncRepository.performSync()
     }
@@ -79,45 +79,51 @@ class ListDetailViewModel(
                 database.listDao().updateList(
                     currentList.copy(
                         name = newName.trim(),
-                        updatedAt = System.currentTimeMillis()
-                    )
+                        updatedAt = System.currentTimeMillis(),
+                    ),
                 )
                 performSync()
             }
         }
     }
 
-    fun addField(name: String, fieldType: String = "STRING", fieldOptions: String = "") {
+    fun addField(
+        name: String,
+        fieldType: String = "STRING",
+        fieldOptions: String = "",
+    ) {
         viewModelScope.launch {
             val timestamp = System.currentTimeMillis()
             val maxOrder = _fields.value.maxOfOrNull { it.order } ?: -1
-            val newField = Field(
-                id = UUID.randomUUID().toString(),
-                listId = listId,
-                name = name,
-                fieldType = fieldType,
-                fieldOptions = fieldOptions,
-                order = maxOrder + 1,
-                createdAt = timestamp,
-                updatedAt = timestamp
-            )
-            
+            val newField =
+                Field(
+                    id = UUID.randomUUID().toString(),
+                    listId = listId,
+                    name = name,
+                    fieldType = fieldType,
+                    fieldOptions = fieldOptions,
+                    order = maxOrder + 1,
+                    createdAt = timestamp,
+                    updatedAt = timestamp,
+                )
+
             // Create empty ItemValue entries for this new field for all existing items
             val existingItems = _items.value
-            val newValues = if (existingItems.isNotEmpty()) {
-                existingItems.map { itemWithValues ->
-                    ItemValue(
-                        id = UUID.randomUUID().toString(),
-                        itemId = itemWithValues.item.id,
-                        fieldId = newField.id,
-                        value = "",
-                        updatedAt = timestamp
-                    )
+            val newValues =
+                if (existingItems.isNotEmpty()) {
+                    existingItems.map { itemWithValues ->
+                        ItemValue(
+                            id = UUID.randomUUID().toString(),
+                            itemId = itemWithValues.item.id,
+                            fieldId = newField.id,
+                            value = "",
+                            updatedAt = timestamp,
+                        )
+                    }
+                } else {
+                    emptyList()
                 }
-            } else {
-                emptyList()
-            }
-            
+
             // Insert atomically to avoid intermediate inconsistent states
             database.withTransaction {
                 database.fieldDao().insertField(newField)
@@ -125,7 +131,7 @@ class ListDetailViewModel(
                     database.itemValueDao().insertValues(newValues)
                 }
             }
-            
+
             performSync()
         }
     }
@@ -137,7 +143,11 @@ class ListDetailViewModel(
         }
     }
 
-    fun updateField(fieldId: String, fieldType: String, fieldOptions: String) {
+    fun updateField(
+        fieldId: String,
+        fieldType: String,
+        fieldOptions: String,
+    ) {
         viewModelScope.launch {
             val field = database.fieldDao().getFieldById(fieldId)
             if (field != null) {
@@ -145,8 +155,8 @@ class ListDetailViewModel(
                     field.copy(
                         fieldType = fieldType,
                         fieldOptions = fieldOptions,
-                        updatedAt = System.currentTimeMillis()
-                    )
+                        updatedAt = System.currentTimeMillis(),
+                    ),
                 )
                 performSync()
             }
@@ -156,25 +166,27 @@ class ListDetailViewModel(
     fun addItem() {
         viewModelScope.launch {
             val timestamp = System.currentTimeMillis()
-            val newItem = Item(
-                id = UUID.randomUUID().toString(),
-                listId = listId,
-                createdAt = timestamp,
-                updatedAt = timestamp
-            )
+            val newItem =
+                Item(
+                    id = UUID.randomUUID().toString(),
+                    listId = listId,
+                    createdAt = timestamp,
+                    updatedAt = timestamp,
+                )
             // Insert item and its values atomically
             database.withTransaction {
                 database.itemDao().insertItem(newItem)
                 // Create empty values for each field
-                val values = _fields.value.map { field ->
-                    ItemValue(
-                        id = UUID.randomUUID().toString(),
-                        itemId = newItem.id,
-                        fieldId = field.id,
-                        value = "",
-                        updatedAt = timestamp
-                    )
-                }
+                val values =
+                    _fields.value.map { field ->
+                        ItemValue(
+                            id = UUID.randomUUID().toString(),
+                            itemId = newItem.id,
+                            fieldId = field.id,
+                            value = "",
+                            updatedAt = timestamp,
+                        )
+                    }
                 if (values.isNotEmpty()) {
                     database.itemValueDao().insertValues(values)
                 }
@@ -186,25 +198,27 @@ class ListDetailViewModel(
     fun addItemWithValues(fieldValues: Map<String, String>) {
         viewModelScope.launch {
             val timestamp = System.currentTimeMillis()
-            val newItem = Item(
-                id = UUID.randomUUID().toString(),
-                listId = listId,
-                createdAt = timestamp,
-                updatedAt = timestamp
-            )
+            val newItem =
+                Item(
+                    id = UUID.randomUUID().toString(),
+                    listId = listId,
+                    createdAt = timestamp,
+                    updatedAt = timestamp,
+                )
             // Insert item and provided values atomically
             database.withTransaction {
                 database.itemDao().insertItem(newItem)
                 // Create values for each field with the provided values
-                val values = _fields.value.map { field ->
-                    ItemValue(
-                        id = UUID.randomUUID().toString(),
-                        itemId = newItem.id,
-                        fieldId = field.id,
-                        value = fieldValues[field.id] ?: "",
-                        updatedAt = timestamp
-                    )
-                }
+                val values =
+                    _fields.value.map { field ->
+                        ItemValue(
+                            id = UUID.randomUUID().toString(),
+                            itemId = newItem.id,
+                            fieldId = field.id,
+                            value = fieldValues[field.id] ?: "",
+                            updatedAt = timestamp,
+                        )
+                    }
                 if (values.isNotEmpty()) {
                     database.itemValueDao().insertValues(values)
                 }
@@ -213,15 +227,18 @@ class ListDetailViewModel(
         }
     }
 
-    fun updateItemValue(itemValueId: String, newValue: String) {
+    fun updateItemValue(
+        itemValueId: String,
+        newValue: String,
+    ) {
         viewModelScope.launch {
             val itemValue = database.itemValueDao().getValueById(itemValueId)
             if (itemValue != null) {
                 database.itemValueDao().updateValue(
                     itemValue.copy(
                         value = newValue,
-                        updatedAt = System.currentTimeMillis()
-                    )
+                        updatedAt = System.currentTimeMillis(),
+                    ),
                 )
                 performSync()
             }
@@ -234,7 +251,7 @@ class ListDetailViewModel(
             performSync()
         }
     }
-    
+
     fun reorderFields(reorderedFields: List<Field>) {
         viewModelScope.launch {
             val timestamp = System.currentTimeMillis()

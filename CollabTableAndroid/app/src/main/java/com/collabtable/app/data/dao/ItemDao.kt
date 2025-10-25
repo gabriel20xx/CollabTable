@@ -30,7 +30,10 @@ interface ItemDao {
     suspend fun updateItem(item: Item)
 
     @Query("UPDATE items SET isDeleted = 1, updatedAt = :timestamp WHERE id = :itemId")
-    suspend fun softDeleteItem(itemId: String, timestamp: Long)
+    suspend fun softDeleteItem(
+        itemId: String,
+        timestamp: Long,
+    )
 
     @Query("DELETE FROM items WHERE id = :itemId")
     suspend fun deleteItem(itemId: String)

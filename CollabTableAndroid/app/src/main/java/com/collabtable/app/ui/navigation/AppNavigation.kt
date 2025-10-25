@@ -20,17 +20,18 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val context = LocalContext.current
     val preferencesManager = remember { PreferencesManager.getInstance(context) }
-    
+
     // Determine start destination based on first run
-    val startDestination = if (preferencesManager.isFirstRun()) {
-        "server_setup"
-    } else {
-        "lists"
-    }
+    val startDestination =
+        if (preferencesManager.isFirstRun()) {
+            "server_setup"
+        } else {
+            "lists"
+        }
 
     NavHost(
         navController = navController,
-        startDestination = startDestination
+        startDestination = startDestination,
     ) {
         composable("server_setup") {
             ServerSetupScreen(
@@ -39,7 +40,7 @@ fun AppNavigation() {
                     navController.navigate("lists") {
                         popUpTo("server_setup") { inclusive = true }
                     }
-                }
+                },
             )
         }
 
@@ -53,18 +54,18 @@ fun AppNavigation() {
                 },
                 onNavigateToLogs = {
                     navController.navigate("logs")
-                }
+                },
             )
         }
 
         composable(
             route = "list/{listId}",
-            arguments = listOf(navArgument("listId") { type = NavType.StringType })
+            arguments = listOf(navArgument("listId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val listId = backStackEntry.arguments?.getString("listId") ?: return@composable
             ListDetailScreen(
                 listId = listId,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
             )
         }
 
@@ -76,13 +77,13 @@ fun AppNavigation() {
                     navController.navigate("server_setup") {
                         popUpTo(0) { inclusive = true }
                     }
-                }
+                },
             )
         }
 
         composable("logs") {
             LogsScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
             )
         }
     }

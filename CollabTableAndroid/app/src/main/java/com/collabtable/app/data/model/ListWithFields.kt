@@ -7,7 +7,7 @@ data class ListWithFields(
     @Embedded val list: CollabList,
     @Relation(
         parentColumn = "id",
-        entityColumn = "listId"
+        entityColumn = "listId",
     )
-    val fields: List<Field>
+    val fields: List<Field>,
 )

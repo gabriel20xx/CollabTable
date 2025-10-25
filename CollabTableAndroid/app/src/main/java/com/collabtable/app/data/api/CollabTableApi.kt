@@ -13,7 +13,7 @@ data class SyncRequest(
     val lists: List<CollabList>,
     val fields: List<Field>,
     val items: List<Item>,
-    val itemValues: List<ItemValue>
+    val itemValues: List<ItemValue>,
 )
 
 data class SyncResponse(
@@ -21,10 +21,12 @@ data class SyncResponse(
     val fields: List<Field>,
     val items: List<Item>,
     val itemValues: List<ItemValue>,
-    val serverTimestamp: Long
+    val serverTimestamp: Long,
 )
 
 interface CollabTableApi {
     @POST("sync")
-    suspend fun sync(@Body request: SyncRequest): Response<SyncResponse>
+    suspend fun sync(
+        @Body request: SyncRequest,
+    ): Response<SyncResponse>
 }

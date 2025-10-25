@@ -30,7 +30,10 @@ interface ListDao {
     suspend fun updateList(list: CollabList)
 
     @Query("UPDATE lists SET isDeleted = 1, updatedAt = :timestamp WHERE id = :listId")
-    suspend fun softDeleteList(listId: String, timestamp: Long)
+    suspend fun softDeleteList(
+        listId: String,
+        timestamp: Long,
+    )
 
     @Query("DELETE FROM lists WHERE id = :listId")
     suspend fun deleteList(listId: String)

@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class PreferencesManager(context: Context) {
-    private val prefs: SharedPreferences = 
+    private val prefs: SharedPreferences =
         context.getSharedPreferences("collab_table_prefs", Context.MODE_PRIVATE)
 
     private val _serverUrl = MutableStateFlow(getServerUrl())
@@ -79,10 +79,11 @@ class PreferencesManager(context: Context) {
     }
 
     fun setThemeMode(mode: String) {
-        val normalized = when (mode.lowercase()) {
-            THEME_MODE_LIGHT, THEME_MODE_DARK, THEME_MODE_SYSTEM -> mode.lowercase()
-            else -> THEME_MODE_SYSTEM
-        }
+        val normalized =
+            when (mode.lowercase()) {
+                THEME_MODE_LIGHT, THEME_MODE_DARK, THEME_MODE_SYSTEM -> mode.lowercase()
+                else -> THEME_MODE_SYSTEM
+            }
         prefs.edit().putString(KEY_THEME_MODE, normalized).apply()
         _themeMode.value = normalized
     }
@@ -109,15 +110,15 @@ class PreferencesManager(context: Context) {
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_FIRST_RUN = "first_run"
         private const val KEY_SERVER_PASSWORD = "server_password"
-    private const val KEY_LAST_SYNC_TIMESTAMP = "last_sync_timestamp"
-    private const val KEY_THEME_MODE = "theme_mode" // system|light|dark
-    private const val KEY_DYNAMIC_COLOR = "dynamic_color"
-    private const val KEY_AMOLED_DARK = "amoled_dark"
+        private const val KEY_LAST_SYNC_TIMESTAMP = "last_sync_timestamp"
+        private const val KEY_THEME_MODE = "theme_mode" // system|light|dark
+        private const val KEY_DYNAMIC_COLOR = "dynamic_color"
+        private const val KEY_AMOLED_DARK = "amoled_dark"
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"
-    const val THEME_MODE_SYSTEM = "system"
-    const val THEME_MODE_LIGHT = "light"
-    const val THEME_MODE_DARK = "dark"
-        
+        const val THEME_MODE_SYSTEM = "system"
+        const val THEME_MODE_LIGHT = "light"
+        const val THEME_MODE_DARK = "dark"
+
         @Volatile
         private var instance: PreferencesManager? = null
 

@@ -1,9 +1,10 @@
 package com.collabtable.app.ui.screens
 
+import android.os.NetworkOnMainThreadException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.data.api.ApiClient
+import com.collabtable.app.data.preferences.PreferencesManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,7 +13,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import android.os.NetworkOnMainThreadException
 import java.io.IOException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -20,7 +20,7 @@ import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 
 class ServerSetupViewModel(
-    private val preferencesManager: PreferencesManager
+    private val preferencesManager: PreferencesManager,
 ) : ViewModel() {
     private val _isValidating = MutableStateFlow(false)
     val isValidating: StateFlow<Boolean> = _isValidating.asStateFlow()
@@ -31,12 +31,16 @@ class ServerSetupViewModel(
     private val _validationError = MutableStateFlow<String?>(null)
     val validationError: StateFlow<String?> = _validationError.asStateFlow()
 
-    private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
-        .build()
+    private val okHttpClient =
+        OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .build()
 
-    fun validateAndSaveServerUrl(url: String, password: String) {
+    fun validateAndSaveServerUrl(
+        url: String,
+        password: String,
+    ) {
         viewModelScope.launch {
             _isValidating.value = true
             _validationError.value = null
@@ -45,16 +49,16 @@ class ServerSetupViewModel(
             try {
                 // Normalize URL - add protocol if missing
                 var normalizedUrl = url.trim()
-                
+
                 // Check if URL has a protocol
                 val hasProtocol = normalizedUrl.startsWith("http://") || normalizedUrl.startsWith("https://")
                 val hasPort = normalizedUrl.contains(":")
-                
+
                 // Add http:// if no protocol specified
                 if (!hasProtocol) {
                     normalizedUrl = "http://$normalizedUrl"
                 }
-                
+
                 // Add default port if no port specified
                 if (!hasPort || normalizedUrl.matches(Regex("^https?://.+$")) && !normalizedUrl.substringAfter("://").contains(":")) {
                     // Extract protocol and host
@@ -62,23 +66,23 @@ class ServerSetupViewModel(
                     val hostAndPath = normalizedUrl.substringAfter("://")
                     val host = if (hostAndPath.contains("/")) hostAndPath.substringBefore("/") else hostAndPath
                     val path = if (hostAndPath.contains("/")) "/" + hostAndPath.substringAfter("/") else ""
-                    
+
                     // Add default port based on protocol
                     val defaultPort = if (protocol == "https") "443" else "80"
                     normalizedUrl = "$protocol://$host:$defaultPort$path"
                 }
-                
+
                 // Remove trailing slash if present for consistent handling
                 normalizedUrl = normalizedUrl.trimEnd('/')
-                
+
                 // Add /api/ if not present
                 if (!normalizedUrl.contains("/api")) {
                     normalizedUrl = "$normalizedUrl/api"
                 }
-                
+
                 // Ensure it ends with /
                 normalizedUrl = if (normalizedUrl.endsWith("/")) normalizedUrl else "$normalizedUrl/"
-                
+
                 // Validate password is not empty
                 if (password.isBlank()) {
                     _validationError.value = "Password cannot be empty"
@@ -88,31 +92,34 @@ class ServerSetupViewModel(
 
                 // Try to reach the health endpoint (no auth required)
                 val healthUrl = normalizedUrl.replace("/api/", "/health")
-                val healthRequest = Request.Builder()
-                    .url(healthUrl)
-                    .get()
-                    .build()
+                val healthRequest =
+                    Request.Builder()
+                        .url(healthUrl)
+                        .get()
+                        .build()
 
                 try {
                     // Execute network call on IO dispatcher
-                    val healthResponse = withContext(Dispatchers.IO) {
-                        okHttpClient.newCall(healthRequest).execute()
-                    }
-                    
-                    if (!healthResponse.isSuccessful) {
-                        val errorMessage = when (healthResponse.code) {
-                            404 -> "Health endpoint not found. Check server URL."
-                            500 -> "Server internal error. Check server logs."
-                            503 -> "Service unavailable. Server may be starting up."
-                            else -> "Server returned HTTP ${healthResponse.code}"
+                    val healthResponse =
+                        withContext(Dispatchers.IO) {
+                            okHttpClient.newCall(healthRequest).execute()
                         }
+
+                    if (!healthResponse.isSuccessful) {
+                        val errorMessage =
+                            when (healthResponse.code) {
+                                404 -> "Health endpoint not found. Check server URL."
+                                500 -> "Server internal error. Check server logs."
+                                503 -> "Service unavailable. Server may be starting up."
+                                else -> "Server returned HTTP ${healthResponse.code}"
+                            }
                         healthResponse.close()
                         _validationError.value = errorMessage
                         _isValidating.value = false
                         return@launch
                     }
                     healthResponse.close()
-                    
+
                     // Try to upgrade to HTTPS if currently using HTTP
                     var finalUrl = normalizedUrl
                     if (normalizedUrl.startsWith("http://")) {
@@ -121,18 +128,20 @@ class ServerSetupViewModel(
                         if (httpsUrl.contains(":80/")) {
                             httpsUrl = httpsUrl.replace(":80/", ":443/")
                         }
-                        
+
                         val httpsHealthUrl = httpsUrl.replace("/api/", "/health")
-                        val httpsHealthRequest = Request.Builder()
-                            .url(httpsHealthUrl)
-                            .get()
-                            .build()
-                        
+                        val httpsHealthRequest =
+                            Request.Builder()
+                                .url(httpsHealthUrl)
+                                .get()
+                                .build()
+
                         try {
                             // Execute HTTPS check on IO dispatcher
-                            val httpsResponse = withContext(Dispatchers.IO) {
-                                okHttpClient.newCall(httpsHealthRequest).execute()
-                            }
+                            val httpsResponse =
+                                withContext(Dispatchers.IO) {
+                                    okHttpClient.newCall(httpsHealthRequest).execute()
+                                }
                             if (httpsResponse.isSuccessful) {
                                 // HTTPS works! Upgrade to it
                                 finalUrl = httpsUrl
@@ -142,20 +151,22 @@ class ServerSetupViewModel(
                             // HTTPS doesn't work, stick with HTTP
                         }
                     }
-                    
+
                     // Now validate the password by making an authenticated request
                     val testUrl = "${finalUrl}lists"
-                    val authRequest = Request.Builder()
-                        .url(testUrl)
-                        .header("Authorization", "Bearer $password")
-                        .get()
-                        .build()
-                    
+                    val authRequest =
+                        Request.Builder()
+                            .url(testUrl)
+                            .header("Authorization", "Bearer $password")
+                            .get()
+                            .build()
+
                     // Execute auth check on IO dispatcher
-                    val authResponse = withContext(Dispatchers.IO) {
-                        okHttpClient.newCall(authRequest).execute()
-                    }
-                    
+                    val authResponse =
+                        withContext(Dispatchers.IO) {
+                            okHttpClient.newCall(authRequest).execute()
+                        }
+
                     if (authResponse.isSuccessful) {
                         // Password is valid, save both URL and password
                         preferencesManager.setServerUrl(finalUrl)
@@ -168,13 +179,14 @@ class ServerSetupViewModel(
                     } else if (authResponse.code == 401) {
                         _validationError.value = "Invalid password. Please check and try again."
                     } else {
-                        val errorMessage = when (authResponse.code) {
-                            403 -> "Access forbidden. Check server configuration."
-                            404 -> "API endpoint not found. Check URL path."
-                            500 -> "Server error. Check server logs."
-                            503 -> "Service unavailable. Try again later."
-                            else -> "Server returned HTTP ${authResponse.code}"
-                        }
+                        val errorMessage =
+                            when (authResponse.code) {
+                                403 -> "Access forbidden. Check server configuration."
+                                404 -> "API endpoint not found. Check URL path."
+                                500 -> "Server error. Check server logs."
+                                503 -> "Service unavailable. Try again later."
+                                else -> "Server returned HTTP ${authResponse.code}"
+                            }
                         _validationError.value = errorMessage
                     }
                     authResponse.close()

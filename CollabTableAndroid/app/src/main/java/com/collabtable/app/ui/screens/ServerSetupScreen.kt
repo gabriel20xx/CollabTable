@@ -21,9 +21,7 @@ import com.collabtable.app.data.preferences.PreferencesManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServerSetupScreen(
-    onSetupComplete: () -> Unit
-) {
+fun ServerSetupScreen(onSetupComplete: () -> Unit) {
     val context = LocalContext.current
     val preferencesManager = remember { PreferencesManager.getInstance(context) }
     val viewModel = remember { ServerSetupViewModel(preferencesManager) }
@@ -45,20 +43,22 @@ fun ServerSetupScreen(
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text("Server Setup") },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                )
+                colors =
+                    TopAppBarDefaults.centerAlignedTopAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
             )
-        }
+        },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Spacer(modifier = Modifier.height(4.dp))
 
@@ -72,31 +72,35 @@ fun ServerSetupScreen(
                 isError = validationError != null,
                 supportingText = {
                     when {
-                        validationError != null -> Text(
-                            text = validationError ?: "",
-                            color = MaterialTheme.colorScheme.error
-                        )
+                        validationError != null ->
+                            Text(
+                                text = validationError ?: "",
+                                color = MaterialTheme.colorScheme.error,
+                            )
                         else -> Text("Hostname only. Port optional (80/443 default). No http://, no /api/")
                     }
                 },
                 trailingIcon = {
                     when {
-                        isValidating -> CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
-                        )
-                        validationResult == true -> Icon(
-                            Icons.Default.CheckCircle,
-                            contentDescription = "Valid",
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        validationError != null -> Icon(
-                            Icons.Default.Error,
-                            contentDescription = "Error",
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                        isValidating ->
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp,
+                            )
+                        validationResult == true ->
+                            Icon(
+                                Icons.Default.CheckCircle,
+                                contentDescription = "Valid",
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        validationError != null ->
+                            Icon(
+                                Icons.Default.Error,
+                                contentDescription = "Error",
+                                tint = MaterialTheme.colorScheme.error,
+                            )
                     }
-                }
+                },
             )
 
             OutlinedTextField(
@@ -112,23 +116,23 @@ fun ServerSetupScreen(
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
                             imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                            contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            contentDescription = if (passwordVisible) "Hide password" else "Show password",
                         )
                     }
                 },
-                supportingText = { Text("Server password for authentication") }
+                supportingText = { Text("Server password for authentication") },
             )
 
             Button(
                 onClick = { viewModel.validateAndSaveServerUrl(serverUrl.trim(), serverPassword.trim()) },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = serverUrl.isNotBlank() && serverPassword.isNotBlank() && !isValidating
+                enabled = serverUrl.isNotBlank() && serverPassword.isNotBlank() && !isValidating,
             ) {
                 if (isValidating) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp
+                        strokeWidth = 2.dp,
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Validating...")
@@ -141,7 +145,7 @@ fun ServerSetupScreen(
                 text = "Tip: Emulator host 10.0.2.2:3000 · Physical device uses your PC IP",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
+                textAlign = TextAlign.Center,
             )
         }
     }

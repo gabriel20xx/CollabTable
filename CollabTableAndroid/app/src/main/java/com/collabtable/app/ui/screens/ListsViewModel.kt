@@ -15,14 +15,14 @@ import java.util.UUID
 
 class ListsViewModel(
     private val database: CollabTableDatabase,
-    private val context: Context
+    private val context: Context,
 ) : ViewModel() {
     private val _lists = MutableStateFlow<List<CollabList>>(emptyList())
     val lists: StateFlow<List<CollabList>> = _lists.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
-    
+
     private val syncRepository = SyncRepository(context)
 
     init {
@@ -43,14 +43,14 @@ class ListsViewModel(
             }
         }
     }
-    
+
     private suspend fun startPeriodicSync() {
         while (true) {
             kotlinx.coroutines.delay(5000) // Wait 5 seconds before next sync
             performSync()
         }
     }
-    
+
     private suspend fun performSync() {
         val result = syncRepository.performSync()
         result.onFailure { error ->
@@ -62,19 +62,23 @@ class ListsViewModel(
         viewModelScope.launch {
             Logger.i("Tables", "➕ Creating table: \"$name\"")
             val timestamp = System.currentTimeMillis()
-            val newList = CollabList(
-                id = UUID.randomUUID().toString(),
-                name = name,
-                createdAt = timestamp,
-                updatedAt = timestamp
-            )
+            val newList =
+                CollabList(
+                    id = UUID.randomUUID().toString(),
+                    name = name,
+                    createdAt = timestamp,
+                    updatedAt = timestamp,
+                )
             database.listDao().insertList(newList)
             // Sync immediately after creating
             performSync()
         }
     }
 
-    fun renameList(listId: String, newName: String) {
+    fun renameList(
+        listId: String,
+        newName: String,
+    ) {
         viewModelScope.launch {
             val list = database.listDao().getListById(listId)
             if (list != null && newName.isNotBlank()) {
@@ -82,8 +86,8 @@ class ListsViewModel(
                 database.listDao().updateList(
                     list.copy(
                         name = newName.trim(),
-                        updatedAt = System.currentTimeMillis()
-                    )
+                        updatedAt = System.currentTimeMillis(),
+                    ),
                 )
                 // Sync immediately after renaming
                 performSync()
@@ -102,7 +106,7 @@ class ListsViewModel(
             }
         }
     }
-    
+
     fun manualSync() {
         viewModelScope.launch {
             Logger.i("Tables", "🔄 Manual sync requested")
