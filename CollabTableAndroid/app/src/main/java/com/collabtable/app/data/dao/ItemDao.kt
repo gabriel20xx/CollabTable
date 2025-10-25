@@ -17,6 +17,9 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE id = :itemId")
     suspend fun getItemById(itemId: String): Item?
 
+    @Query("SELECT id FROM items")
+    suspend fun getAllItemIds(): List<String>
+
     @Upsert
     suspend fun insertItem(item: Item)
 

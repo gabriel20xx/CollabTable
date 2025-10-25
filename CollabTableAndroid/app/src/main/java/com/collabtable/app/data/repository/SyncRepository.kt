@@ -7,6 +7,7 @@ import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.room.withTransaction
 
 class SyncRepository(context: Context) {
     private val database = CollabTableDatabase.getDatabase(context)
@@ -25,9 +26,8 @@ class SyncRepository(context: Context) {
         try {
             val lastSync = getLastSyncTimestamp()
             val isInitialSync = lastSync == 0L
-            
             if (isInitialSync) {
-                Logger.i("Sync", "🔄 Starting initial sync with server")
+                Logger.i("Sync", "[SYNC] Starting initial sync with server")
             }
 
             // Gather local changes since last sync
@@ -36,19 +36,13 @@ class SyncRepository(context: Context) {
             val localItems = database.itemDao().getItemsUpdatedSince(lastSync)
             val localValues = database.itemValueDao().getValuesUpdatedSince(lastSync)
 
-            // Only log when sending data
-            if (localLists.isNotEmpty() || localFields.isNotEmpty() || localItems.isNotEmpty()) {
-                Logger.i("Sync", "⬆️ Sending to server:")
-                if (localLists.isNotEmpty()) {
-                    Logger.i("Sync", "   📋 ${localLists.size} list(s)")
-                    localLists.forEach { list ->
-                        val action = if (list.isDeleted) "Deleted" else "Updated"
-                        Logger.i("Sync", "      $action: ${list.name}")
-                    }
-                }
-                if (localFields.isNotEmpty()) Logger.i("Sync", "   🏷️ ${localFields.size} field(s)")
-                if (localItems.isNotEmpty()) Logger.i("Sync", "   📝 ${localItems.size} item(s)")
-                if (localValues.isNotEmpty()) Logger.i("Sync", "   💾 ${localValues.size} value(s)")
+            // Only log send when there are actual local changes
+            val localTotal = localLists.size + localFields.size + localItems.size + localValues.size
+            if (localTotal > 0) {
+                Logger.i(
+                    "Sync",
+                    "[OUT] Sending changes (lists=${localLists.size}, fields=${localFields.size}, items=${localItems.size}, values=${localValues.size})"
+                )
             }
 
             // Send to server and get updates
@@ -65,43 +59,52 @@ class SyncRepository(context: Context) {
             if (response.isSuccessful) {
                 val syncResponse = response.body()!!
 
-                // Only log when receiving data
-                if (syncResponse.lists.isNotEmpty() || syncResponse.fields.isNotEmpty() || 
-                    syncResponse.items.isNotEmpty() || syncResponse.itemValues.isNotEmpty()) {
-                    Logger.i("Sync", "⬇️ Received from server:")
-                    if (syncResponse.lists.isNotEmpty()) {
-                        Logger.i("Sync", "   📋 ${syncResponse.lists.size} list(s)")
-                        syncResponse.lists.forEach { list ->
-                            if (!list.isDeleted) {
-                                Logger.i("Sync", "      ${list.name}")
-                            }
-                        }
-                    }
-                    if (syncResponse.fields.isNotEmpty()) Logger.i("Sync", "   🏷️ ${syncResponse.fields.size} field(s)")
-                    if (syncResponse.items.isNotEmpty()) Logger.i("Sync", "   📝 ${syncResponse.items.size} item(s)")
-                    if (syncResponse.itemValues.isNotEmpty()) Logger.i("Sync", "   💾 ${syncResponse.itemValues.size} value(s)")
+                // Only log receive when there are actual server changes
+                val inTotal = syncResponse.lists.size + syncResponse.fields.size + syncResponse.items.size + syncResponse.itemValues.size
+                if (inTotal > 0) {
+                    Logger.i(
+                        "Sync",
+                        "[IN] Received changes (lists=${syncResponse.lists.size}, fields=${syncResponse.fields.size}, items=${syncResponse.items.size}, values=${syncResponse.itemValues.size})"
+                    )
                 }
 
-                // Apply server changes to local database
-                database.listDao().insertLists(syncResponse.lists)
-                database.fieldDao().insertFields(syncResponse.fields)
-                database.itemDao().insertItems(syncResponse.items)
-                database.itemValueDao().insertValues(syncResponse.itemValues)
+                // Apply server changes to local database atomically in correct order
+                database.withTransaction {
+                    database.listDao().insertLists(syncResponse.lists)
+                    database.fieldDao().insertFields(syncResponse.fields)
+                    database.itemDao().insertItems(syncResponse.items)
+
+                    // Filter item values to only those whose parents exist locally to avoid FK violations
+                    val existingItemIds = database.itemDao().getAllItemIds().toSet()
+                    val existingFieldIds = database.fieldDao().getAllFieldIds().toSet()
+                    val filteredValues = syncResponse.itemValues.filter { v ->
+                        v.itemId in existingItemIds && v.fieldId in existingFieldIds
+                    }
+
+                    if (filteredValues.size != syncResponse.itemValues.size) {
+                        val dropped = syncResponse.itemValues.size - filteredValues.size
+                        Logger.w("Sync", "Dropping $dropped item value(s) with missing parents to avoid FK errors")
+                    }
+
+                    if (filteredValues.isNotEmpty()) {
+                        database.itemValueDao().insertValues(filteredValues)
+                    }
+                }
 
                 // Update last sync timestamp
                 setLastSyncTimestamp(syncResponse.serverTimestamp)
 
                 if (isInitialSync) {
-                    Logger.i("Sync", "✅ Initial sync completed")
+                    Logger.i("Sync", "[SYNC] Initial sync completed")
                 }
 
                 return@withContext Result.success(Unit)
             } else {
-                Logger.e("Sync", "❌ Sync failed: HTTP ${response.code()}")
+                Logger.e("Sync", "[ERROR] Sync failed: HTTP ${response.code()}")
                 return@withContext Result.failure(Exception("Sync failed: ${response.code()}"))
             }
         } catch (e: Exception) {
-            Logger.e("Sync", "❌ Sync error: ${e.message}")
+            Logger.e("Sync", "[ERROR] Sync error: ${e.message}")
             return@withContext Result.failure(e)
         }
     }

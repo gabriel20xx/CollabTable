@@ -12,6 +12,9 @@ interface FieldDao {
     @Query("SELECT * FROM fields WHERE id = :fieldId")
     suspend fun getFieldById(fieldId: String): Field?
 
+    @Query("SELECT id FROM fields")
+    suspend fun getAllFieldIds(): List<String>
+
     @Upsert
     suspend fun insertField(field: Field)
 
