@@ -88,8 +88,13 @@ class SyncRepository(context: Context) {
 
                 // Apply server changes to local database atomically in correct order
                 database.withTransaction {
-                    // 1) Upsert lists first
-                    database.listDao().insertLists(syncResponse.lists)
+                    // 1) Upsert lists first, preserving local orderIndex when present
+                    val idOrderMap = database.listDao().getListIdsAndOrder().associate { it.id to it.orderIndex }
+                    val listsPreservingOrder = syncResponse.lists.map { incoming ->
+                        val localOrder = idOrderMap[incoming.id]
+                        if (localOrder != null) incoming.copy(orderIndex = localOrder) else incoming
+                    }
+                    database.listDao().insertLists(listsPreservingOrder)
 
                     // Build set of existing list ids to guard child inserts
                     val existingListIds = database.listDao().getAllListIds().toSet()

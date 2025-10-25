@@ -5,9 +5,14 @@ import com.collabtable.app.data.model.CollabList
 import com.collabtable.app.data.model.ListWithFields
 import kotlinx.coroutines.flow.Flow
 
+data class ListIdAndOrder(
+    val id: String,
+    val orderIndex: Long?,
+)
+
 @Dao
 interface ListDao {
-    @Query("SELECT * FROM lists WHERE isDeleted = 0 ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM lists WHERE isDeleted = 0")
     fun getAllLists(): Flow<List<CollabList>>
 
     @Transaction
@@ -20,6 +25,9 @@ interface ListDao {
     @Query("SELECT id FROM lists")
     suspend fun getAllListIds(): List<String>
 
+    @Query("SELECT id, orderIndex FROM lists")
+    suspend fun getListIdsAndOrder(): List<ListIdAndOrder>
+
     @Upsert
     suspend fun insertList(list: CollabList)
 
@@ -28,6 +36,19 @@ interface ListDao {
 
     @Update
     suspend fun updateList(list: CollabList)
+
+    @Query("UPDATE lists SET orderIndex = :orderIndex WHERE id = :listId")
+    suspend fun updateListOrderIndex(
+        listId: String,
+        orderIndex: Long,
+    )
+
+    @Transaction
+    suspend fun updateOrderIndexes(order: List<Pair<String, Long>>) {
+        order.forEach { (id, idx) ->
+            updateListOrderIndex(id, idx)
+        }
+    }
 
     @Query("UPDATE lists SET isDeleted = 1, updatedAt = :timestamp WHERE id = :listId")
     suspend fun softDeleteList(

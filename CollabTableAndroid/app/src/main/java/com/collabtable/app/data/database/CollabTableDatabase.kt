@@ -17,6 +17,14 @@ val MIGRATION_1_2 =
         }
     }
 
+val MIGRATION_2_3 =
+    object : Migration(2, 3) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            // Local-only column for manual reordering; nullable so existing rows remain unaffected
+            database.execSQL("ALTER TABLE lists ADD COLUMN orderIndex INTEGER")
+        }
+    }
+
 @Database(
     entities = [
         CollabList::class,
@@ -24,7 +32,7 @@ val MIGRATION_1_2 =
         Item::class,
         ItemValue::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class CollabTableDatabase : RoomDatabase() {
@@ -48,7 +56,7 @@ abstract class CollabTableDatabase : RoomDatabase() {
                         CollabTableDatabase::class.java,
                         "collab_table_database",
                     )
-                        .addMigrations(MIGRATION_1_2)
+                        .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                         .build()
                 INSTANCE = instance
                 instance

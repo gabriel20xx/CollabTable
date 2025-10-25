@@ -1,18 +1,47 @@
 package com.collabtable.app.ui.screens
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.Sort
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -21,8 +50,11 @@ import androidx.compose.ui.unit.dp
 import com.collabtable.app.R
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
-import java.text.SimpleDateFormat
-import java.util.*
+import com.collabtable.app.data.preferences.PreferencesManager
+import org.burnoutcrew.reorderable.ReorderableItem
+import org.burnoutcrew.reorderable.detectReorder
+import org.burnoutcrew.reorderable.rememberReorderableLazyListState
+import org.burnoutcrew.reorderable.reorderable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +66,7 @@ fun ListsScreen(
     val context = LocalContext.current
     val database = remember { CollabTableDatabase.getDatabase(context) }
     val viewModel = remember { ListsViewModel(database, context) }
+    val prefs = remember { PreferencesManager.getInstance(context) }
 
     val lists by viewModel.lists.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -53,8 +86,12 @@ fun ListsScreen(
                     IconButton(onClick = onNavigateToLogs) {
                         Icon(Icons.Default.List, contentDescription = "Logs")
                     }
+                    SortMenu(prefs = prefs)
                     IconButton(onClick = onNavigateToSettings) {
-                        Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.settings))
+                        Icon(
+                            Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.settings),
+                        )
                     }
                 },
                 colors =
@@ -65,9 +102,7 @@ fun ListsScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showCreateDialog = true },
-            ) {
+            FloatingActionButton(onClick = { showCreateDialog = true }) {
                 Icon(Icons.Default.Add, contentDescription = stringResource(R.string.create_list))
             }
         },
@@ -79,7 +114,6 @@ fun ListsScreen(
                     .padding(padding),
         ) {
             if (isLoading && lists.isEmpty()) {
-                // Show loading indicator during initial sync
                 Column(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -93,7 +127,6 @@ fun ListsScreen(
                     )
                 }
             } else if (lists.isEmpty()) {
-                // Show empty state
                 Column(
                     modifier = Modifier.align(Alignment.Center),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -111,19 +144,39 @@ fun ListsScreen(
                     )
                 }
             } else {
-                // Show lists
+                val reorderState = rememberReorderableLazyListState(onMove = { from, to ->
+                    val fromIdx = from.index
+                    val toIdx = to.index
+                    if (fromIdx != toIdx) {
+                        viewModel.reorder(fromIdx, toIdx)
+                    }
+                })
+
                 LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .reorderable(reorderState),
+                    state = reorderState.listState,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    items(lists, key = { it.id }) { list ->
-                        ListItem(
-                            list = list,
-                            onListClick = { onNavigateToList(list.id) },
-                            onEditClick = { listToEdit = list },
-                            onDeleteClick = { listToDelete = list },
-                        )
+                    itemsIndexed(lists, key = { _, it -> it.id }) { index, list ->
+                        ReorderableItem(reorderState, key = list.id) { isDragging ->
+                            ListItem(
+                                list = list,
+                                onListClick = { onNavigateToList(list.id) },
+                                onEditClick = { listToEdit = list },
+                                onDeleteClick = { listToDelete = list },
+                                dragHandle = {
+                                    Icon(
+                                        imageVector = Icons.Default.DragHandle,
+                                        contentDescription = "Reorder",
+                                        modifier = Modifier.detectReorder(reorderState),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -181,12 +234,12 @@ fun ListItem(
     onListClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
+    dragHandle: (@Composable () -> Unit)? = null,
 ) {
     Card(
         modifier =
             Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onListClick),
+                .fillMaxWidth(),
     ) {
         Row(
             modifier =
@@ -196,19 +249,19 @@ fun ListItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = list.name,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = formatDate(if (list.updatedAt > 0L) list.updatedAt else list.createdAt),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clickable(onClick = onListClick),
+            ) {
+                Text(text = list.name, style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(2.dp))
             }
-            Row {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (dragHandle != null) {
+                    dragHandle()
+                    Spacer(modifier = Modifier.height(0.dp).padding(end = 4.dp))
+                }
                 IconButton(onClick = onEditClick) {
                     Icon(
                         Icons.Default.Edit,
@@ -219,7 +272,7 @@ fun ListItem(
                 IconButton(onClick = onDeleteClick) {
                     Icon(
                         Icons.Default.Delete,
-                        contentDescription = stringResource(R.string.delete),
+                        contentDescription = "Delete",
                         tint = MaterialTheme.colorScheme.error,
                     )
                 }
@@ -297,8 +350,43 @@ private fun RenameListDialog(
     )
 }
 
-private fun formatDate(timestamp: Long): String {
-    if (timestamp <= 0L) return "—"
-    val sdf = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
-    return sdf.format(Date(timestamp))
+@Composable
+private fun SortMenu(prefs: PreferencesManager) {
+    val context = LocalContext.current
+    var expanded by remember { mutableStateOf(false) }
+    val currentOrder by prefs.sortOrder.collectAsState(initial = prefs.getSortOrder())
+
+    Box {
+        IconButton(onClick = { expanded = true }) {
+            Icon(Icons.Default.Sort, contentDescription = "Sort")
+        }
+        androidx.compose.material3.DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            @Composable
+            fun ItemOption(label: String, value: String) {
+                androidx.compose.material3.DropdownMenuItem(
+                    text = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(label)
+                            if (currentOrder == value) {
+                                Spacer(modifier = Modifier.weight(1f))
+                                Text("✓")
+                            }
+                        }
+                    },
+                    onClick = {
+                        prefs.setSortOrder(value)
+                        expanded = false
+                    },
+                )
+            }
+
+            ItemOption("Updated (newest first)", PreferencesManager.SORT_UPDATED_DESC)
+            ItemOption("Updated (oldest first)", PreferencesManager.SORT_UPDATED_ASC)
+            ItemOption("Name (A–Z)", PreferencesManager.SORT_NAME_ASC)
+            ItemOption("Name (Z–A)", PreferencesManager.SORT_NAME_DESC)
+        }
+    }
 }

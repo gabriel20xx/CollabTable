@@ -10,6 +10,7 @@ import com.collabtable.app.utils.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.util.UUID
 
@@ -38,9 +39,52 @@ class ListsViewModel(
 
     private fun loadLists() {
         viewModelScope.launch {
-            database.listDao().getAllLists().collect { listData ->
-                _lists.value = listData
+            val prefs = com.collabtable.app.data.preferences.PreferencesManager.getInstance(context)
+            val listsFlow = database.listDao().getAllLists()
+            val sortFlow = prefs.sortOrder
+
+            combine(listsFlow, sortFlow) { listData, sortOrder ->
+                val anyManual = listData.any { it.orderIndex != null }
+                if (anyManual) {
+                    listData.sortedWith(compareBy(nullsLast()) { it.orderIndex })
+                } else {
+                    when (sortOrder) {
+                        com.collabtable.app.data.preferences.PreferencesManager.SORT_NAME_ASC ->
+                            listData.sortedBy { it.name.lowercase() }
+                        com.collabtable.app.data.preferences.PreferencesManager.SORT_NAME_DESC ->
+                            listData.sortedByDescending { it.name.lowercase() }
+                        com.collabtable.app.data.preferences.PreferencesManager.SORT_UPDATED_ASC ->
+                            listData.sortedBy { it.updatedAt }
+                        else ->
+                            listData.sortedByDescending { it.updatedAt }
+                    }
+                }
+            }.collect { sorted ->
+                _lists.value = sorted
             }
+        }
+    }
+
+    fun reorder(fromIndex: Int, toIndex: Int) {
+        viewModelScope.launch {
+            val current = _lists.value.toMutableList()
+            if (fromIndex !in current.indices || toIndex !in current.indices) return@launch
+
+            // Ensure we have a baseline orderIndex to start from if null
+            if (current.all { it.orderIndex == null }) {
+                current.forEachIndexed { idx, item ->
+                    database.listDao().updateListOrderIndex(item.id, idx.toLong())
+                }
+            }
+
+            val item = current.removeAt(fromIndex)
+            current.add(toIndex, item)
+
+            // Renumber sequentially to avoid large gaps
+            val newOrder: List<Pair<String, Long>> = current.mapIndexed { idx, l -> l.id to idx.toLong() }
+            database.listDao().updateOrderIndexes(newOrder)
+
+            // Trigger a fresh load (flows will emit on DB change)
         }
     }
 

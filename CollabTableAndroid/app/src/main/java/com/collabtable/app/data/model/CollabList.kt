@@ -10,4 +10,6 @@ data class CollabList(
     val createdAt: Long,
     val updatedAt: Long,
     val isDeleted: Boolean = false,
+    // Local-only ordering for manual reordering (not synced)
+    val orderIndex: Long? = null,
 )
