@@ -1,12 +1,12 @@
 # CollabTable Server
 
-A collaborative list management server built with Node.js, Express, TypeScript, and SQLite.
+A collaborative table management server built with Node.js, Express, TypeScript, and a pluggable database (SQLite or PostgreSQL).
 
 ## Features
 
 - RESTful API for managing lists, fields, items, and values
-- Real-time synchronization support
-- SQLite database with Sequelize ORM
+- Real-time synchronization via WebSocket (primary) with HTTP fallback
+- SQLite (better-sqlite3) or PostgreSQL (pg) database backends
 - Dockerized deployment with persistent storage
 - TypeScript for type safety
 
@@ -35,7 +35,7 @@ A collaborative list management server built with Node.js, Express, TypeScript, 
 
 The server will be available at `http://localhost:3000`
 
-**Important:** The SQLite database is stored in a Docker volume named `sqlite_data`, which persists across container restarts and rebuilds.
+**Important:** The default backend is SQLite with a Docker volume `sqlite_data` for persistence. You can also switch to PostgreSQL by setting environment variables.
 
 ## Local Development
 
@@ -49,9 +49,21 @@ The server will be available at `http://localhost:3000`
    cp .env.example .env
    ```
 
-3. Update the database path in `.env` if needed:
+3. Choose your database in `.env` (SQLite by default):
    ```
+   # Backend: sqlite | postgres (default sqlite)
+   DB_CLIENT=sqlite
+
+   # SQLite
    DB_PATH=./data/collabtable.db
+
+   # OR PostgreSQL
+   # DATABASE_URL=postgres://user:password@localhost:5432/collabtable
+   # PGHOST=localhost
+   # PGPORT=5432
+   # PGUSER=postgres
+   # PGPASSWORD=yourpassword
+   # PGDATABASE=collabtable
    ```
 
 4. Start the development server:
@@ -84,6 +96,13 @@ The server will be available at `http://localhost:3000`
 
 ### Sync
 - `POST /api/sync` - Synchronize data between client and server
+
+### WebSocket
+- `GET /api/ws` - WebSocket endpoint. Send JSON messages:
+   - `{"type":"ping"}` → `{"type":"pong"}`
+   - `{"type":"sync", "id":"<uuid>", "payload": { ...SyncRequest }}` → `{"type":"syncResponse", "id":"<uuid>", "payload": { ...SyncResponse }}`
+
+Authentication: If `SERVER_PASSWORD` is set, include header `Authorization: Bearer <password>` on HTTP and WebSocket requests.
 
 ### Health Check
 - `GET /health` - Check server health
@@ -205,26 +224,31 @@ docker-compose up -d --build
 ## Environment Variables
 
 - `PORT` - Server port (default: 3000)
-- `DB_PATH` - Path to SQLite database file (default: /data/collabtable.db)
 - `NODE_ENV` - Environment (development/production)
+- `SERVER_PASSWORD` - Optional shared password for API and WebSocket (recommended)
+- `DB_CLIENT` - `sqlite` (default) or `postgres`
+- `DB_PATH` - Path to SQLite database file (default: ./data/collabtable.db for local, /data/collabtable.db in Docker)
+- `DATABASE_URL` - PostgreSQL connection URL (optional alternative to PG* variables)
+- `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` - PostgreSQL connection parameters
 
 ## Data Persistence
 
-The SQLite database file is stored in a Docker volume, ensuring data persists across:
-- Container restarts
-- Container recreation
-- Docker Compose down/up cycles
+### SQLite
+The SQLite database file is stored in a Docker volume, ensuring data persists across container lifecycle events.
 
-To backup your data:
+Backup:
 ```bash
 docker cp collabtable-server:/data/collabtable.db ./backup.db
 ```
 
-To restore data:
+Restore:
 ```bash
 docker cp ./backup.db collabtable-server:/data/collabtable.db
 docker-compose restart
 ```
+
+### PostgreSQL
+Use your normal PostgreSQL backup/restore procedures (e.g., `pg_dump`, `pg_restore`). If using the optional Dockerized Postgres service, the data is stored in a named volume (see `docker-compose.yml`).
 
 ## License
 

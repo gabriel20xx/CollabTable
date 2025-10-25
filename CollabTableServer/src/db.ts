@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 import BetterSqlite3, { Database as SqliteDB } from 'better-sqlite3';
-import { Pool, PoolClient, QueryResult } from 'pg';
+import { Pool, PoolClient, QueryResult, types as pgTypes } from 'pg';
 import path from 'path';
 import fs from 'fs';
 
@@ -129,6 +129,9 @@ class PostgresAdapter implements DBAdapter {
   private pool: Pool;
 
   constructor() {
+    // Ensure BIGINT (int8) is parsed as number to avoid string timestamps
+    // OID 20 = INT8, OID 1700 = NUMERIC (keep default for now)
+    pgTypes.setTypeParser(20, (val: string) => parseInt(val, 10));
     const connectionString = process.env.DATABASE_URL;
     if (connectionString) {
       this.pool = new Pool({ connectionString });

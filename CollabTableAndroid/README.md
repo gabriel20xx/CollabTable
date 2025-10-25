@@ -9,7 +9,7 @@ A collaborative table management Android application built with Jetpack Compose 
 - Add items with values for each field
 - Beautiful Material 3 design with dynamic colors
 - Local Room database for offline support
-- Automatic synchronization with server
+- Automatic synchronization with server (WebSocket-first with HTTP fallback)
 - Soft delete support (items can be recovered on server)
 
 ## Architecture
@@ -69,7 +69,8 @@ app/src/main/java/com/collabtable/app/
 - **Jetpack Compose**: Modern declarative UI toolkit
 - **Material 3**: Latest Material Design guidelines
 - **Room**: Local SQLite database
-- **Retrofit**: REST API client
+- **Retrofit**: REST API client (fallback)
+- **OkHttp WebSocket**: Real-time sync channel
 - **Kotlin Coroutines**: Asynchronous programming
 - **Flow**: Reactive data streams
 
@@ -97,12 +98,17 @@ app/src/main/java/com/collabtable/app/
 
 ## Synchronization
 
-The app includes sync functionality that:
-- Sends local changes to the server
-- Receives changes from other clients
-- Resolves conflicts using timestamps (latest wins)
+The app uses a WebSocket-first sync strategy with an HTTP fallback:
 
-To trigger sync, you can call the `SyncRepository.performSync()` method from your code.
+- WebSocket (`/api/ws`): Sends a `sync` message with local changes and receives deltas plus the new `serverTimestamp`.
+- HTTP (`POST /api/sync`): Used automatically as a fallback if the WS exchange fails.
+
+Behavior:
+- Sends local changes since the last sync and receives server changes since the last known timestamp.
+- Timestamps are used to resolve conflicts (latest wins).
+- If the server is protected with `SERVER_PASSWORD`, the app sends `Authorization: Bearer <password>` for both HTTP and WebSocket.
+
+To trigger sync programmatically, call `SyncRepository.performSync()`.
 
 ## Building for Release
 

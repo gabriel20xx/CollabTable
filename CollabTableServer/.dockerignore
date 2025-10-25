@@ -4,6 +4,10 @@ dist
 .env
 .git
 .gitignore
+.vscode
+.idea
 README.md
 docker-compose.yml
 Dockerfile
+data/
+collabtable.db

@@ -36,6 +36,7 @@ object WebSocketSyncClient {
         .connectTimeout(15, TimeUnit.SECONDS)
         .readTimeout(30, TimeUnit.SECONDS)
         .writeTimeout(30, TimeUnit.SECONDS)
+        .pingInterval(15, TimeUnit.SECONDS)
         .build()
 
     private fun buildWebSocketUrl(httpApiBaseUrl: String): String {
@@ -127,8 +128,8 @@ object WebSocketSyncClient {
 
         try {
             socket = client.newWebSocket(httpRequest, listener)
-            // Wait up to 15s for response
-            val result = withTimeout(15_000) { deferred.await() }
+            // Wait up to 30s for response (WS roundtrip)
+            val result = withTimeout(30_000) { deferred.await() }
             return@withContext result
         } catch (e: Exception) {
             Logger.w("WS", "Falling back to HTTP sync: ${e.message}")

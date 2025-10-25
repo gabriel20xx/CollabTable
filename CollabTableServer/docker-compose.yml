@@ -7,8 +7,20 @@ services:
     restart: unless-stopped
     environment:
       - PORT=3000
-      - DB_PATH=/data/collabtable.db
       - NODE_ENV=production
+      # Authentication (optional but recommended)
+      - SERVER_PASSWORD=change_me
+      # Database selection: sqlite | postgres (default sqlite)
+      - DB_CLIENT=sqlite
+      # SQLite path (used when DB_CLIENT=sqlite)
+      - DB_PATH=/data/collabtable.db
+      # PostgreSQL (used when DB_CLIENT=postgres) - choose either DATABASE_URL or the PG* vars
+      # - DATABASE_URL=postgres://user:password@postgres:5432/collabtable
+      # - PGHOST=postgres
+      # - PGPORT=5432
+      # - PGUSER=postgres
+      # - PGPASSWORD=yourpassword
+      # - PGDATABASE=collabtable
     ports:
       - "3000:3000"
     volumes:
@@ -16,8 +28,25 @@ services:
     networks:
       - collabtable-network
 
+  # Optional PostgreSQL database
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: collabtable-postgres
+  #   restart: unless-stopped
+  #   environment:
+  #     - POSTGRES_DB=collabtable
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=yourpassword
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - pg_data:/var/lib/postgresql/data
+  #   networks:
+  #     - collabtable-network
+
 volumes:
   sqlite_data:
+  # pg_data:
 
 networks:
   collabtable-network:

@@ -313,9 +313,26 @@ router.get('/web/data', async (req: Request, res: Response) => {
     const values = await dbAdapter.queryAll('SELECT * FROM item_values');
     
     // Convert isDeleted from INTEGER to BOOLEAN
-    const formattedLists = (lists as any[]).map(list => ({ ...list, isDeleted: !!list.isDeleted }));
-    const formattedFields = (fields as any[]).map(field => ({ ...field, isDeleted: !!field.isDeleted }));
-    const formattedItems = (items as any[]).map(item => ({ ...item, isDeleted: !!item.isDeleted }));
+        // Coerce timestamps to numbers (pg may return strings)
+        const toNum = (v: any) => (typeof v === 'string' ? Number(v) : v);
+        const formattedLists = (lists as any[]).map(list => ({
+            ...list,
+            isDeleted: !!list.isDeleted,
+            createdAt: toNum(list.createdAt),
+            updatedAt: toNum(list.updatedAt)
+        }));
+        const formattedFields = (fields as any[]).map(field => ({
+            ...field,
+            isDeleted: !!field.isDeleted,
+            createdAt: toNum(field.createdAt),
+            updatedAt: toNum(field.updatedAt)
+        }));
+        const formattedItems = (items as any[]).map(item => ({
+            ...item,
+            isDeleted: !!item.isDeleted,
+            createdAt: toNum(item.createdAt),
+            updatedAt: toNum(item.updatedAt)
+        }));
     
     res.json({
       lists: formattedLists,
