@@ -1,13 +1,15 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { initializeDatabase } from './database';
+import { initializeDatabase } from './db';
 import { authenticatePassword } from './middleware/auth';
 import listRoutes from './routes/listRoutes';
 import fieldRoutes from './routes/fieldRoutes';
 import itemRoutes from './routes/itemRoutes';
 import syncRoutes from './routes/syncRoutes';
 import webRoutes from './routes/webRoutes';
+import { createServer } from 'http';
+import { initWebSocket } from './ws';
 
 dotenv.config();
 
@@ -36,23 +38,33 @@ app.use('/api', syncRoutes);
 app.use('/', webRoutes);
 
 // Initialize database and start server
-try {
-  initializeDatabase();
-  console.log('Database synchronized successfully');
-  console.log('Database models loaded:');
-  console.log('- Lists');
-  console.log('- Fields');
-  console.log('- Items');
-  console.log('- ItemValues');
-  
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`Database: ${process.env.DB_PATH || './data/collabtable.db'}`);
-  });
-} catch (error) {
-  console.error('Database initialization error:', error);
-  process.exit(1);
-}
+(async () => {
+  try {
+    await initializeDatabase();
+    console.log('Database synchronized successfully');
+    console.log('Database models loaded:');
+    console.log('- Lists');
+    console.log('- Fields');
+    console.log('- Items');
+    console.log('- ItemValues');
+
+    const server = createServer(app);
+    initWebSocket(server);
+    server.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      const dbClient = (process.env.DB_CLIENT || process.env.DB_TYPE || 'sqlite').toLowerCase();
+      if (dbClient === 'postgres' || dbClient === 'postgresql') {
+        const source = process.env.DATABASE_URL ? 'DATABASE_URL' : 'PGHOST/PGDATABASE';
+        console.log(`Database: PostgreSQL (${source})`);
+      } else {
+        console.log(`Database: ${process.env.DB_PATH || './data/collabtable.db'}`);
+      }
+    });
+  } catch (error) {
+    console.error('Database initialization error:', error);
+    process.exit(1);
+  }
+})();
 
 export default app;

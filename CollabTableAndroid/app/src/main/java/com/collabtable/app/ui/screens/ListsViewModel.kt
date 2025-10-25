@@ -54,13 +54,13 @@ class ListsViewModel(
     private suspend fun performSync() {
         val result = syncRepository.performSync()
         result.onFailure { error ->
-            Logger.e("Lists", "❌ Sync failed: ${error.message}")
+            Logger.e("Tables", "❌ Sync failed: ${error.message}")
         }
     }
 
     fun createList(name: String) {
         viewModelScope.launch {
-            Logger.i("Lists", "➕ Creating list: \"$name\"")
+            Logger.i("Tables", "➕ Creating table: \"$name\"")
             val timestamp = System.currentTimeMillis()
             val newList = CollabList(
                 id = UUID.randomUUID().toString(),
@@ -78,7 +78,7 @@ class ListsViewModel(
         viewModelScope.launch {
             val list = database.listDao().getListById(listId)
             if (list != null && newName.isNotBlank()) {
-                Logger.i("Lists", "✏️ Renaming: \"${list.name}\" → \"$newName\"")
+                Logger.i("Tables", "✏️ Renaming table: \"${list.name}\" → \"$newName\"")
                 database.listDao().updateList(
                     list.copy(
                         name = newName.trim(),
@@ -95,7 +95,7 @@ class ListsViewModel(
         viewModelScope.launch {
             val list = database.listDao().getListById(listId)
             if (list != null) {
-                Logger.i("Lists", "🗑️ Deleting list: \"${list.name}\"")
+                Logger.i("Tables", "🗑️ Deleting table: \"${list.name}\"")
                 database.listDao().softDeleteList(listId, System.currentTimeMillis())
                 // Sync immediately after deleting
                 performSync()
@@ -105,7 +105,7 @@ class ListsViewModel(
     
     fun manualSync() {
         viewModelScope.launch {
-            Logger.i("Lists", "🔄 Manual sync requested")
+            Logger.i("Tables", "🔄 Manual sync requested")
             _isLoading.value = true
             performSync()
             _isLoading.value = false

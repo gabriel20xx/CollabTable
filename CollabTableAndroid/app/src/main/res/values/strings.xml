@@ -1,8 +1,8 @@
 <resources>
     <string name="app_name">CollabTable</string>
-    <string name="lists">Lists</string>
-    <string name="create_list">Create List</string>
-    <string name="list_name">List Name</string>
+    <string name="lists">Tables</string>
+    <string name="create_list">Create Table</string>
+    <string name="list_name">Table Name</string>
     <string name="add_field">Add Field</string>
     <string name="field_name">Field Name</string>
     <string name="add_item">Add Item</string>
@@ -11,7 +11,7 @@
     <string name="save">Save</string>
     <string name="cancel">Cancel</string>
     <string name="edit">Edit</string>
-    <string name="no_lists">No lists yet. Create one to get started!</string>
+    <string name="no_lists">No tables yet. Create one to get started!</string>
     <string name="no_items">No items yet</string>
     <string name="search">Search</string>
     <string name="settings">Settings</string>
@@ -19,7 +19,7 @@
     <string name="sync">Sync</string>
     <string name="syncing">Syncing…</string>
     <string name="sync_error">Sync error</string>
-    <string name="delete_list">Delete List</string>
+    <string name="delete_list">Delete Table</string>
     <string name="delete_field">Delete Field</string>
     <string name="delete_item">Delete Item</string>
     <string name="confirm_delete">Are you sure you want to delete this?</string>

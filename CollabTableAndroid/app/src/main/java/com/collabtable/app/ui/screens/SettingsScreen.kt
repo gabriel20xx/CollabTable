@@ -15,6 +15,12 @@ import com.collabtable.app.data.api.ApiClient
 import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.data.repository.SyncRepository
 import com.collabtable.app.utils.Logger
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.SettingsBrightness
+import androidx.compose.ui.Alignment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,6 +37,10 @@ fun SettingsScreen(
     val coroutineScope = rememberCoroutineScope()
     
     val serverUrl = preferencesManager.getServerUrl()
+    val themeMode by preferencesManager.themeMode.collectAsState()
+    val dynamicColor by preferencesManager.dynamicColor.collectAsState()
+    val amoledDark by preferencesManager.amoledDark.collectAsState()
+    val displayUrl = remember(serverUrl) { formatServerUrlForDisplay(serverUrl) }
     var showLeaveDialog by remember { mutableStateOf(false) }
     var isLeaving by remember { mutableStateOf(false) }
 
@@ -69,23 +79,87 @@ fun SettingsScreen(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "Connected to:",
-                        style = MaterialTheme.typography.labelMedium,
+                        text = "Connected to",
+                        style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = serverUrl,
-                        style = MaterialTheme.typography.bodyLarge,
+                        text = displayUrl,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
             
             Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Appearance",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            // Theme mode selector
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                FilterChip(
+                    selected = themeMode == PreferencesManager.THEME_MODE_SYSTEM,
+                    onClick = { preferencesManager.setThemeMode(PreferencesManager.THEME_MODE_SYSTEM) },
+                    label = { Text("System") },
+                    leadingIcon = { Icon(Icons.Default.SettingsBrightness, contentDescription = null) }
+                )
+                FilterChip(
+                    selected = themeMode == PreferencesManager.THEME_MODE_LIGHT,
+                    onClick = { preferencesManager.setThemeMode(PreferencesManager.THEME_MODE_LIGHT) },
+                    label = { Text("Light") },
+                    leadingIcon = { Icon(Icons.Default.LightMode, contentDescription = null) }
+                )
+                FilterChip(
+                    selected = themeMode == PreferencesManager.THEME_MODE_DARK,
+                    onClick = { preferencesManager.setThemeMode(PreferencesManager.THEME_MODE_DARK) },
+                    label = { Text("Dark") },
+                    leadingIcon = { Icon(Icons.Default.DarkMode, contentDescription = null) }
+                )
+            }
+
+            // Dynamic color toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Use Material 3 colors")
+                    Text(
+                        text = "Dynamic colors on supported devices",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = dynamicColor, onCheckedChange = { preferencesManager.setDynamicColorEnabled(it) })
+            }
+
+            // AMOLED dark toggle
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("AMOLED dark")
+                    Text(
+                        text = "Pure black background in dark mode",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = amoledDark, onCheckedChange = { preferencesManager.setAmoledDarkEnabled(it) })
+            }
             
             Button(
                 onClick = { showLeaveDialog = true },
@@ -116,31 +190,31 @@ fun SettingsScreen(
                 )
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     Text(
-                        text = "About Leave Server:",
-                        style = MaterialTheme.typography.titleSmall,
+                        text = "Leaving removes local data",
+                        style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "• Disconnects from the current server",
+                        text = "Disconnects and clears local database",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "• Clears stored server URL and password",
+                        text = "Clears stored server URL and password",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "• Deletes all local data (lists, fields, items)",
+                        text = "Deletes all local data (tables, fields, items)",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "• Returns to server setup screen",
+                        text = "Returns to server setup screen",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -210,4 +284,26 @@ fun SettingsScreen(
             )
         }
     }
+}
+
+private fun formatServerUrlForDisplay(raw: String): String {
+    var s = raw.trim()
+    if (s.isEmpty()) return ""
+    // Remove scheme
+    s = s.replace(Regex("^https?://", RegexOption.IGNORE_CASE), "")
+    // Remove trailing /api or /api/
+    s = s.replace(Regex("/api/?$", RegexOption.IGNORE_CASE), "")
+    // Trim trailing /
+    s = s.trimEnd('/')
+    // Split authority and path (in case any path remains)
+    val firstSlash = s.indexOf('/')
+    val authority = if (firstSlash >= 0) s.substring(0, firstSlash) else s
+    val rest = if (firstSlash >= 0) s.substring(firstSlash) else ""
+    // Remove default ports from authority
+    val authorityStripped = when {
+        authority.endsWith(":80") -> authority.removeSuffix(":80")
+        authority.endsWith(":443") -> authority.removeSuffix(":443")
+        else -> authority
+    }
+    return authorityStripped + rest
 }

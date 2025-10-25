@@ -103,7 +103,7 @@ fun ListsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Tap + to create your first list",
+                        text = "Tap + to create your first table",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -268,7 +268,7 @@ private fun RenameListDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Rename List") },
+            title = { Text("Rename Table") },
         text = {
             OutlinedTextField(
                 value = listName,

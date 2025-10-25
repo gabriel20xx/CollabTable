@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../database';
+import { dbAdapter } from '../db';
 
 const router = Router();
 
@@ -306,10 +306,11 @@ router.get('/web/data', async (req: Request, res: Response) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
-    const lists = db.prepare('SELECT * FROM lists ORDER BY updatedAt DESC').all();
-    const fields = db.prepare('SELECT * FROM fields ORDER BY listId ASC, `order` ASC').all();
-    const items = db.prepare('SELECT * FROM items ORDER BY listId ASC, updatedAt DESC').all();
-    const values = db.prepare('SELECT * FROM item_values').all();
+    // Exclude deleted lists and items from web UI
+    const lists = await dbAdapter.queryAll('SELECT * FROM lists WHERE isDeleted = 0 ORDER BY updatedAt DESC');
+    const fields = await dbAdapter.queryAll('SELECT * FROM fields ORDER BY listId ASC, "order" ASC');
+    const items = await dbAdapter.queryAll('SELECT * FROM items WHERE isDeleted = 0 ORDER BY listId ASC, updatedAt DESC');
+    const values = await dbAdapter.queryAll('SELECT * FROM item_values');
     
     // Convert isDeleted from INTEGER to BOOLEAN
     const formattedLists = (lists as any[]).map(list => ({ ...list, isDeleted: !!list.isDeleted }));

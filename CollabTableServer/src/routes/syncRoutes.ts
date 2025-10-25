@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../database';
+import { dbAdapter } from '../db';
 
 const router = Router();
 
@@ -57,43 +57,11 @@ setInterval(() => {
 }, 60000); // Changed from 30s to 60s
 
 // Helper function to get prepared statements (lazy initialization)
-function getUpsertStatements() {
-  return {
-    upsertList: db.prepare(`
-      INSERT INTO lists (id, name, createdAt, updatedAt, isDeleted)
-      VALUES (@id, @name, @createdAt, @updatedAt, @isDeleted)
-      ON CONFLICT(id) DO UPDATE SET
-        name = @name,
-        updatedAt = @updatedAt,
-        isDeleted = @isDeleted
-    `),
-    upsertField: db.prepare(`
-      INSERT INTO fields (id, name, fieldType, fieldOptions, listId, \`order\`, createdAt, updatedAt, isDeleted)
-      VALUES (@id, @name, @fieldType, @fieldOptions, @listId, @order, @createdAt, @updatedAt, @isDeleted)
-      ON CONFLICT(id) DO UPDATE SET
-        name = @name,
-        fieldType = @fieldType,
-        fieldOptions = @fieldOptions,
-        \`order\` = @order,
-        updatedAt = @updatedAt,
-        isDeleted = @isDeleted
-    `),
-    upsertItem: db.prepare(`
-      INSERT INTO items (id, listId, createdAt, updatedAt, isDeleted)
-      VALUES (@id, @listId, @createdAt, @updatedAt, @isDeleted)
-      ON CONFLICT(id) DO UPDATE SET
-        updatedAt = @updatedAt,
-        isDeleted = @isDeleted
-    `),
-    upsertItemValue: db.prepare(`
-      INSERT INTO item_values (id, itemId, fieldId, value, updatedAt)
-      VALUES (@id, @itemId, @fieldId, @value, @updatedAt)
-      ON CONFLICT(id) DO UPDATE SET
-        value = @value,
-        updatedAt = @updatedAt
-    `)
-  };
-}
+// We'll perform upserts with positional params for cross-DB portability
+const UPSERT_LIST = 'INSERT INTO lists (id, name, createdAt, updatedAt, isDeleted) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = EXCLUDED.name, updatedAt = EXCLUDED.updatedAt, isDeleted = EXCLUDED.isDeleted';
+const UPSERT_FIELD = 'INSERT INTO fields (id, name, fieldType, fieldOptions, listId, "order", createdAt, updatedAt, isDeleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = EXCLUDED.name, fieldType = EXCLUDED.fieldType, fieldOptions = EXCLUDED.fieldOptions, "order" = EXCLUDED."order", updatedAt = EXCLUDED.updatedAt, isDeleted = EXCLUDED.isDeleted';
+const UPSERT_ITEM = 'INSERT INTO items (id, listId, createdAt, updatedAt, isDeleted) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET updatedAt = EXCLUDED.updatedAt, isDeleted = EXCLUDED.isDeleted';
+const UPSERT_ITEM_VALUE = 'INSERT INTO item_values (id, itemId, fieldId, value, updatedAt) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET value = EXCLUDED.value, updatedAt = EXCLUDED.updatedAt';
 
 router.post('/sync', async (req: Request, res: Response) => {
   try {
@@ -144,64 +112,59 @@ router.post('/sync', async (req: Request, res: Response) => {
     }
 
     // Save incoming data from client using a transaction
-    const transaction = db.transaction((data: SyncRequest) => {
-      // Get prepared statements lazily
-      const { upsertList, upsertField, upsertItem, upsertItemValue } = getUpsertStatements();
-
-      if (data.lists && data.lists.length > 0) {
-        for (const list of data.lists) {
-          upsertList.run({
-            id: list.id,
-            name: list.name,
-            createdAt: list.createdAt,
-            updatedAt: list.updatedAt,
-            isDeleted: list.isDeleted ? 1 : 0
-          });
+    await dbAdapter.transaction(async (tx) => {
+      if (lists && lists.length > 0) {
+        for (const list of lists) {
+          await tx.execute(UPSERT_LIST, [
+            list.id,
+            list.name,
+            list.createdAt,
+            list.updatedAt,
+            list.isDeleted ? 1 : 0
+          ]);
         }
       }
 
-      if (data.fields && data.fields.length > 0) {
-        for (const field of data.fields) {
-          upsertField.run({
-            id: field.id,
-            name: field.name,
-            fieldType: field.fieldType,
-            fieldOptions: field.fieldOptions,
-            listId: field.listId,
-            order: field.order,
-            createdAt: field.createdAt,
-            updatedAt: field.updatedAt,
-            isDeleted: field.isDeleted ? 1 : 0
-          });
+      if (fields && fields.length > 0) {
+        for (const field of fields) {
+          await tx.execute(UPSERT_FIELD, [
+            field.id,
+            field.name,
+            field.fieldType,
+            field.fieldOptions,
+            field.listId,
+            field.order,
+            field.createdAt,
+            field.updatedAt,
+            field.isDeleted ? 1 : 0
+          ]);
         }
       }
 
-      if (data.items && data.items.length > 0) {
-        for (const item of data.items) {
-          upsertItem.run({
-            id: item.id,
-            listId: item.listId,
-            createdAt: item.createdAt,
-            updatedAt: item.updatedAt,
-            isDeleted: item.isDeleted ? 1 : 0
-          });
+      if (items && items.length > 0) {
+        for (const item of items) {
+          await tx.execute(UPSERT_ITEM, [
+            item.id,
+            item.listId,
+            item.createdAt,
+            item.updatedAt,
+            item.isDeleted ? 1 : 0
+          ]);
         }
       }
 
-      if (data.itemValues && data.itemValues.length > 0) {
-        for (const value of data.itemValues) {
-          upsertItemValue.run({
-            id: value.id,
-            itemId: value.itemId,
-            fieldId: value.fieldId,
-            value: value.value,
-            updatedAt: value.updatedAt
-          });
+      if (itemValues && itemValues.length > 0) {
+        for (const value of itemValues) {
+          await tx.execute(UPSERT_ITEM_VALUE, [
+            value.id,
+            value.itemId,
+            value.fieldId,
+            value.value,
+            value.updatedAt
+          ]);
         }
       }
     });
-
-    transaction({ lastSyncTimestamp, lists, fields, items, itemValues });
 
     // IMPORTANT: Get updates from server AFTER saving incoming data
     // This ensures clients receive back any data they just sent (for confirmation)
@@ -210,17 +173,15 @@ router.post('/sync', async (req: Request, res: Response) => {
     let serverLists, serverFields, serverItems, serverItemValues;
 
     if (lastSyncTimestamp === 0) {
-      // Initial sync: send all non-deleted items (AFTER processing incoming data)
-      serverLists = db.prepare('SELECT * FROM lists WHERE isDeleted = 0').all();
-      serverFields = db.prepare('SELECT * FROM fields WHERE isDeleted = 0').all();
-      serverItems = db.prepare('SELECT * FROM items WHERE isDeleted = 0').all();
-      serverItemValues = db.prepare('SELECT * FROM item_values').all();
+      serverLists = await dbAdapter.queryAll('SELECT * FROM lists WHERE isDeleted = 0');
+      serverFields = await dbAdapter.queryAll('SELECT * FROM fields WHERE isDeleted = 0');
+      serverItems = await dbAdapter.queryAll('SELECT * FROM items WHERE isDeleted = 0');
+      serverItemValues = await dbAdapter.queryAll('SELECT * FROM item_values');
     } else {
-      // Incremental sync: send all updates including deletions (use >= to include items updated exactly at lastSyncTimestamp)
-      serverLists = db.prepare('SELECT * FROM lists WHERE updatedAt >= ?').all(lastSyncTimestamp);
-      serverFields = db.prepare('SELECT * FROM fields WHERE updatedAt >= ?').all(lastSyncTimestamp);
-      serverItems = db.prepare('SELECT * FROM items WHERE updatedAt >= ?').all(lastSyncTimestamp);
-      serverItemValues = db.prepare('SELECT * FROM item_values WHERE updatedAt >= ?').all(lastSyncTimestamp);
+      serverLists = await dbAdapter.queryAll('SELECT * FROM lists WHERE updatedAt >= ?', [lastSyncTimestamp]);
+      serverFields = await dbAdapter.queryAll('SELECT * FROM fields WHERE updatedAt >= ?', [lastSyncTimestamp]);
+      serverItems = await dbAdapter.queryAll('SELECT * FROM items WHERE updatedAt >= ?', [lastSyncTimestamp]);
+      serverItemValues = await dbAdapter.queryAll('SELECT * FROM item_values WHERE updatedAt >= ?', [lastSyncTimestamp]);
     }
 
     // Convert isDeleted from INTEGER (0/1) to BOOLEAN

@@ -1,11 +1,11 @@
 # CollabTable Android App
 
-A collaborative list management Android application built with Jetpack Compose and Material 3.
+A collaborative table management Android application built with Jetpack Compose and Material 3.
 
 ## Features
 
-- Create and manage multiple lists
-- Add custom fields to lists (name, link, price, category, etc.)
+- Create and manage multiple tables
+- Add custom fields to tables (name, link, price, category, etc.)
 - Add items with values for each field
 - Beautiful Material 3 design with dynamic colors
 - Local Room database for offline support
@@ -36,7 +36,7 @@ A collaborative list management Android application built with Jetpack Compose a
 
 The app includes a Settings screen where you can configure the server URL:
 
-1. Tap the Settings icon (⚙️) in the top bar of the Lists screen
+1. Tap the Settings icon (⚙️) in the top bar of the Tables screen
 2. Enter your server URL
 3. Tap "Save"
 
@@ -75,13 +75,13 @@ app/src/main/java/com/collabtable/app/
 
 ## Usage
 
-### Creating a List
+### Creating a Table
 1. Tap the + button on the main screen
-2. Enter a list name
+2. Enter a table name
 3. Tap "Save"
 
 ### Adding Fields
-1. Open a list
+1. Open a table
 2. Tap the + icon in the top bar
 3. Enter a field name (e.g., "Name", "Price", "Category")
 4. Tap "Add"
@@ -92,7 +92,7 @@ app/src/main/java/com/collabtable/app/
 3. Values are saved automatically as you type
 
 ### Deleting
-- Tap the delete icon next to any list, field, or item
+- Tap the delete icon next to any table, field, or item
 - Confirm the deletion
 
 ## Synchronization

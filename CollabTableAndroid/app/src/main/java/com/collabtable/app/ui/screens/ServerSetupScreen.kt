@@ -27,7 +27,7 @@ fun ServerSetupScreen(
     val context = LocalContext.current
     val preferencesManager = remember { PreferencesManager.getInstance(context) }
     val viewModel = remember { ServerSetupViewModel(preferencesManager) }
-    
+
     var serverUrl by remember { mutableStateOf("") }
     var serverPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -37,7 +37,6 @@ fun ServerSetupScreen(
 
     LaunchedEffect(validationResult) {
         if (validationResult == true) {
-            // Validation successful, navigate to main screen
             onSetupComplete()
         }
     }
@@ -57,34 +56,16 @@ fun ServerSetupScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            // Welcome text
-            Text(
-                text = "Welcome to CollabTable!",
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.primary,
-                textAlign = TextAlign.Center
-            )
-            
-            Text(
-                text = "Please configure your server connection to get started.",
-                style = MaterialTheme.typography.bodyLarge,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Server URL input
+            Spacer(modifier = Modifier.height(4.dp))
+
             OutlinedTextField(
                 value = serverUrl,
                 onValueChange = { serverUrl = it },
-                label = { Text("Server URL") },
+                label = { Text("Server Hostname") },
                 placeholder = { Text("example.com or 10.0.2.2:3000") },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !isValidating,
@@ -95,7 +76,7 @@ fun ServerSetupScreen(
                             text = validationError ?: "",
                             color = MaterialTheme.colorScheme.error
                         )
-                        else -> Text("Enter hostname with optional port (default: 80/443)")
+                        else -> Text("Hostname only. Port optional (80/443 default). No http://, no /api/")
                     }
                 },
                 trailingIcon = {
@@ -117,8 +98,7 @@ fun ServerSetupScreen(
                     }
                 }
             )
-            
-            // Server Password input
+
             OutlinedTextField(
                 value = serverPassword,
                 onValueChange = { serverPassword = it },
@@ -136,16 +116,11 @@ fun ServerSetupScreen(
                         )
                     }
                 },
-                supportingText = {
-                    Text("Password required for server authentication")
-                }
+                supportingText = { Text("Server password for authentication") }
             )
-            
-            // Validate and continue button
+
             Button(
-                onClick = { 
-                    viewModel.validateAndSaveServerUrl(serverUrl.trim(), serverPassword.trim())
-                },
+                onClick = { viewModel.validateAndSaveServerUrl(serverUrl.trim(), serverPassword.trim()) },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = serverUrl.isNotBlank() && serverPassword.isNotBlank() && !isValidating
             ) {
@@ -158,66 +133,12 @@ fun ServerSetupScreen(
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Validating...")
                 } else {
-                    Text("Validate and Continue")
+                    Text("Connect")
                 }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Tips card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text(
-                        text = "Connection Tips:",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = "• For Android Emulator: 10.0.2.2:3000",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = "• For Physical Device: YOUR_IP:3000",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = "• For domains: example.com (uses port 80/443)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = "• Port is optional, defaults to 80 (HTTP) or 443 (HTTPS)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = "• Just enter hostname:port, no need for http:// or /api/",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    Text(
-                        text = "• Make sure the server is running and accessible",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.weight(1f))
-            
-            // Note about changing later
+
             Text(
-                text = "You can change this URL later in Settings",
+                text = "Tip: Emulator host 10.0.2.2:3000 · Physical device uses your PC IP",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center
