@@ -41,7 +41,6 @@ class ListDetailViewModel(
                 .debounce(75)
                 .collect { listWithFields ->
                 _list.value = listWithFields?.list
-                _fields.value = listWithFields?.fields ?: emptyList()
             }
         }
         
@@ -49,6 +48,14 @@ class ListDetailViewModel(
             database.itemDao().getItemsWithValuesForList(listId).collect { itemsData ->
                 _items.value = itemsData
             }
+        }
+
+        viewModelScope.launch {
+            database.fieldDao().getFieldsForList(listId)
+                .debounce(75)
+                .collect { fieldsData ->
+                    _fields.value = fieldsData
+                }
         }
     }
     
