@@ -2435,14 +2435,8 @@ fun ManageColumnsDialog(
     var fieldToEdit by remember { mutableStateOf<Field?>(null) }
     var fieldToDelete by remember { mutableStateOf<Field?>(null) }
 
-    // Use derivedStateOf to keep reorderedFields in sync with fields
-    val reorderedFields =
-        remember(fields) {
-            mutableStateListOf<Field>().apply {
-                clear()
-                addAll(fields)
-            }
-        }
+    // Keep a single stable list instance; synchronize its contents from 'fields'
+    val reorderedFields = remember { mutableStateListOf<Field>() }
 
     // Watch for changes in fields and update reorderedFields
     LaunchedEffect(fields) {
@@ -2506,9 +2500,25 @@ fun ManageColumnsDialog(
                 // Column list with drag-and-drop reordering
                 val reorderState =
                     rememberReorderableLazyListState(onMove = { from, to ->
-                        val item = reorderedFields.removeAt(from.index)
-                        val target = if (to.index > reorderedFields.size) reorderedFields.size else to.index
-                        reorderedFields.add(target, item)
+                        if (reorderedFields.isEmpty()) return@rememberReorderableLazyListState
+                        val lastIndex = reorderedFields.lastIndex
+                        if (lastIndex < 0) return@rememberReorderableLazyListState
+
+                        val fromIndex = from.index.coerceIn(0, lastIndex)
+                        // Clamp target index into valid range; drop-at-end maps to lastIndex
+                        val toIndex = to.index.coerceIn(0, lastIndex)
+
+                        if (fromIndex in 0..lastIndex && toIndex in 0..lastIndex) {
+                            if (fromIndex != toIndex && reorderedFields.isNotEmpty()) {
+                                val item = reorderedFields.removeAt(fromIndex)
+                                val newLastIndex = reorderedFields.lastIndex
+                                var insertIndex = toIndex
+                                // Adjust target when moving forward due to index shift after removal
+                                if (fromIndex < toIndex) insertIndex = (toIndex - 1).coerceIn(0, newLastIndex + 1)
+                                insertIndex = insertIndex.coerceIn(0, newLastIndex + 1)
+                                reorderedFields.add(insertIndex, item)
+                            }
+                        }
                     })
 
                 LazyColumn(
