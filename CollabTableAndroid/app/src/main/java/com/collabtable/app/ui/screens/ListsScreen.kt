@@ -203,7 +203,7 @@ fun ListItem(
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = formatDate(list.updatedAt),
+                    text = formatDate(if (list.updatedAt > 0L) list.updatedAt else list.createdAt),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -298,6 +298,7 @@ private fun RenameListDialog(
 }
 
 private fun formatDate(timestamp: Long): String {
+    if (timestamp <= 0L) return "—"
     val sdf = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
     return sdf.format(Date(timestamp))
 }
