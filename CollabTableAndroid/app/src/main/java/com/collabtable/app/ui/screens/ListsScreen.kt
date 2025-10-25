@@ -2,8 +2,8 @@
 
 package com.collabtable.app.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -201,18 +201,18 @@ fun ListsScreen(
                         ReorderableItem(reorderState, key = list.id) { _ ->
                             Box(modifier = Modifier.animateItemPlacement()) {
                                 ListItem(
-                                list = list,
-                                onListClick = { onNavigateToList(list.id) },
-                                onEditClick = { listToEdit = list },
-                                onDeleteClick = { listToDelete = list },
-                                dragHandle = {
-                                    Icon(
-                                        imageVector = Icons.Default.DragHandle,
-                                        contentDescription = "Reorder",
-                                        modifier = Modifier.detectReorder(reorderState),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                },
+                                    list = list,
+                                    onListClick = { onNavigateToList(list.id) },
+                                    onEditClick = { listToEdit = list },
+                                    onDeleteClick = { listToDelete = list },
+                                    dragHandle = {
+                                        Icon(
+                                            imageVector = Icons.Default.DragHandle,
+                                            contentDescription = "Reorder",
+                                            modifier = Modifier.detectReorder(reorderState),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
                                 )
                             }
                         }

@@ -6,7 +6,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,8 +39,6 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
@@ -2499,28 +2496,31 @@ fun ManageColumnsDialog(
                 Divider()
 
                 // Column list with drag-and-drop reordering
-                val reorderState =
-                    rememberReorderableLazyListState(onMove = { from, to ->
-                        if (reorderedFields.isEmpty()) return@rememberReorderableLazyListState
-                        val lastIndex = reorderedFields.lastIndex
-                        if (lastIndex < 0) return@rememberReorderableLazyListState
-
-                        val fromIndex = from.index.coerceIn(0, lastIndex)
-                        // Clamp target index into valid range; drop-at-end maps to lastIndex
-                        val toIndex = to.index.coerceIn(0, lastIndex)
-
-                        if (fromIndex in 0..lastIndex && toIndex in 0..lastIndex) {
-                            if (fromIndex != toIndex && reorderedFields.isNotEmpty()) {
-                                val item = reorderedFields.removeAt(fromIndex)
-                                val newLastIndex = reorderedFields.lastIndex
-                                var insertIndex = toIndex
-                                // Adjust target when moving forward due to index shift after removal
-                                if (fromIndex < toIndex) insertIndex = (toIndex - 1).coerceIn(0, newLastIndex + 1)
-                                insertIndex = insertIndex.coerceIn(0, newLastIndex + 1)
-                                reorderedFields.add(insertIndex, item)
-                            }
+                // Local extension mirroring the working behavior used in ListsScreen
+                fun <T> MutableList<T>.move(
+                    from: Int,
+                    to: Int,
+                ) {
+                    if (from == to) return
+                    if (isEmpty()) return
+                    if (from !in indices) return
+                    val item = removeAt(from)
+                    val insertIndex =
+                        when {
+                            to > size -> size
+                            to < 0 -> 0
+                            else -> to
                         }
-                    })
+                    add(insertIndex, item)
+                }
+
+                val reorderState =
+                    rememberReorderableLazyListState(
+                        onMove = { from, to ->
+                            // Use the same semantics as on the Lists screen for consistency
+                            reorderedFields.move(from.index, to.index)
+                        },
+                    )
 
                 LazyColumn(
                     modifier =
@@ -2536,34 +2536,39 @@ fun ManageColumnsDialog(
                         items = reorderedFields,
                         key = { _, field -> field.id },
                     ) { index, field ->
-                        ReorderableItem(reorderState, key = field.id) { _ ->
-                            Box(modifier = Modifier.animateItemPlacement()) {
+                        ReorderableItem(
+                            reorderState,
+                            key = field.id,
+                        ) { _ ->
+                            Box(
+                                modifier = Modifier.animateItemPlacement(),
+                            ) {
                                 ColumnItem(
-                                field = field,
-                                onEdit = { fieldToEdit = field },
-                                onDelete = { fieldToDelete = field },
-                                onMoveUp = {
-                                    if (index > 0) {
-                                        val item = reorderedFields.removeAt(index)
-                                        reorderedFields.add(index - 1, item)
-                                    }
-                                },
-                                onMoveDown = {
-                                    if (index < reorderedFields.size - 1) {
-                                        val item = reorderedFields.removeAt(index)
-                                        reorderedFields.add(index + 1, item)
-                                    }
-                                },
-                                canMoveUp = index > 0,
-                                canMoveDown = index < reorderedFields.size - 1,
-                                dragHandle = {
-                                    Icon(
-                                        imageVector = Icons.Default.DragHandle,
-                                        contentDescription = "Reorder",
-                                        modifier = Modifier.detectReorder(reorderState),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                },
+                                    field = field,
+                                    onEdit = { fieldToEdit = field },
+                                    onDelete = { fieldToDelete = field },
+                                    onMoveUp = {
+                                        if (index > 0) {
+                                            val item = reorderedFields.removeAt(index)
+                                            reorderedFields.add(index - 1, item)
+                                        }
+                                    },
+                                    onMoveDown = {
+                                        if (index < reorderedFields.size - 1) {
+                                            val item = reorderedFields.removeAt(index)
+                                            reorderedFields.add(index + 1, item)
+                                        }
+                                    },
+                                    canMoveUp = index > 0,
+                                    canMoveDown = index < reorderedFields.size - 1,
+                                    dragHandle = {
+                                        Icon(
+                                            imageVector = Icons.Default.DragHandle,
+                                            contentDescription = "Reorder",
+                                            modifier = Modifier.detectReorder(reorderState),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
                                 )
                             }
                         }
@@ -2661,8 +2666,9 @@ fun ColumnItem(
     dragHandle: (@Composable () -> Unit)? = null,
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth(),
+        modifier =
+            Modifier
+                .fillMaxWidth(),
         colors =
             CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -2681,40 +2687,6 @@ fun ColumnItem(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 if (dragHandle != null) {
                     dragHandle()
-                }
-                Row {
-                    IconButton(
-                        onClick = onMoveUp,
-                        enabled = canMoveUp,
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.KeyboardArrowUp,
-                            contentDescription = "Move up",
-                            tint =
-                                if (canMoveUp) {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                                },
-                        )
-                    }
-                    IconButton(
-                        onClick = onMoveDown,
-                        enabled = canMoveDown,
-                        modifier = Modifier.size(32.dp),
-                    ) {
-                        Icon(
-                            Icons.Default.KeyboardArrowDown,
-                            contentDescription = "Move down",
-                            tint =
-                                if (canMoveDown) {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                                },
-                        )
-                    }
                 }
             }
 
