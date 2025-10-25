@@ -132,17 +132,17 @@ class PreferencesManager(context: Context) {
         private const val KEY_THEME_MODE = "theme_mode" // system|light|dark
         private const val KEY_DYNAMIC_COLOR = "dynamic_color"
         private const val KEY_AMOLED_DARK = "amoled_dark"
-    private const val KEY_SORT_ORDER = "sort_order"
+        private const val KEY_SORT_ORDER = "sort_order"
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"
         const val THEME_MODE_SYSTEM = "system"
         const val THEME_MODE_LIGHT = "light"
         const val THEME_MODE_DARK = "dark"
 
-    // Sort orders
-    const val SORT_UPDATED_DESC = "updated_desc" // Newest first (default)
-    const val SORT_UPDATED_ASC = "updated_asc"   // Oldest first
-    const val SORT_NAME_ASC = "name_asc"         // A-Z
-    const val SORT_NAME_DESC = "name_desc"       // Z-A
+        // Sort orders
+        const val SORT_UPDATED_DESC = "updated_desc" // Newest first (default)
+        const val SORT_UPDATED_ASC = "updated_asc" // Oldest first
+        const val SORT_NAME_ASC = "name_asc" // A-Z
+        const val SORT_NAME_DESC = "name_desc" // Z-A
 
         @Volatile
         private var instance: PreferencesManager? = null

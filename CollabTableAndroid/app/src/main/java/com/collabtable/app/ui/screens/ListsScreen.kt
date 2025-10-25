@@ -15,8 +15,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Refresh
@@ -37,6 +37,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -144,23 +145,56 @@ fun ListsScreen(
                     )
                 }
             } else {
-                val reorderState = rememberReorderableLazyListState(onMove = { from, to ->
-                    val fromIdx = from.index
-                    val toIdx = to.index
-                    if (fromIdx != toIdx) {
-                        viewModel.reorder(fromIdx, toIdx)
-                    }
-                })
+                // Maintain a working copy for smooth drag animations; commit to DB on drag end
+                var working by remember { mutableStateOf(lists) }
+                var dragging by remember { mutableStateOf(false) }
+                // Keep working list in sync when not dragging
+                LaunchedEffect(lists, dragging) {
+                    if (!dragging) working = lists
+                }
+
+                fun MutableList<CollabList>.move(
+                    from: Int,
+                    to: Int,
+                ) {
+                    if (from == to) return
+                    val item = removeAt(from)
+                    add(
+                        if (to > size) {
+                            size
+                        } else if (to < 0) {
+                            0
+                        } else {
+                            to
+                        },
+                        item,
+                    )
+                }
+
+                val reorderState =
+                    rememberReorderableLazyListState(
+                        onMove = { from, to ->
+                            dragging = true
+                            val newList = working.toMutableList()
+                            newList.move(from.index, to.index)
+                            working = newList
+                        },
+                        onDragEnd = { _, _ ->
+                            dragging = false
+                            viewModel.commitReorder(working.map { it.id })
+                        },
+                    )
 
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .reorderable(reorderState),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .reorderable(reorderState),
                     state = reorderState.listState,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    itemsIndexed(lists, key = { _, it -> it.id }) { index, list ->
+                    itemsIndexed(working, key = { _, it -> it.id }) { index, list ->
                         ReorderableItem(reorderState, key = list.id) { isDragging ->
                             ListItem(
                                 list = list,
@@ -250,9 +284,10 @@ fun ListItem(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable(onClick = onListClick),
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .clickable(onClick = onListClick),
             ) {
                 Text(text = list.name, style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.height(2.dp))
@@ -365,7 +400,10 @@ private fun SortMenu(prefs: PreferencesManager) {
             onDismissRequest = { expanded = false },
         ) {
             @Composable
-            fun ItemOption(label: String, value: String) {
+            fun ItemOption(
+                label: String,
+                value: String,
+            ) {
                 androidx.compose.material3.DropdownMenuItem(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {

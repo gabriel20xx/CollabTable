@@ -65,7 +65,10 @@ class ListsViewModel(
         }
     }
 
-    fun reorder(fromIndex: Int, toIndex: Int) {
+    fun reorder(
+        fromIndex: Int,
+        toIndex: Int,
+    ) {
         viewModelScope.launch {
             val current = _lists.value.toMutableList()
             if (fromIndex !in current.indices || toIndex !in current.indices) return@launch
@@ -85,6 +88,13 @@ class ListsViewModel(
             database.listDao().updateOrderIndexes(newOrder)
 
             // Trigger a fresh load (flows will emit on DB change)
+        }
+    }
+
+    fun commitReorder(newOrderIds: List<String>) {
+        viewModelScope.launch {
+            val pairs = newOrderIds.mapIndexed { idx, id -> id to idx.toLong() }
+            database.listDao().updateOrderIndexes(pairs)
         }
     }
 

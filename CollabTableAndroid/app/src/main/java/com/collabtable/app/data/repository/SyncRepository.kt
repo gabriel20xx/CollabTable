@@ -44,7 +44,9 @@ class SyncRepository(context: Context) {
                 if (localTotal > 0) {
                     Logger.i(
                         "Sync",
-                        "[OUT] Sending changes (lists=${localLists.size}, fields=${localFields.size}, items=${localItems.size}, values=${localValues.size})",
+                        "[OUT] Sending changes " +
+                            "(lists=${localLists.size}, fields=${localFields.size}, " +
+                            "items=${localItems.size}, values=${localValues.size})",
                     )
                 }
 
@@ -78,23 +80,41 @@ class SyncRepository(context: Context) {
                         response.body()!!
                     }
                 // Only log receive when there are actual server changes
-                val inTotal = syncResponse.lists.size + syncResponse.fields.size + syncResponse.items.size + syncResponse.itemValues.size
+                val inTotal =
+                    syncResponse.lists.size +
+                        syncResponse.fields.size +
+                        syncResponse.items.size +
+                        syncResponse.itemValues.size
                 if (inTotal > 0) {
                     Logger.i(
                         "Sync",
-                        "[IN] Received changes (lists=${syncResponse.lists.size}, fields=${syncResponse.fields.size}, items=${syncResponse.items.size}, values=${syncResponse.itemValues.size})",
+                        "[IN] Received changes " +
+                            "(lists=${syncResponse.lists.size}, fields=${syncResponse.fields.size}, " +
+                            "items=${syncResponse.items.size}, values=${syncResponse.itemValues.size})",
                     )
                 }
 
                 // Apply server changes to local database atomically in correct order
                 database.withTransaction {
                     // 1) Upsert lists first, preserving local orderIndex when present
-                    val idOrderMap = database.listDao().getListIdsAndOrder().associate { it.id to it.orderIndex }
-                    val listsPreservingOrder = syncResponse.lists.map { incoming ->
-                        val localOrder = idOrderMap[incoming.id]
-                        if (localOrder != null) incoming.copy(orderIndex = localOrder) else incoming
+                    val localIdToOrder = database.listDao().getListIdsAndOrder().associate { it.id to it.orderIndex }
+                    // Build a map of local updatedAt to avoid overwriting newer local changes with older server data
+                    val localUpdatedMap = database.listDao().getListsUpdatedSince(0).associateBy({ it.id }, { it.updatedAt })
+
+                    val listsPreservingOrder =
+                        syncResponse.lists
+                            .filter { incoming ->
+                                val localUpdated = localUpdatedMap[incoming.id]
+                                localUpdated == null || incoming.updatedAt >= localUpdated
+                            }
+                            .map { incoming ->
+                                val localOrder = localIdToOrder[incoming.id]
+                                if (localOrder != null) incoming.copy(orderIndex = localOrder) else incoming
+                            }
+
+                    if (listsPreservingOrder.isNotEmpty()) {
+                        database.listDao().insertLists(listsPreservingOrder)
                     }
-                    database.listDao().insertLists(listsPreservingOrder)
 
                     // Build set of existing list ids to guard child inserts
                     val existingListIds = database.listDao().getAllListIds().toSet()

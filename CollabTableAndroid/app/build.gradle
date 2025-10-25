@@ -105,3 +105,8 @@ detekt {
     buildUponDefaultConfig = true
     allRules = false
 }
+
+// Ensure Detekt uses a supported JVM target
+tasks.withType(io.gitlab.arturbosch.detekt.Detekt).configureEach {
+    jvmTarget = "21"
+}

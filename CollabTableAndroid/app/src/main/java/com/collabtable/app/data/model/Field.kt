@@ -61,7 +61,8 @@ data class Field(
     val listId: String,
     val name: String,
     val fieldType: String = "TEXT",
-    val fieldOptions: String = "", // JSON string for dropdown options, currency symbol, etc.
+    // JSON string for dropdown options, currency symbol, etc.
+    val fieldOptions: String = "",
     val order: Int,
     val createdAt: Long,
     val updatedAt: Long,

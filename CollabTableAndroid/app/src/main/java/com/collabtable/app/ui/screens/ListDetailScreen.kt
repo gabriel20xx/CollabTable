@@ -1,12 +1,26 @@
-package com.collabtable.app.ui.screens
+@file:Suppress("ktlint:standard:no-wildcard-imports")
 
+package com.collabtable.app.ui.screens
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -16,14 +30,34 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.TimePicker
-import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberTimePickerState
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -45,8 +79,13 @@ import com.collabtable.app.R
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.Field
 import com.collabtable.app.data.model.ItemWithValues
+import org.burnoutcrew.reorderable.ReorderableItem
+import org.burnoutcrew.reorderable.detectReorder
+import org.burnoutcrew.reorderable.rememberReorderableLazyListState
+import org.burnoutcrew.reorderable.reorderable
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -2464,12 +2503,21 @@ fun ManageColumnsDialog(
 
                 Divider()
 
-                // Column list
+                // Column list with drag-and-drop reordering
+                val reorderState =
+                    rememberReorderableLazyListState(onMove = { from, to ->
+                        val item = reorderedFields.removeAt(from.index)
+                        val target = if (to.index > reorderedFields.size) reorderedFields.size else to.index
+                        reorderedFields.add(target, item)
+                    })
+
                 LazyColumn(
                     modifier =
                         Modifier
                             .weight(1f)
-                            .fillMaxWidth(),
+                            .fillMaxWidth()
+                            .reorderable(reorderState),
+                    state = reorderState.listState,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
@@ -2477,25 +2525,35 @@ fun ManageColumnsDialog(
                         items = reorderedFields,
                         key = { _, field -> field.id },
                     ) { index, field ->
-                        ColumnItem(
-                            field = field,
-                            onEdit = { fieldToEdit = field },
-                            onDelete = { fieldToDelete = field },
-                            onMoveUp = {
-                                if (index > 0) {
-                                    val item = reorderedFields.removeAt(index)
-                                    reorderedFields.add(index - 1, item)
-                                }
-                            },
-                            onMoveDown = {
-                                if (index < reorderedFields.size - 1) {
-                                    val item = reorderedFields.removeAt(index)
-                                    reorderedFields.add(index + 1, item)
-                                }
-                            },
-                            canMoveUp = index > 0,
-                            canMoveDown = index < reorderedFields.size - 1,
-                        )
+                        ReorderableItem(reorderState, key = field.id) { _ ->
+                            ColumnItem(
+                                field = field,
+                                onEdit = { fieldToEdit = field },
+                                onDelete = { fieldToDelete = field },
+                                onMoveUp = {
+                                    if (index > 0) {
+                                        val item = reorderedFields.removeAt(index)
+                                        reorderedFields.add(index - 1, item)
+                                    }
+                                },
+                                onMoveDown = {
+                                    if (index < reorderedFields.size - 1) {
+                                        val item = reorderedFields.removeAt(index)
+                                        reorderedFields.add(index + 1, item)
+                                    }
+                                },
+                                canMoveUp = index > 0,
+                                canMoveDown = index < reorderedFields.size - 1,
+                                dragHandle = {
+                                    Icon(
+                                        imageVector = Icons.Default.DragHandle,
+                                        contentDescription = "Reorder",
+                                        modifier = Modifier.detectReorder(reorderState),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                },
+                            )
+                        }
                     }
                 }
 
@@ -2587,6 +2645,7 @@ fun ColumnItem(
     onMoveDown: () -> Unit,
     canMoveUp: Boolean,
     canMoveDown: Boolean,
+    dragHandle: (@Composable () -> Unit)? = null,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -2604,39 +2663,44 @@ fun ColumnItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Move up/down buttons
-            Column {
-                IconButton(
-                    onClick = onMoveUp,
-                    enabled = canMoveUp,
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Icon(
-                        Icons.Default.KeyboardArrowUp,
-                        contentDescription = "Move up",
-                        tint =
-                            if (canMoveUp) {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                            },
-                    )
+            // Drag handle and optional move buttons
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                if (dragHandle != null) {
+                    dragHandle()
                 }
-                IconButton(
-                    onClick = onMoveDown,
-                    enabled = canMoveDown,
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Icon(
-                        Icons.Default.KeyboardArrowDown,
-                        contentDescription = "Move down",
-                        tint =
-                            if (canMoveDown) {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                            },
-                    )
+                Row {
+                    IconButton(
+                        onClick = onMoveUp,
+                        enabled = canMoveUp,
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowUp,
+                            contentDescription = "Move up",
+                            tint =
+                                if (canMoveUp) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                },
+                        )
+                    }
+                    IconButton(
+                        onClick = onMoveDown,
+                        enabled = canMoveDown,
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Move down",
+                            tint =
+                                if (canMoveDown) {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                },
+                        )
+                    }
                 }
             }
 
@@ -2662,8 +2726,10 @@ fun ColumnItem(
                             // Selection types
                             com.collabtable.app.data.model.FieldType.CHECKBOX -> "Checkbox"
                             com.collabtable.app.data.model.FieldType.SWITCH -> "Switch"
-                            com.collabtable.app.data.model.FieldType.DROPDOWN -> "Dropdown (${field.getDropdownOptions().size} options)"
-                            com.collabtable.app.data.model.FieldType.AUTOCOMPLETE -> "Autocomplete (${field.getAutocompleteOptions().size} options)"
+                            com.collabtable.app.data.model.FieldType.DROPDOWN ->
+                                "Dropdown (${field.getDropdownOptions().size} options)"
+                            com.collabtable.app.data.model.FieldType.AUTOCOMPLETE ->
+                                "Autocomplete (${field.getAutocompleteOptions().size} options)"
 
                             // Link types
                             com.collabtable.app.data.model.FieldType.URL -> "URL"

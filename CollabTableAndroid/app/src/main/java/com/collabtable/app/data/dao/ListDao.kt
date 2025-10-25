@@ -1,6 +1,10 @@
 package com.collabtable.app.data.dao
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Query
+import androidx.room.Transaction
+import androidx.room.Update
+import androidx.room.Upsert
 import com.collabtable.app.data.model.CollabList
 import com.collabtable.app.data.model.ListWithFields
 import kotlinx.coroutines.flow.Flow
