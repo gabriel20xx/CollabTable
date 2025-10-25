@@ -10,9 +10,10 @@ import kotlinx.coroutines.withContext
 import androidx.room.withTransaction
 
 class SyncRepository(context: Context) {
-    private val database = CollabTableDatabase.getDatabase(context)
+    private val appContext = context.applicationContext
+    private val database = CollabTableDatabase.getDatabase(appContext)
     private val api = ApiClient.api
-    private val prefs = context.getSharedPreferences("collab_table_prefs", Context.MODE_PRIVATE)
+    private val prefs = appContext.getSharedPreferences("collab_table_prefs", Context.MODE_PRIVATE)
 
     private fun getLastSyncTimestamp(): Long {
         return prefs.getLong("last_sync_timestamp", 0)
@@ -70,22 +71,42 @@ class SyncRepository(context: Context) {
 
                 // Apply server changes to local database atomically in correct order
                 database.withTransaction {
+                    // 1) Upsert lists first
                     database.listDao().insertLists(syncResponse.lists)
-                    database.fieldDao().insertFields(syncResponse.fields)
-                    database.itemDao().insertItems(syncResponse.items)
 
-                    // Filter item values to only those whose parents exist locally to avoid FK violations
+                    // Build set of existing list ids to guard child inserts
+                    val existingListIds = database.listDao().getAllListIds().toSet()
+
+                    // 2) Filter and upsert fields whose parent list exists
+                    val filteredFields = syncResponse.fields.filter { f -> f.listId in existingListIds }
+                    if (filteredFields.size != syncResponse.fields.size) {
+                        val dropped = syncResponse.fields.size - filteredFields.size
+                        Logger.w("Sync", "Dropping $dropped field(s) with missing parent list to avoid FK errors")
+                    }
+                    if (filteredFields.isNotEmpty()) {
+                        database.fieldDao().insertFields(filteredFields)
+                    }
+
+                    // 3) Filter and upsert items whose parent list exists
+                    val filteredItems = syncResponse.items.filter { i -> i.listId in existingListIds }
+                    if (filteredItems.size != syncResponse.items.size) {
+                        val dropped = syncResponse.items.size - filteredItems.size
+                        Logger.w("Sync", "Dropping $dropped item(s) with missing parent list to avoid FK errors")
+                    }
+                    if (filteredItems.isNotEmpty()) {
+                        database.itemDao().insertItems(filteredItems)
+                    }
+
+                    // 4) Filter item values to only those whose parents (item and field) exist locally
                     val existingItemIds = database.itemDao().getAllItemIds().toSet()
                     val existingFieldIds = database.fieldDao().getAllFieldIds().toSet()
                     val filteredValues = syncResponse.itemValues.filter { v ->
                         v.itemId in existingItemIds && v.fieldId in existingFieldIds
                     }
-
                     if (filteredValues.size != syncResponse.itemValues.size) {
                         val dropped = syncResponse.itemValues.size - filteredValues.size
                         Logger.w("Sync", "Dropping $dropped item value(s) with missing parents to avoid FK errors")
                     }
-
                     if (filteredValues.isNotEmpty()) {
                         database.itemValueDao().insertValues(filteredValues)
                     }

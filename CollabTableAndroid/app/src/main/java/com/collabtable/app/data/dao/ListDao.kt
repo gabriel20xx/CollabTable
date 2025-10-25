@@ -17,6 +17,9 @@ interface ListDao {
     @Query("SELECT * FROM lists WHERE id = :listId")
     suspend fun getListById(listId: String): CollabList?
 
+    @Query("SELECT id FROM lists")
+    suspend fun getAllListIds(): List<String>
+
     @Upsert
     suspend fun insertList(list: CollabList)
 
