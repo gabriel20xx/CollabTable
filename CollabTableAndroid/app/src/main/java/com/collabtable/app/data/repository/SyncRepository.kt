@@ -17,12 +17,35 @@ class SyncRepository(context: Context) {
     private val api = ApiClient.api
     private val prefs = appContext.getSharedPreferences("collab_table_prefs", Context.MODE_PRIVATE)
 
-    private fun getLastSyncTimestamp(): Long {
-        return prefs.getLong("last_sync_timestamp", 0)
+    // We keep separate watermarks to avoid clock-skew issues:
+    // - server watermark: server-assigned timestamp for fetching server changes
+    // - local watermark: device local time for selecting local changes to upload
+    private fun getLastServerSyncTs(): Long {
+        // Backward-compat: fall back to legacy key if new one is absent
+        if (!prefs.contains("last_server_sync_ts")) {
+            return prefs.getLong("last_sync_timestamp", 0)
+        }
+        return prefs.getLong("last_server_sync_ts", 0)
     }
 
-    private fun setLastSyncTimestamp(timestamp: Long) {
-        prefs.edit().putLong("last_sync_timestamp", timestamp).apply()
+    private fun setLastServerSyncTs(ts: Long) {
+        prefs.edit()
+            .putLong("last_server_sync_ts", ts)
+            // also update legacy for safety
+            .putLong("last_sync_timestamp", ts)
+            .apply()
+    }
+
+    private fun getLastLocalSyncTs(): Long {
+        // Backward-compat: if missing, use legacy key value
+        if (!prefs.contains("last_local_sync_ts")) {
+            return prefs.getLong("last_sync_timestamp", 0)
+        }
+        return prefs.getLong("last_local_sync_ts", 0)
+    }
+
+    private fun setLastLocalSyncTs(ts: Long) {
+        prefs.edit().putLong("last_local_sync_ts", ts).apply()
     }
 
     suspend fun performSync(): Result<Unit> =
@@ -30,17 +53,18 @@ class SyncRepository(context: Context) {
             // Prevent overlapping syncs across screens/viewmodels
             syncMutex.withLock {
             try {
-                val lastSync = getLastSyncTimestamp()
-                val isInitialSync = lastSync == 0L
+                val lastServerTs = getLastServerSyncTs()
+                val lastLocalTs = getLastLocalSyncTs()
+                val isInitialSync = lastServerTs == 0L
                 if (isInitialSync) {
                     Logger.i("Sync", "[SYNC] Starting initial sync with server")
                 }
 
                 // Gather local changes since last sync
-                val localLists = database.listDao().getListsUpdatedSince(lastSync)
-                val localFields = database.fieldDao().getFieldsUpdatedSince(lastSync)
-                val localItems = database.itemDao().getItemsUpdatedSince(lastSync)
-                val localValues = database.itemValueDao().getValuesUpdatedSince(lastSync)
+                val localLists = database.listDao().getListsUpdatedSince(lastLocalTs)
+                val localFields = database.fieldDao().getFieldsUpdatedSince(lastLocalTs)
+                val localItems = database.itemDao().getItemsUpdatedSince(lastLocalTs)
+                val localValues = database.itemValueDao().getValuesUpdatedSince(lastLocalTs)
 
                 // Only log send when there are actual local changes
                 val localTotal = localLists.size + localFields.size + localItems.size + localValues.size
@@ -56,7 +80,7 @@ class SyncRepository(context: Context) {
                 // Send to server and get updates
                 val syncRequest =
                     SyncRequest(
-                        lastSyncTimestamp = lastSync,
+                        lastSyncTimestamp = lastServerTs,
                         lists = localLists,
                         fields = localFields,
                         items = localItems,
@@ -69,7 +93,8 @@ class SyncRepository(context: Context) {
                     if (response.code() == 401) {
                         // Unauthorized: likely bad/missing password. Reset sync baseline and surface a clear error.
                         Logger.e("Sync", "[ERROR] Unauthorized (401). Check server password in Settings.")
-                        setLastSyncTimestamp(0)
+                        setLastServerSyncTs(0)
+                        setLastLocalSyncTs(0)
                         return@withContext Result.failure(Exception("Unauthorized (401). Please verify server password."))
                     }
                     Logger.e("Sync", "[ERROR] Sync failed: HTTP ${response.code()}")
@@ -152,8 +177,9 @@ class SyncRepository(context: Context) {
                     }
                 }
 
-                // Update last sync timestamp
-                setLastSyncTimestamp(syncResponse.serverTimestamp)
+                // Update watermarks: server ts from response, local ts from device clock now
+                setLastServerSyncTs(syncResponse.serverTimestamp)
+                setLastLocalSyncTs(System.currentTimeMillis())
 
                 if (isInitialSync) {
                     Logger.i("Sync", "[SYNC] Initial sync completed")
@@ -166,7 +192,8 @@ class SyncRepository(context: Context) {
                 }
                 // If WS indicated unauthorized, align behavior with HTTP path
                 if (e.message?.contains("Unauthorized") == true) {
-                    setLastSyncTimestamp(0)
+                    setLastServerSyncTs(0)
+                    setLastLocalSyncTs(0)
                 }
                 Logger.e("Sync", "[ERROR] Sync error: ${e.message}")
                 return@withContext Result.failure(e)
