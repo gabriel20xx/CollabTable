@@ -31,6 +31,18 @@ router.get('/', (req: Request, res: Response) => {
             color: #333;
             margin-bottom: 10px;
         }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .refresh-info {
+            font-size: 12px;
+            color: #666;
+            padding: 4px 8px;
+            background: #f1f3f5;
+            border-radius: 6px;
+        }
         .stats {
             background: white;
             padding: 20px;
@@ -156,7 +168,10 @@ router.get('/', (req: Request, res: Response) => {
     <div class="container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h1>CollabTable Server - Database Viewer</h1>
-            <button class="refresh-btn" onclick="loadData()">Refresh</button>
+            <div class="header-right">
+                <div id="refresh-info" class="refresh-info">Last refresh: -</div>
+                <button class="refresh-btn" onclick="loadData()">Refresh</button>
+            </div>
         </div>
         
         <div class="stats">
@@ -231,6 +246,13 @@ router.get('/', (req: Request, res: Response) => {
                 document.getElementById('total-items').textContent = stats.items;
                 document.getElementById('total-values').textContent = stats.values;
                 
+                // Update refresh info
+                const refreshInfo = document.getElementById('refresh-info');
+                if (refreshInfo) {
+                    const ts = (data && data.timestamp) ? data.timestamp : Date.now();
+                    refreshInfo.textContent = 'Last refresh: ' + fmtDate(ts);
+                }
+
                 // Render lists
                 const container = document.getElementById('lists-container');
                 
