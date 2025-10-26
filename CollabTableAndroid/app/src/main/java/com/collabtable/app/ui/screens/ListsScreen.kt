@@ -179,7 +179,10 @@ fun ListsScreen(
                         onMove = { from, to ->
                             dragging = true
                             val newList = working.toMutableList()
-                            newList.move(from.index, to.index)
+                            // Map from Lazy positions (including dividers) to data indices
+                            val fromData = from.index / 2
+                            val toData = to.index / 2
+                            newList.move(fromData, toData)
                             working = newList
                         },
                         onDragEnd = { _, _ ->
@@ -194,7 +197,7 @@ fun ListsScreen(
                             .fillMaxSize()
                             .reorderable(reorderState),
                     state = reorderState.listState,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                    contentPadding = PaddingValues(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     // Interleave dividers as separate list items so they don't move with dragged rows

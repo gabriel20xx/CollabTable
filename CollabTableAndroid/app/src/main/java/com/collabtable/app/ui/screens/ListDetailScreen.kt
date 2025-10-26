@@ -2527,8 +2527,10 @@ fun ManageColumnsDialog(
                 val reorderState =
                     rememberReorderableLazyListState(
                         onMove = { from, to ->
-                            // Use the same semantics as on the Lists screen for consistency
-                            reorderedFields.move(from.index, to.index)
+                            // Map from Lazy positions (including dividers) to data indices
+                            val fromData = from.index / 2
+                            val toData = to.index / 2
+                            reorderedFields.move(fromData, toData)
                         },
                     )
 
@@ -2539,7 +2541,7 @@ fun ManageColumnsDialog(
                             .fillMaxWidth()
                             .reorderable(reorderState),
                     state = reorderState.listState,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 16.dp),
+                    contentPadding = PaddingValues(vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     // Interleave dividers as separate Lazy items so dividers don't move with dragged rows
