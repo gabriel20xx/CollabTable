@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.room.withTransaction
 import com.collabtable.app.data.api.ApiClient
 import com.collabtable.app.data.api.SyncRequest
-import com.collabtable.app.data.api.WebSocketSyncClient
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.utils.Logger
 import kotlinx.coroutines.Dispatchers
@@ -60,25 +59,19 @@ class SyncRepository(context: Context) {
                         itemValues = localValues,
                     )
 
-                // Try WebSocket first; on failure, fall back to HTTP
-                val wsResult = WebSocketSyncClient.sync(appContext, syncRequest)
-                val syncResponse =
-                    if (wsResult.isSuccess) {
-                        wsResult.getOrThrow()
-                    } else {
-                        val response = api.sync(syncRequest)
-                        if (!response.isSuccessful) {
-                            if (response.code() == 401) {
-                                // Unauthorized: likely bad/missing password. Reset sync baseline and surface a clear error.
-                                Logger.e("Sync", "[ERROR] Unauthorized (401). Check server password in Settings.")
-                                setLastSyncTimestamp(0)
-                                return@withContext Result.failure(Exception("Unauthorized (401). Please verify server password."))
-                            }
-                            Logger.e("Sync", "[ERROR] Sync failed: HTTP ${response.code()}")
-                            return@withContext Result.failure(Exception("Sync failed: ${response.code()}"))
-                        }
-                        response.body()!!
+                // HTTP-only sync
+                val response = api.sync(syncRequest)
+                if (!response.isSuccessful) {
+                    if (response.code() == 401) {
+                        // Unauthorized: likely bad/missing password. Reset sync baseline and surface a clear error.
+                        Logger.e("Sync", "[ERROR] Unauthorized (401). Check server password in Settings.")
+                        setLastSyncTimestamp(0)
+                        return@withContext Result.failure(Exception("Unauthorized (401). Please verify server password."))
                     }
+                    Logger.e("Sync", "[ERROR] Sync failed: HTTP ${response.code()}")
+                    return@withContext Result.failure(Exception("Sync failed: ${response.code()}"))
+                }
+                val syncResponse = response.body()!!
                 // Only log receive when there are actual server changes
                 val inTotal =
                     syncResponse.lists.size +

@@ -65,9 +65,11 @@ class ListDetailViewModel(
 
     private fun startPeriodicSync() {
         viewModelScope.launch {
+            val prefs = com.collabtable.app.data.preferences.PreferencesManager.getInstance(context)
             while (true) {
                 performSync()
-                kotlinx.coroutines.delay(5000) // Sync every 5 seconds
+                val delayMs = prefs.getSyncPollIntervalMs()
+                kotlinx.coroutines.delay(delayMs)
             }
         }
     }

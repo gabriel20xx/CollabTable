@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -27,7 +27,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -173,11 +172,8 @@ fun ListsScreen(
                         onMove = { from, to ->
                             dragging = true
                             val newList = working.toMutableList()
-                            // Map from Lazy positions (with dividers) to data indices.
-                            // to.index can be odd (between items). Insert AFTER the upper item for better feel.
-                            val fromData = from.index / 2
-                            val toData = (to.index + 1) / 2
-                            newList.move(fromData, toData)
+                            // Indices provided by reorderable correspond to draggable items only (dividers ignored)
+                            newList.move(from.index, to.index)
                             working = newList
                         },
                         onDragEnd = { _, _ ->
@@ -195,35 +191,23 @@ fun ListsScreen(
                     contentPadding = PaddingValues(vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
-                    // Interleave dividers as separate list items so they don't move with dragged rows
-                    items(
-                        count = if (working.isEmpty()) 0 else working.size * 2 - 1,
-                        key = { pos ->
-                            if (pos % 2 == 0) working[pos / 2].id else "divider-$pos"
-                        },
-                    ) { pos ->
-                        if (pos % 2 == 1) {
-                            Divider()
-                        } else {
-                            val index = pos / 2
-                            val list = working[index]
-                            ReorderableItem(reorderState, key = list.id) { _ ->
-                                Box(modifier = Modifier.animateItemPlacement()) {
-                                    ListItem(
-                                        list = list,
-                                        onListClick = { onNavigateToList(list.id) },
-                                        onEditClick = { listToEdit = list },
-                                        onDeleteClick = { listToDelete = list },
-                                        dragHandle = {
-                                            Icon(
-                                                imageVector = Icons.Default.DragHandle,
-                                                contentDescription = "Reorder",
-                                                modifier = Modifier.detectReorder(reorderState),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        },
-                                    )
-                                }
+                    itemsIndexed(working, key = { _, it -> it.id }) { _, list ->
+                        ReorderableItem(reorderState, key = list.id) { _ ->
+                            Box(modifier = Modifier.animateItemPlacement()) {
+                                ListItem(
+                                    list = list,
+                                    onListClick = { onNavigateToList(list.id) },
+                                    onEditClick = { listToEdit = list },
+                                    onDeleteClick = { listToDelete = list },
+                                    dragHandle = {
+                                        Icon(
+                                            imageVector = Icons.Default.DragHandle,
+                                            contentDescription = "Reorder",
+                                            modifier = Modifier.detectReorder(reorderState),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
+                                )
                             }
                         }
                     }

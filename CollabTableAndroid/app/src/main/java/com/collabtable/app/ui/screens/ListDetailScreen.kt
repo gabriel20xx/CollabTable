@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
@@ -2522,11 +2523,8 @@ fun ManageColumnsDialog(
                 val reorderState =
                     rememberReorderableLazyListState(
                         onMove = { from, to ->
-                            // Map from Lazy positions (with dividers) to data indices.
-                            // Insert AFTER the upper item when hovering between rows.
-                            val fromData = from.index / 2
-                            val toData = (to.index + 1) / 2
-                            reorderedFields.move(fromData, toData)
+                            // Indices from reorderable refer to draggable items only
+                            reorderedFields.move(from.index, to.index)
                         },
                     )
 
@@ -2540,53 +2538,41 @@ fun ManageColumnsDialog(
                     contentPadding = PaddingValues(vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
-                    // Interleave dividers as separate Lazy items so dividers don't move with dragged rows
-                    items(
-                        count = if (reorderedFields.isEmpty()) 0 else reorderedFields.size * 2 - 1,
-                        key = { pos ->
-                            if (pos % 2 == 0) reorderedFields[pos / 2].id else "divider-$pos"
-                        },
-                    ) { pos ->
-                        if (pos % 2 == 1) {
-                            Divider()
-                        } else {
-                            val index = pos / 2
-                            val field = reorderedFields[index]
-                            ReorderableItem(
-                                reorderState,
-                                key = field.id,
-                            ) { _ ->
-                                Box(
-                                    modifier = Modifier.animateItemPlacement(),
-                                ) {
-                                    ColumnItem(
-                                        field = field,
-                                        onEdit = { fieldToEdit = field },
-                                        onDelete = { fieldToDelete = field },
-                                        onMoveUp = {
-                                            if (index > 0) {
-                                                val item = reorderedFields.removeAt(index)
-                                                reorderedFields.add(index - 1, item)
-                                            }
-                                        },
-                                        onMoveDown = {
-                                            if (index < reorderedFields.size - 1) {
-                                                val item = reorderedFields.removeAt(index)
-                                                reorderedFields.add(index + 1, item)
-                                            }
-                                        },
-                                        canMoveUp = index > 0,
-                                        canMoveDown = index < reorderedFields.size - 1,
-                                        dragHandle = {
-                                            Icon(
-                                                imageVector = Icons.Default.DragHandle,
-                                                contentDescription = "Reorder",
-                                                modifier = Modifier.detectReorder(reorderState),
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        },
-                                    )
-                                }
+                    itemsIndexed(reorderedFields, key = { _, field -> field.id }) { index, field ->
+                        ReorderableItem(
+                            reorderState,
+                            key = field.id,
+                        ) { _ ->
+                            Box(
+                                modifier = Modifier.animateItemPlacement(),
+                            ) {
+                                ColumnItem(
+                                    field = field,
+                                    onEdit = { fieldToEdit = field },
+                                    onDelete = { fieldToDelete = field },
+                                    onMoveUp = {
+                                        if (index > 0) {
+                                            val item = reorderedFields.removeAt(index)
+                                            reorderedFields.add(index - 1, item)
+                                        }
+                                    },
+                                    onMoveDown = {
+                                        if (index < reorderedFields.size - 1) {
+                                            val item = reorderedFields.removeAt(index)
+                                            reorderedFields.add(index + 1, item)
+                                        }
+                                    },
+                                    canMoveUp = index > 0,
+                                    canMoveDown = index < reorderedFields.size - 1,
+                                    dragHandle = {
+                                        Icon(
+                                            imageVector = Icons.Default.DragHandle,
+                                            contentDescription = "Reorder",
+                                            modifier = Modifier.detectReorder(reorderState),
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    },
+                                )
                             }
                         }
                     }

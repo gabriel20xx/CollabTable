@@ -25,6 +25,10 @@ class PreferencesManager(context: Context) {
     private val _sortOrder = MutableStateFlow(getSortOrder())
     val sortOrder: StateFlow<String> = _sortOrder.asStateFlow()
 
+    // Sync polling interval in milliseconds (configurable)
+    private val _syncPollIntervalMs = MutableStateFlow(getSyncPollIntervalMs())
+    val syncPollIntervalMs: StateFlow<Long> = _syncPollIntervalMs.asStateFlow()
+
     fun getServerUrl(): String {
         return prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL) ?: DEFAULT_SERVER_URL
     }
@@ -124,6 +128,18 @@ class PreferencesManager(context: Context) {
         _sortOrder.value = normalized
     }
 
+    // Sync interval: read/write with sensible bounds to avoid too-aggressive polling
+    fun getSyncPollIntervalMs(): Long {
+        val raw = prefs.getLong(KEY_SYNC_POLL_INTERVAL_MS, DEFAULT_SYNC_POLL_INTERVAL_MS)
+        return raw.coerceIn(MIN_SYNC_POLL_INTERVAL_MS, MAX_SYNC_POLL_INTERVAL_MS)
+    }
+
+    fun setSyncPollIntervalMs(ms: Long) {
+        val clamped = ms.coerceIn(MIN_SYNC_POLL_INTERVAL_MS, MAX_SYNC_POLL_INTERVAL_MS)
+        prefs.edit().putLong(KEY_SYNC_POLL_INTERVAL_MS, clamped).apply()
+        _syncPollIntervalMs.value = clamped
+    }
+
     companion object {
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_FIRST_RUN = "first_run"
@@ -133,7 +149,11 @@ class PreferencesManager(context: Context) {
         private const val KEY_DYNAMIC_COLOR = "dynamic_color"
         private const val KEY_AMOLED_DARK = "amoled_dark"
         private const val KEY_SORT_ORDER = "sort_order"
+    private const val KEY_SYNC_POLL_INTERVAL_MS = "sync_poll_interval_ms"
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"
+    private const val DEFAULT_SYNC_POLL_INTERVAL_MS = 5000L
+    private const val MIN_SYNC_POLL_INTERVAL_MS = 250L
+    private const val MAX_SYNC_POLL_INTERVAL_MS = 600_000L // 10 minutes
         const val THEME_MODE_SYSTEM = "system"
         const val THEME_MODE_LIGHT = "light"
         const val THEME_MODE_DARK = "dark"

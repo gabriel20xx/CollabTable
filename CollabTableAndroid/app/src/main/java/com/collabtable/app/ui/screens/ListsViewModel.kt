@@ -99,8 +99,10 @@ class ListsViewModel(
     }
 
     private suspend fun startPeriodicSync() {
+        val prefs = com.collabtable.app.data.preferences.PreferencesManager.getInstance(context)
         while (true) {
-            kotlinx.coroutines.delay(5000) // Wait 5 seconds before next sync
+            val delayMs = prefs.getSyncPollIntervalMs()
+            kotlinx.coroutines.delay(delayMs)
             performSync()
         }
     }

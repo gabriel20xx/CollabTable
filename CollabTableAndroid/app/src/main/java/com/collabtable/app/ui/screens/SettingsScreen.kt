@@ -28,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
+import androidx.compose.material3.TextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -72,6 +73,9 @@ fun SettingsScreen(
     val displayUrl = remember(serverUrl) { formatServerUrlForDisplay(serverUrl) }
     var showLeaveDialog by remember { mutableStateOf(false) }
     var isLeaving by remember { mutableStateOf(false) }
+    val syncIntervalMs by preferencesManager.syncPollIntervalMs.collectAsState()
+    var syncIntervalInput by remember(syncIntervalMs) { mutableStateOf(syncIntervalMs.toString()) }
+    var syncIntervalError by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         topBar = {
@@ -213,6 +217,72 @@ fun SettingsScreen(
                     Text("Leaving...")
                 } else {
                     Text("Leave Server")
+                }
+            }
+
+            // Sync settings
+            Text(
+                text = "Sync",
+                style = MaterialTheme.typography.titleMedium,
+            )
+
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "HTTP polling interval (ms)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TextField(
+                            value = syncIntervalInput,
+                            onValueChange = {
+                                syncIntervalInput = it.filter { ch -> ch.isDigit() }
+                                syncIntervalError = null
+                            },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            placeholder = { Text("5000") },
+                        )
+                        Button(onClick = {
+                            val parsed = syncIntervalInput.toLongOrNull()
+                            if (parsed == null) {
+                                syncIntervalError = "Enter a valid number"
+                            } else {
+                                // Bounds are enforced in setter
+                                preferencesManager.setSyncPollIntervalMs(parsed)
+                                syncIntervalError = null
+                            }
+                        }) {
+                            Text("Apply")
+                        }
+                    }
+                    if (syncIntervalError != null) {
+                        Text(
+                            text = syncIntervalError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    } else {
+                        Text(
+                            text = "Current: ${'$'}syncIntervalMs ms (min 250, max 600000)",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 

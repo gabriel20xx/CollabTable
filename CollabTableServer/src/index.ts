@@ -8,8 +8,6 @@ import fieldRoutes from './routes/fieldRoutes';
 import itemRoutes from './routes/itemRoutes';
 import syncRoutes from './routes/syncRoutes';
 import webRoutes from './routes/webRoutes';
-import { createServer } from 'http';
-import { initWebSocket } from './ws';
 
 dotenv.config();
 
@@ -48,9 +46,8 @@ app.use('/', webRoutes);
     console.log('- Items');
     console.log('- ItemValues');
 
-    const server = createServer(app);
-    initWebSocket(server);
-    server.listen(PORT, () => {
+    // Start HTTP server (WebSocket removed)
+    app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
       console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
       const dbClient = (process.env.DB_CLIENT || process.env.DB_TYPE || 'sqlite').toLowerCase();
