@@ -24,7 +24,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
@@ -2540,48 +2539,56 @@ fun ManageColumnsDialog(
                             .fillMaxWidth()
                             .reorderable(reorderState),
                     state = reorderState.listState,
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
-                    itemsIndexed(
-                        items = reorderedFields,
-                        key = { _, field -> field.id },
-                    ) { index, field ->
-                        ReorderableItem(
-                            reorderState,
-                            key = field.id,
-                        ) { _ ->
-                            Box(
-                                modifier = Modifier.animateItemPlacement(),
-                            ) {
-                                if (index > 0) Divider()
-                                ColumnItem(
-                                    field = field,
-                                    onEdit = { fieldToEdit = field },
-                                    onDelete = { fieldToDelete = field },
-                                    onMoveUp = {
-                                        if (index > 0) {
-                                            val item = reorderedFields.removeAt(index)
-                                            reorderedFields.add(index - 1, item)
-                                        }
-                                    },
-                                    onMoveDown = {
-                                        if (index < reorderedFields.size - 1) {
-                                            val item = reorderedFields.removeAt(index)
-                                            reorderedFields.add(index + 1, item)
-                                        }
-                                    },
-                                    canMoveUp = index > 0,
-                                    canMoveDown = index < reorderedFields.size - 1,
-                                    dragHandle = {
-                                        Icon(
-                                            imageVector = Icons.Default.DragHandle,
-                                            contentDescription = "Reorder",
-                                            modifier = Modifier.detectReorder(reorderState),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    },
-                                )
+                    // Interleave dividers as separate Lazy items so dividers don't move with dragged rows
+                    items(
+                        count = reorderedFields.size * 2 - 1,
+                        key = { pos ->
+                            if (pos % 2 == 0) reorderedFields[pos / 2].id else "divider-$pos"
+                        },
+                    ) { pos ->
+                        if (pos % 2 == 1) {
+                            Divider()
+                        } else {
+                            val index = pos / 2
+                            val field = reorderedFields[index]
+                            ReorderableItem(
+                                reorderState,
+                                key = field.id,
+                            ) { _ ->
+                                Box(
+                                    modifier = Modifier.animateItemPlacement(),
+                                ) {
+                                    ColumnItem(
+                                        field = field,
+                                        onEdit = { fieldToEdit = field },
+                                        onDelete = { fieldToDelete = field },
+                                        onMoveUp = {
+                                            if (index > 0) {
+                                                val item = reorderedFields.removeAt(index)
+                                                reorderedFields.add(index - 1, item)
+                                            }
+                                        },
+                                        onMoveDown = {
+                                            if (index < reorderedFields.size - 1) {
+                                                val item = reorderedFields.removeAt(index)
+                                                reorderedFields.add(index + 1, item)
+                                            }
+                                        },
+                                        canMoveUp = index > 0,
+                                        canMoveDown = index < reorderedFields.size - 1,
+                                        dragHandle = {
+                                            Icon(
+                                                imageVector = Icons.Default.DragHandle,
+                                                contentDescription = "Reorder",
+                                                modifier = Modifier.detectReorder(reorderState),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -2681,18 +2688,16 @@ fun ColumnItem(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 8.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Drag handle
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            if (dragHandle != null) {
-                dragHandle()
-            }
+        if (dragHandle != null) {
+            dragHandle()
         }
 
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(

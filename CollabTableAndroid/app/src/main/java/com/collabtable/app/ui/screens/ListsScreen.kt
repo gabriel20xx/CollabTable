@@ -2,7 +2,6 @@
 
 package com.collabtable.app.ui.screens
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,8 +13,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -194,27 +194,38 @@ fun ListsScreen(
                             .fillMaxSize()
                             .reorderable(reorderState),
                     state = reorderState.listState,
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
-                    itemsIndexed(working, key = { _, it -> it.id }) { index, list ->
-                        ReorderableItem(reorderState, key = list.id) { _ ->
-                            Box(modifier = Modifier.animateItemPlacement()) {
-                                if (index > 0) Divider()
-                                ListItem(
-                                    list = list,
-                                    onListClick = { onNavigateToList(list.id) },
-                                    onEditClick = { listToEdit = list },
-                                    onDeleteClick = { listToDelete = list },
-                                    dragHandle = {
-                                        Icon(
-                                            imageVector = Icons.Default.DragHandle,
-                                            contentDescription = "Reorder",
-                                            modifier = Modifier.detectReorder(reorderState),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    },
-                                )
+                    // Interleave dividers as separate list items so they don't move with dragged rows
+                    items(
+                        count = working.size * 2 - 1,
+                        key = { pos ->
+                            if (pos % 2 == 0) working[pos / 2].id else "divider-$pos"
+                        },
+                    ) { pos ->
+                        if (pos % 2 == 1) {
+                            Divider()
+                        } else {
+                            val index = pos / 2
+                            val list = working[index]
+                            ReorderableItem(reorderState, key = list.id) { _ ->
+                                Box(modifier = Modifier.animateItemPlacement()) {
+                                    ListItem(
+                                        list = list,
+                                        onListClick = { onNavigateToList(list.id) },
+                                        onEditClick = { listToEdit = list },
+                                        onDeleteClick = { listToDelete = list },
+                                        dragHandle = {
+                                            Icon(
+                                                imageVector = Icons.Default.DragHandle,
+                                                contentDescription = "Reorder",
+                                                modifier = Modifier.detectReorder(reorderState),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -280,14 +291,14 @@ fun ListItem(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Drag handle on the far left
         if (dragHandle != null) {
             dragHandle()
-            Spacer(modifier = Modifier.padding(start = 8.dp))
+            Spacer(modifier = Modifier.width(8.dp))
         }
 
         // Table name centered/left and clickable
