@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.SettingsBrightness
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -71,6 +72,7 @@ import android.net.Uri
 fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onLeaveServer: () -> Unit = {},
+    onNavigateToLogs: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val preferencesManager = remember { PreferencesManager.getInstance(context) }
@@ -144,6 +146,9 @@ fun SettingsScreen(
                 },
                 actions = {
                     ConnectionStatusAction(prefs = preferencesManager)
+                    IconButton(onClick = onNavigateToLogs) {
+                        Icon(Icons.Default.List, contentDescription = "Logs")
+                    }
                 },
                 colors =
                     TopAppBarDefaults.topAppBarColors(

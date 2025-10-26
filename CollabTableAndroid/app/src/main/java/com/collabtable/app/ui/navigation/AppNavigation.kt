@@ -72,6 +72,7 @@ fun AppNavigation() {
         composable("settings") {
             SettingsScreen(
                 onNavigateBack = { navController.popBackStack() },
+                onNavigateToLogs = { navController.navigate("logs") },
                 onLeaveServer = {
                     // Navigate back to server setup and clear entire back stack
                     navController.navigate("server_setup") {

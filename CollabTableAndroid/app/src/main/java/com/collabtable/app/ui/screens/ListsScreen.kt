@@ -32,6 +32,8 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -90,12 +92,6 @@ fun ListsScreen(
                     val context = LocalContext.current
                     val prefsLocal = remember { PreferencesManager.getInstance(context) }
                     ConnectionStatusAction(prefs = prefsLocal)
-                    IconButton(onClick = { viewModel.manualSync() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Sync")
-                    }
-                    IconButton(onClick = onNavigateToLogs) {
-                        Icon(Icons.Default.List, contentDescription = "Logs")
-                    }
                     SortMenu(prefs = prefs)
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
@@ -408,44 +404,38 @@ private fun RenameListDialog(
 
 @Composable
 private fun SortMenu(prefs: PreferencesManager) {
-    val context = LocalContext.current
-    var expanded by remember { mutableStateOf(false) }
     val currentOrder by prefs.sortOrder.collectAsState(initial = prefs.getSortOrder())
+    var expanded by remember { mutableStateOf(false) }
+
+    val label = when (currentOrder) {
+        PreferencesManager.SORT_UPDATED_DESC -> "Updated ↓"
+        PreferencesManager.SORT_UPDATED_ASC -> "Updated ↑"
+        PreferencesManager.SORT_NAME_ASC -> "Name A–Z"
+        PreferencesManager.SORT_NAME_DESC -> "Name Z–A"
+        else -> "Sort"
+    }
 
     Box {
-        IconButton(onClick = { expanded = true }) {
-            Icon(Icons.Default.Sort, contentDescription = "Sort")
+        TextButton(onClick = { expanded = true }) {
+            Text(label)
         }
-        androidx.compose.material3.DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            @Composable
-            fun ItemOption(
-                label: String,
-                value: String,
-            ) {
-                androidx.compose.material3.DropdownMenuItem(
-                    text = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(label)
-                            if (currentOrder == value) {
-                                Spacer(modifier = Modifier.weight(1f))
-                                Text("✓")
-                            }
-                        }
-                    },
-                    onClick = {
-                        prefs.setSortOrder(value)
-                        expanded = false
-                    },
-                )
-            }
-
-            ItemOption("Updated (newest first)", PreferencesManager.SORT_UPDATED_DESC)
-            ItemOption("Updated (oldest first)", PreferencesManager.SORT_UPDATED_ASC)
-            ItemOption("Name (A–Z)", PreferencesManager.SORT_NAME_ASC)
-            ItemOption("Name (Z–A)", PreferencesManager.SORT_NAME_DESC)
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Updated (newest first)") },
+                onClick = { prefs.setSortOrder(PreferencesManager.SORT_UPDATED_DESC); expanded = false },
+            )
+            DropdownMenuItem(
+                text = { Text("Updated (oldest first)") },
+                onClick = { prefs.setSortOrder(PreferencesManager.SORT_UPDATED_ASC); expanded = false },
+            )
+            DropdownMenuItem(
+                text = { Text("Name (A–Z)") },
+                onClick = { prefs.setSortOrder(PreferencesManager.SORT_NAME_ASC); expanded = false },
+            )
+            DropdownMenuItem(
+                text = { Text("Name (Z–A)") },
+                onClick = { prefs.setSortOrder(PreferencesManager.SORT_NAME_DESC); expanded = false },
+            )
         }
     }
 }
