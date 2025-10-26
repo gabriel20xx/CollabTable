@@ -149,6 +149,7 @@ class ListDetailViewModel(
 
     fun updateField(
         fieldId: String,
+        name: String,
         fieldType: String,
         fieldOptions: String,
     ) {
@@ -157,6 +158,7 @@ class ListDetailViewModel(
             if (field != null) {
                 database.fieldDao().updateField(
                     field.copy(
+                        name = name,
                         fieldType = fieldType,
                         fieldOptions = fieldOptions,
                         updatedAt = System.currentTimeMillis(),

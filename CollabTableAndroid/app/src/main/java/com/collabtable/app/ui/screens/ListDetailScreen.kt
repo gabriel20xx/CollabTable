@@ -6,6 +6,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -485,8 +486,8 @@ fun ListDetailScreen(
             onAddField = { name, fieldType, fieldOptions ->
                 viewModel.addField(name, fieldType, fieldOptions)
             },
-            onUpdateField = { fieldId, fieldType, fieldOptions ->
-                viewModel.updateField(fieldId, fieldType, fieldOptions)
+            onUpdateField = { fieldId, name, fieldType, fieldOptions ->
+                viewModel.updateField(fieldId, name, fieldType, fieldOptions)
             },
             onDeleteField = { fieldId ->
                 viewModel.deleteField(fieldId)
@@ -1461,8 +1462,9 @@ fun AddFieldDialog(
 fun EditFieldDialog(
     field: Field,
     onDismiss: () -> Unit,
-    onUpdate: (String, String) -> Unit,
+    onUpdate: (String, String, String) -> Unit,
 ) {
+    var name by remember { mutableStateOf(field.name) }
     var selectedFieldType by remember { mutableStateOf(field.fieldType ?: "TEXT") }
     var dropdownOptions by remember { mutableStateOf(field.getDropdownOptions().joinToString(", ")) }
     var currency by remember { mutableStateOf(field.getCurrency()) }
@@ -1470,11 +1472,20 @@ fun EditFieldDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit Field: ${field.name}") },
+        title = { Text("Edit Column") },
         text = {
             Column(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // Name
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Column Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
                 // Field Type Selector
                 ExposedDropdownMenuBox(
                     expanded = expanded,
@@ -1758,9 +1769,9 @@ fun EditFieldDialog(
                             "RATING" -> currency.trim().ifBlank { "5" }
                             else -> ""
                         }
-                    onUpdate(selectedFieldType, options)
+                    onUpdate(name.trim(), selectedFieldType, options)
                 },
-                enabled = selectedFieldType !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank(),
+                enabled = name.isNotBlank() && (selectedFieldType !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()),
             ) {
                 Text("Update")
             }
@@ -2425,7 +2436,7 @@ fun ManageColumnsDialog(
     fields: List<Field>,
     onDismiss: () -> Unit,
     onAddField: (String, String, String) -> Unit,
-    onUpdateField: (String, String, String) -> Unit,
+    onUpdateField: (String, String, String, String) -> Unit,
     onDeleteField: (String) -> Unit,
     onReorderFields: (List<Field>) -> Unit,
 ) {
@@ -2543,6 +2554,7 @@ fun ManageColumnsDialog(
                             Box(
                                 modifier = Modifier.animateItemPlacement(),
                             ) {
+                                if (index > 0) Divider()
                                 ColumnItem(
                                     field = field,
                                     onEdit = { fieldToEdit = field },
@@ -2623,8 +2635,8 @@ fun ManageColumnsDialog(
         EditFieldDialog(
             field = field,
             onDismiss = { fieldToEdit = null },
-            onUpdate = { fieldType, fieldOptions ->
-                onUpdateField(field.id, fieldType, fieldOptions)
+            onUpdate = { name, fieldType, fieldOptions ->
+                onUpdateField(field.id, name, fieldType, fieldOptions)
                 fieldToEdit = null
             },
         )
@@ -2665,102 +2677,91 @@ fun ColumnItem(
     canMoveDown: Boolean,
     dragHandle: (@Composable () -> Unit)? = null,
 ) {
-    Card(
+    Row(
         modifier =
             Modifier
-                .fillMaxWidth(),
-        colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Drag handle and optional move buttons
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                if (dragHandle != null) {
-                    dragHandle()
-                }
+        // Drag handle
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (dragHandle != null) {
+                dragHandle()
             }
+        }
 
-            Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = field.name,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    text =
-                        when (field.getType()) {
-                            // Text types
-                            com.collabtable.app.data.model.FieldType.TEXT -> "Text"
-                            com.collabtable.app.data.model.FieldType.MULTILINE_TEXT -> "Multiline Text"
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = field.name,
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                text =
+                    when (field.getType()) {
+                        // Text types
+                        com.collabtable.app.data.model.FieldType.TEXT -> "Text"
+                        com.collabtable.app.data.model.FieldType.MULTILINE_TEXT -> "Multiline Text"
 
-                            // Number types
-                            com.collabtable.app.data.model.FieldType.NUMBER -> "Number"
-                            com.collabtable.app.data.model.FieldType.CURRENCY -> "Currency (${field.getCurrency()})"
-                            com.collabtable.app.data.model.FieldType.PERCENTAGE -> "Percentage"
+                        // Number types
+                        com.collabtable.app.data.model.FieldType.NUMBER -> "Number"
+                        com.collabtable.app.data.model.FieldType.CURRENCY -> "Currency (${field.getCurrency()})"
+                        com.collabtable.app.data.model.FieldType.PERCENTAGE -> "Percentage"
 
-                            // Selection types
-                            com.collabtable.app.data.model.FieldType.CHECKBOX -> "Checkbox"
-                            com.collabtable.app.data.model.FieldType.SWITCH -> "Switch"
-                            com.collabtable.app.data.model.FieldType.DROPDOWN ->
-                                "Dropdown (${field.getDropdownOptions().size} options)"
-                            com.collabtable.app.data.model.FieldType.AUTOCOMPLETE ->
-                                "Autocomplete (${field.getAutocompleteOptions().size} options)"
+                        // Selection types
+                        com.collabtable.app.data.model.FieldType.CHECKBOX -> "Checkbox"
+                        com.collabtable.app.data.model.FieldType.SWITCH -> "Switch"
+                        com.collabtable.app.data.model.FieldType.DROPDOWN ->
+                            "Dropdown (${field.getDropdownOptions().size} options)"
+                        com.collabtable.app.data.model.FieldType.AUTOCOMPLETE ->
+                            "Autocomplete (${field.getAutocompleteOptions().size} options)"
 
-                            // Link types
-                            com.collabtable.app.data.model.FieldType.URL -> "URL"
-                            com.collabtable.app.data.model.FieldType.EMAIL -> "Email"
-                            com.collabtable.app.data.model.FieldType.PHONE -> "Phone"
+                        // Link types
+                        com.collabtable.app.data.model.FieldType.URL -> "URL"
+                        com.collabtable.app.data.model.FieldType.EMAIL -> "Email"
+                        com.collabtable.app.data.model.FieldType.PHONE -> "Phone"
 
-                            // Date/Time types
-                            com.collabtable.app.data.model.FieldType.DATE -> "Date"
-                            com.collabtable.app.data.model.FieldType.TIME -> "Time"
-                            com.collabtable.app.data.model.FieldType.DATETIME -> "Date & Time"
-                            com.collabtable.app.data.model.FieldType.DURATION -> "Duration"
+                        // Date/Time types
+                        com.collabtable.app.data.model.FieldType.DATE -> "Date"
+                        com.collabtable.app.data.model.FieldType.TIME -> "Time"
+                        com.collabtable.app.data.model.FieldType.DATETIME -> "Date & Time"
+                        com.collabtable.app.data.model.FieldType.DURATION -> "Duration"
 
-                            // Media types
-                            com.collabtable.app.data.model.FieldType.IMAGE -> "Image"
-                            com.collabtable.app.data.model.FieldType.FILE -> "File"
-                            com.collabtable.app.data.model.FieldType.BARCODE -> "Barcode"
-                            com.collabtable.app.data.model.FieldType.SIGNATURE -> "Signature"
+                        // Media types
+                        com.collabtable.app.data.model.FieldType.IMAGE -> "Image"
+                        com.collabtable.app.data.model.FieldType.FILE -> "File"
+                        com.collabtable.app.data.model.FieldType.BARCODE -> "Barcode"
+                        com.collabtable.app.data.model.FieldType.SIGNATURE -> "Signature"
 
-                            // Other types
-                            com.collabtable.app.data.model.FieldType.RATING -> "Rating (${field.getMaxRating()} stars)"
-                            com.collabtable.app.data.model.FieldType.COLOR -> "Color"
-                            com.collabtable.app.data.model.FieldType.LOCATION -> "Location"
-                        },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+                        // Other types
+                        com.collabtable.app.data.model.FieldType.RATING -> "Rating (${field.getMaxRating()} stars)"
+                        com.collabtable.app.data.model.FieldType.COLOR -> "Color"
+                        com.collabtable.app.data.model.FieldType.LOCATION -> "Location"
+                    },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
 
-            // Edit button
-            IconButton(onClick = onEdit) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
+        // Edit button
+        IconButton(onClick = onEdit) {
+            Icon(
+                Icons.Default.Edit,
+                contentDescription = "Edit",
+                tint = MaterialTheme.colorScheme.primary,
+            )
+        }
 
-            // Delete button
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            }
+        // Delete button
+        IconButton(onClick = onDelete) {
+            Icon(
+                Icons.Default.Delete,
+                contentDescription = "Delete",
+                tint = MaterialTheme.colorScheme.error,
+            )
         }
     }
 }

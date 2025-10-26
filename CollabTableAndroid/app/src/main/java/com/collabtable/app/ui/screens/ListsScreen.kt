@@ -26,8 +26,8 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -200,6 +200,7 @@ fun ListsScreen(
                     itemsIndexed(working, key = { _, it -> it.id }) { index, list ->
                         ReorderableItem(reorderState, key = list.id) { _ ->
                             Box(modifier = Modifier.animateItemPlacement()) {
+                                if (index > 0) Divider()
                                 ListItem(
                                     list = list,
                                     onListClick = { onNavigateToList(list.id) },
@@ -275,52 +276,46 @@ fun ListItem(
     onDeleteClick: () -> Unit,
     dragHandle: (@Composable () -> Unit)? = null,
 ) {
-    Card(
+    Row(
         modifier =
             Modifier
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
+        // Drag handle on the far left
+        if (dragHandle != null) {
+            dragHandle()
+            Spacer(modifier = Modifier.padding(start = 8.dp))
+        }
+
+        // Table name centered/left and clickable
+        Column(
             modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+                    .weight(1f)
+                    .clickable(onClick = onListClick),
         ) {
-            // Drag handle on the far left
-            if (dragHandle != null) {
-                dragHandle()
-                Spacer(modifier = Modifier.padding(start = 8.dp))
-            }
+            Text(text = list.name, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(2.dp))
+        }
 
-            // Table name centered/left and clickable
-            Column(
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .clickable(onClick = onListClick),
-            ) {
-                Text(text = list.name, style = MaterialTheme.typography.titleMedium)
-                Spacer(modifier = Modifier.height(2.dp))
+        // Actions on the right
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onEditClick) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Edit",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
             }
-
-            // Actions on the right
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onEditClick) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Edit",
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                IconButton(onClick = onDeleteClick) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        tint = MaterialTheme.colorScheme.error,
-                    )
-                }
+            IconButton(onClick = onDeleteClick) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Delete",
+                    tint = MaterialTheme.colorScheme.error,
+                )
             }
         }
     }
