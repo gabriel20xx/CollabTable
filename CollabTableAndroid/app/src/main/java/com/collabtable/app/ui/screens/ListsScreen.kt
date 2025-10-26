@@ -44,6 +44,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,8 @@ import com.collabtable.app.R
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
 import com.collabtable.app.data.preferences.PreferencesManager
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.burnoutcrew.reorderable.ReorderableItem
 import org.burnoutcrew.reorderable.detectReorder
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
@@ -167,6 +170,7 @@ fun ListsScreen(
                     add(to.coerceIn(0, size), removeAt(from))
                 }
 
+                val scope = rememberCoroutineScope()
                 val reorderState =
                     rememberReorderableLazyListState(
                         onMove = { from, to ->
@@ -175,8 +179,12 @@ fun ListsScreen(
                             working.move(from.index, to.index)
                         },
                         onDragEnd = { _, _ ->
-                            dragging = false
+                            // Commit first, then keep dragging=true briefly so the UI can animate smoothly
                             viewModel.commitReorder(working.map { it.id })
+                            scope.launch {
+                                delay(150)
+                                dragging = false
+                            }
                         },
                     )
 
