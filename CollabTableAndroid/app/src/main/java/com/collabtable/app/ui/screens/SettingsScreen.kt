@@ -255,7 +255,7 @@ fun SettingsScreen(
                             },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            placeholder = { Text("5000") },
+                            placeholder = { Text("250") },
                         )
                         Button(onClick = {
                             val parsed = syncIntervalInput.toLongOrNull()
@@ -278,7 +278,7 @@ fun SettingsScreen(
                         )
                     } else {
                         Text(
-                            text = "Current: ${'$'}syncIntervalMs ms (min 250, max 600000)",
+                            text = "Current: $syncIntervalMs ms (min 250, max 600000)",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

@@ -153,9 +153,24 @@ fun ListsScreen(
                 // Maintain a working list as a mutable state list for smoother edge animations
                 val working = remember { androidx.compose.runtime.mutableStateListOf<CollabList>() }
                 var dragging by remember { mutableStateOf(false) }
-                // Keep working list in sync when not dragging
-                LaunchedEffect(lists, dragging) {
-                    if (!dragging) {
+                var awaitingDb by remember { mutableStateOf(false) }
+                var pendingOrderIds by remember { mutableStateOf<List<String>?>(null) }
+                // Keep working list in sync, but when we just committed a reorder, wait until DB reflects it
+                LaunchedEffect(lists) {
+                    val currentIds = lists.map { it.id }
+                    val pending = pendingOrderIds
+                    if (awaitingDb && pending != null) {
+                        if (currentIds == pending) {
+                            // DB has caught up; now allow UI to exit dragging and sync lists
+                            awaitingDb = false
+                            dragging = false
+                            working.clear()
+                            working.addAll(lists)
+                            pendingOrderIds = null
+                        }
+                        // else: still waiting for DB; do not overwrite working yet
+                    } else if (!dragging) {
+                        // Normal path: sync working to latest lists
                         working.clear()
                         working.addAll(lists)
                     }
@@ -170,7 +185,6 @@ fun ListsScreen(
                     add(to.coerceIn(0, size), removeAt(from))
                 }
 
-                val scope = rememberCoroutineScope()
                 val reorderState =
                     rememberReorderableLazyListState(
                         onMove = { from, to ->
@@ -179,12 +193,11 @@ fun ListsScreen(
                             working.move(from.index, to.index)
                         },
                         onDragEnd = { _, _ ->
-                            // Commit first, then keep dragging=true briefly so the UI can animate smoothly
-                            viewModel.commitReorder(working.map { it.id })
-                            scope.launch {
-                                delay(150)
-                                dragging = false
-                            }
+                            // Commit and wait for DB to reflect this order before exiting drag state
+                            val ids = working.map { it.id }
+                            pendingOrderIds = ids
+                            awaitingDb = true
+                            viewModel.commitReorder(ids)
                         },
                     )
 

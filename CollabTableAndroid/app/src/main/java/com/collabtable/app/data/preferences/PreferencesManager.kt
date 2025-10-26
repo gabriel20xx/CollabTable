@@ -151,7 +151,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_SORT_ORDER = "sort_order"
     private const val KEY_SYNC_POLL_INTERVAL_MS = "sync_poll_interval_ms"
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"
-    private const val DEFAULT_SYNC_POLL_INTERVAL_MS = 5000L
+    private const val DEFAULT_SYNC_POLL_INTERVAL_MS = 250L
     private const val MIN_SYNC_POLL_INTERVAL_MS = 250L
     private const val MAX_SYNC_POLL_INTERVAL_MS = 600_000L // 10 minutes
         const val THEME_MODE_SYSTEM = "system"

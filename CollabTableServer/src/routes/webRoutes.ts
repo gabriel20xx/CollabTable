@@ -187,6 +187,21 @@ router.get('/', (req: Request, res: Response) => {
     </div>
 
     <script>
+        function fmtDate(v) {
+            if (v === null || v === undefined) return '-';
+            const n = Number(v);
+            if (!Number.isNaN(n)) {
+                const ms = n < 1e12 ? n * 1000 : n; // seconds -> ms if needed
+                const d = new Date(ms);
+                return isNaN(d.getTime()) ? '-' : d.toLocaleString();
+            }
+            const t = Date.parse(v);
+            if (!Number.isNaN(t)) {
+                const d = new Date(t);
+                return isNaN(d.getTime()) ? '-' : d.toLocaleString();
+            }
+            return '-';
+        }
         async function loadData() {
             try {
                 // Add cache-busting timestamp to URL
@@ -237,8 +252,8 @@ router.get('/', (req: Request, res: Response) => {
                                         \${list.isDeleted ? '<span class="badge">DELETED</span>' : ''}
                                     </div>
                                     <div class="list-id">ID: \${list.id}</div>
-                                    <div class="list-id">Created: \${new Date(list.createdAt).toLocaleString()}</div>
-                                    <div class="list-id">Updated: \${new Date(list.updatedAt).toLocaleString()}</div>
+                                    <div class="list-id">Created: \${fmtDate(list.createdAt)}</div>
+                                    <div class="list-id">Updated: \${fmtDate(list.updatedAt)}</div>
                                 </div>
                             </div>
                             
@@ -269,7 +284,7 @@ router.get('/', (req: Request, res: Response) => {
                                                         const value = itemValues.find(v => v.fieldId === field.id);
                                                         return \`<td>\${value ? value.value : '-'}</td>\`;
                                                     }).join('')}
-                                                    <td>\${new Date(item.updatedAt).toLocaleString()}</td>
+                                                    <td>\${fmtDate(item.updatedAt)}</td>
                                                 </tr>
                                             \`;
                                         }).join('')}
@@ -313,37 +328,61 @@ router.get('/web/data', async (req: Request, res: Response) => {
     const values = await dbAdapter.queryAll('SELECT * FROM item_values');
     
     // Convert isDeleted from INTEGER to BOOLEAN
-        // Coerce timestamps to numbers (pg may return strings)
-        const toNum = (v: any) => (typeof v === 'string' ? Number(v) : v);
+        // Normalize timestamps to milliseconds since epoch
+        const toMillis = (v: any): number | null => {
+            if (v === null || v === undefined) return null;
+            if (typeof v === 'number') {
+                return v < 1e12 ? Math.trunc(v * 1000) : Math.trunc(v);
+            }
+            if (typeof v === 'string') {
+                if (/^\d+$/.test(v)) {
+                    const n = Number(v);
+                    return n < 1e12 ? Math.trunc(n * 1000) : Math.trunc(n);
+                }
+                const t = Date.parse(v);
+                return Number.isNaN(t) ? null : Math.trunc(t);
+            }
+            return null;
+        };
+        // Normalize key casing across SQLite (camelCase) and Postgres (lowercase)
+        const pick = (obj: any, a: string, b: string) => obj[a] ?? obj[b];
         const formattedLists = (lists as any[]).map(list => ({
             ...list,
-            isDeleted: !!list.isDeleted,
-            createdAt: toNum(list.createdAt),
-            updatedAt: toNum(list.updatedAt)
+            isDeleted: !!pick(list, 'isDeleted', 'isdeleted'),
+            createdAt: toMillis(pick(list, 'createdAt', 'createdat')),
+            updatedAt: toMillis(pick(list, 'updatedAt', 'updatedat'))
         }));
         const formattedFields = (fields as any[]).map(field => ({
             ...field,
-            isDeleted: !!field.isDeleted,
-            createdAt: toNum(field.createdAt),
-            updatedAt: toNum(field.updatedAt)
+            listId: pick(field, 'listId', 'listid'),
+            isDeleted: !!pick(field, 'isDeleted', 'isdeleted'),
+            createdAt: toMillis(pick(field, 'createdAt', 'createdat')),
+            updatedAt: toMillis(pick(field, 'updatedAt', 'updatedat'))
         }));
         const formattedItems = (items as any[]).map(item => ({
             ...item,
-            isDeleted: !!item.isDeleted,
-            createdAt: toNum(item.createdAt),
-            updatedAt: toNum(item.updatedAt)
+            listId: pick(item, 'listId', 'listid'),
+            isDeleted: !!pick(item, 'isDeleted', 'isdeleted'),
+            createdAt: toMillis(pick(item, 'createdAt', 'createdat')),
+            updatedAt: toMillis(pick(item, 'updatedAt', 'updatedat'))
+        }));
+        const formattedValues = (values as any[]).map(v => ({
+            ...v,
+            itemId: pick(v, 'itemId', 'itemid'),
+            fieldId: pick(v, 'fieldId', 'fieldid'),
+            updatedAt: toMillis(pick(v, 'updatedAt', 'updatedat'))
         }));
     
     res.json({
       lists: formattedLists,
       fields: formattedFields,
       items: formattedItems,
-      values,
+            values: formattedValues,
       stats: {
         lists: formattedLists.length,
         fields: formattedFields.length,
-        items: formattedItems.length,
-        values: (values as any[]).length
+                items: formattedItems.length,
+                values: formattedValues.length
       },
       timestamp: Date.now() // Add timestamp for debugging
     });
