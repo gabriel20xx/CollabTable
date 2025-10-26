@@ -173,9 +173,10 @@ router.post('/sync', async (req: Request, res: Response) => {
     let serverLists, serverFields, serverItems, serverItemValues;
 
     if (lastSyncTimestamp === 0) {
-      serverLists = await dbAdapter.queryAll('SELECT * FROM lists WHERE isDeleted = 0');
-      serverFields = await dbAdapter.queryAll('SELECT * FROM fields WHERE isDeleted = 0');
-      serverItems = await dbAdapter.queryAll('SELECT * FROM items WHERE isDeleted = 0');
+      // Include deleted rows on initial sync to propagate tombstones
+      serverLists = await dbAdapter.queryAll('SELECT * FROM lists');
+      serverFields = await dbAdapter.queryAll('SELECT * FROM fields');
+      serverItems = await dbAdapter.queryAll('SELECT * FROM items');
       serverItemValues = await dbAdapter.queryAll('SELECT * FROM item_values');
     } else {
       serverLists = await dbAdapter.queryAll('SELECT * FROM lists WHERE updatedAt >= ?', [lastSyncTimestamp]);
@@ -184,10 +185,55 @@ router.post('/sync', async (req: Request, res: Response) => {
       serverItemValues = await dbAdapter.queryAll('SELECT * FROM item_values WHERE updatedAt >= ?', [lastSyncTimestamp]);
     }
 
-    // Convert isDeleted from INTEGER (0/1) to BOOLEAN
-    serverLists = (serverLists as any[]).map(list => ({ ...list, isDeleted: !!list.isDeleted }));
-    serverFields = (serverFields as any[]).map(field => ({ ...field, isDeleted: !!field.isDeleted }));
-    serverItems = (serverItems as any[]).map(item => ({ ...item, isDeleted: !!item.isDeleted }));
+    // Normalize output for clients (camelCase keys, ms timestamps, boolean isDeleted)
+    const toMillis = (v: any): number | null => {
+      if (v === null || v === undefined) return null;
+      if (typeof v === 'number') return v < 1e12 ? Math.trunc(v * 1000) : Math.trunc(v);
+      if (typeof v === 'string') {
+        if (/^\d+$/.test(v)) {
+          const n = Number(v);
+          return n < 1e12 ? Math.trunc(n * 1000) : Math.trunc(n);
+        }
+        const t = Date.parse(v);
+        return Number.isNaN(t) ? null : Math.trunc(t);
+      }
+      return null;
+    };
+    const pick = (obj: any, a: string, b: string) => obj[a] ?? obj[b];
+
+    const normLists = (serverLists as any[]).map(l => ({
+      id: l.id,
+      name: l.name,
+      createdAt: toMillis(pick(l, 'createdAt', 'createdat')),
+      updatedAt: toMillis(pick(l, 'updatedAt', 'updatedat')),
+      isDeleted: !!pick(l, 'isDeleted', 'isdeleted'),
+      // orderIndex is local-only, do not include
+    }));
+    const normFields = (serverFields as any[]).map(f => ({
+      id: f.id,
+      listId: pick(f, 'listId', 'listid'),
+      name: f.name,
+      fieldType: f.fieldType ?? f.fieldtype,
+      fieldOptions: f.fieldOptions ?? f.fieldoptions ?? '',
+      order: f.order,
+      createdAt: toMillis(pick(f, 'createdAt', 'createdat')),
+      updatedAt: toMillis(pick(f, 'updatedAt', 'updatedat')),
+      isDeleted: !!pick(f, 'isDeleted', 'isdeleted'),
+    }));
+    const normItems = (serverItems as any[]).map(i => ({
+      id: i.id,
+      listId: pick(i, 'listId', 'listid'),
+      createdAt: toMillis(pick(i, 'createdAt', 'createdat')),
+      updatedAt: toMillis(pick(i, 'updatedAt', 'updatedat')),
+      isDeleted: !!pick(i, 'isDeleted', 'isdeleted'),
+    }));
+    const normValues = (serverItemValues as any[]).map(v => ({
+      id: v.id,
+      itemId: pick(v, 'itemId', 'itemid'),
+      fieldId: pick(v, 'fieldId', 'fieldid'),
+      value: v.value,
+      updatedAt: toMillis(pick(v, 'updatedAt', 'updatedat')),
+    }));
 
     const serverTimestamp = Date.now();
     
@@ -206,10 +252,10 @@ router.post('/sync', async (req: Request, res: Response) => {
     }
 
     res.json({
-      lists: serverLists,
-      fields: serverFields,
-      items: serverItems,
-      itemValues: serverItemValues,
+      lists: normLists,
+      fields: normFields,
+      items: normItems,
+      itemValues: normValues,
       serverTimestamp
     });
   } catch (error) {

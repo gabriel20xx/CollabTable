@@ -7,6 +7,8 @@ import com.collabtable.app.data.api.SyncRequest
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.utils.Logger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 class SyncRepository(context: Context) {
@@ -25,6 +27,8 @@ class SyncRepository(context: Context) {
 
     suspend fun performSync(): Result<Unit> =
         withContext(Dispatchers.IO) {
+            // Prevent overlapping syncs across screens/viewmodels
+            syncMutex.withLock {
             try {
                 val lastSync = getLastSyncTimestamp()
                 val isInitialSync = lastSync == 0L
@@ -164,5 +168,10 @@ class SyncRepository(context: Context) {
                 Logger.e("Sync", "[ERROR] Sync error: ${e.message}")
                 return@withContext Result.failure(e)
             }
+            }
         }
+
+    companion object {
+        private val syncMutex = Mutex()
+    }
 }
