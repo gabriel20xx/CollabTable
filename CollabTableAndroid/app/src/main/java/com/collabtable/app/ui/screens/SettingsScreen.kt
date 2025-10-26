@@ -44,6 +44,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import com.collabtable.app.ui.components.ConnectionStatusAction
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -142,32 +143,7 @@ fun SettingsScreen(
                     }
                 },
                 actions = {
-                    // Connection status dot: green=ok, red=error, gray=unknown
-                    val dotColor = when (testOk) {
-                        true -> Color(0xFF2E7D32)
-                        false -> MaterialTheme.colorScheme.error
-                        null -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    Row(
-                        modifier = Modifier.padding(end = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        if (lastLatencyMs != null && testOk == true) {
-                            Text(
-                                text = "${'$'}{lastLatencyMs} ms",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            )
-                        }
-                        Box(
-                            modifier =
-                                Modifier
-                                    .size(12.dp)
-                                    .clip(androidx.compose.foundation.shape.CircleShape)
-                                    .background(dotColor),
-                        )
-                    }
+                    ConnectionStatusAction(prefs = preferencesManager)
                 },
                 colors =
                     TopAppBarDefaults.topAppBarColors(

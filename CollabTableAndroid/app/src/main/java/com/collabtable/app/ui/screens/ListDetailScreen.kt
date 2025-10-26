@@ -75,6 +75,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.collabtable.app.R
+import com.collabtable.app.data.preferences.PreferencesManager
+import com.collabtable.app.ui.components.ConnectionStatusAction
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.Field
 import com.collabtable.app.data.model.ItemWithValues
@@ -200,6 +202,9 @@ fun ListDetailScreen(
                     }
                 },
                 actions = {
+                    val context = LocalContext.current
+                    val prefs = remember { PreferencesManager.getInstance(context) }
+                    ConnectionStatusAction(prefs = prefs)
                     IconButton(onClick = { showManageColumnsDialog = true }) {
                         Icon(Icons.Default.Settings, contentDescription = "Manage Columns")
                     }

@@ -55,6 +55,7 @@ import com.collabtable.app.R
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
 import com.collabtable.app.data.preferences.PreferencesManager
+import com.collabtable.app.ui.components.ConnectionStatusAction
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.burnoutcrew.reorderable.ReorderableItem
@@ -86,6 +87,9 @@ fun ListsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.lists)) },
                 actions = {
+                    val context = LocalContext.current
+                    val prefsLocal = remember { PreferencesManager.getInstance(context) }
+                    ConnectionStatusAction(prefs = prefsLocal)
                     IconButton(onClick = { viewModel.manualSync() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Sync")
                     }
