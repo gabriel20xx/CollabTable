@@ -2,6 +2,8 @@ package com.collabtable.app.data.api
 
 import android.content.Context
 import com.collabtable.app.data.preferences.PreferencesManager
+import android.os.Build
+import android.net.Uri
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -56,15 +58,54 @@ object ApiClient {
             .build()
     }
 
+    private fun isEmulator(): Boolean {
+        val fingerprint = Build.FINGERPRINT.lowercase()
+        val model = Build.MODEL.lowercase()
+        val brand = Build.BRAND.lowercase()
+        val device = Build.DEVICE.lowercase()
+        val product = Build.PRODUCT.lowercase()
+        return fingerprint.contains("generic") || fingerprint.contains("emulator") ||
+            model.contains("google_sdk") || model.contains("emulator") || model.contains("android sdk built for") ||
+            brand.startsWith("generic") || device.startsWith("generic") || product.contains("sdk")
+    }
+
+    private fun ensureTrailingSlash(url: String): String = if (url.endsWith("/")) url else "$url/"
+
+    private fun normalizeForAndroidEmulator(rawUrl: String): String {
+        // Remap common hostnames that are unreachable from the Android emulator to host loopback
+        // - localhost / 127.0.0.1 / host.docker.internal -> 10.0.2.2 (emulator-only)
+        // Leave other hosts unchanged.
+        if (!isEmulator()) return ensureTrailingSlash(rawUrl)
+        return try {
+            val uri = Uri.parse(rawUrl)
+            val host = uri.host?.lowercase()
+            val needsRemap = host == "localhost" || host == "127.0.0.1" || host == "host.docker.internal"
+            if (needsRemap) {
+                val scheme = uri.scheme ?: "http"
+                val portPart = if (uri.port != -1) ":${uri.port}" else ""
+                val pathPart = uri.encodedPath ?: "/"
+                val queryPart = if (uri.encodedQuery != null) "?${uri.encodedQuery}" else ""
+                val remapped = "$scheme://10.0.2.2$portPart$pathPart$queryPart"
+                ensureTrailingSlash(if (remapped.contains("/api")) remapped else remapped.trimEnd('/') + "/api/")
+            } else {
+                // Ensure /api/ suffix present
+                val ensuredApi = if (rawUrl.contains("/api")) rawUrl else rawUrl.trimEnd('/') + "/api/"
+                ensureTrailingSlash(ensuredApi)
+            }
+        } catch (e: Exception) {
+            ensureTrailingSlash(rawUrl)
+        }
+    }
+
     fun initialize(context: Context) {
         this.context = context.applicationContext
         val prefs = PreferencesManager.getInstance(context)
-        baseUrl = prefs.getServerUrl()
+        baseUrl = normalizeForAndroidEmulator(prefs.getServerUrl())
         retrofit = buildRetrofit()
     }
 
     fun setBaseUrl(url: String) {
-        baseUrl = if (url.endsWith("/")) url else "$url/"
+        baseUrl = normalizeForAndroidEmulator(url)
         retrofit = buildRetrofit()
     }
 

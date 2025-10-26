@@ -161,6 +161,9 @@ class SyncRepository(context: Context) {
 
                 return@withContext Result.success(Unit)
             } catch (e: Exception) {
+                if (e is java.net.UnknownHostException) {
+                    Logger.e("Sync", "[ERROR] Unknown host. If you're running the server on the host machine, use 10.0.2.2 on the Android emulator or a LAN IP on a physical device.")
+                }
                 // If WS indicated unauthorized, align behavior with HTTP path
                 if (e.message?.contains("Unauthorized") == true) {
                     setLastSyncTimestamp(0)

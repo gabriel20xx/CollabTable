@@ -1,12 +1,14 @@
 package com.collabtable.app.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,14 +36,17 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -54,6 +59,11 @@ import com.collabtable.app.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
+import android.os.Build
+import android.net.Uri
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -77,6 +87,51 @@ fun SettingsScreen(
     var syncIntervalInput by remember(syncIntervalMs) { mutableStateOf(syncIntervalMs.toString()) }
     var syncIntervalError by remember { mutableStateOf<String?>(null) }
 
+    // Test connection state
+    var isTesting by remember { mutableStateOf(false) }
+    var testOk by remember { mutableStateOf<Boolean?>(null) }
+    var testMessage by remember { mutableStateOf<String?>(null) }
+    var lastLatencyMs by remember { mutableStateOf<Long?>(null) }
+
+    val testClient = remember {
+        OkHttpClient.Builder()
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .build()
+    }
+
+    fun isEmulator(): Boolean {
+        val fp = Build.FINGERPRINT.lowercase()
+        val model = Build.MODEL.lowercase()
+        val brand = Build.BRAND.lowercase()
+        val device = Build.DEVICE.lowercase()
+        val product = Build.PRODUCT.lowercase()
+        return fp.contains("generic") || fp.contains("emulator") ||
+            model.contains("google_sdk") || model.contains("emulator") || model.contains("android sdk built for") ||
+            brand.startsWith("generic") || device.startsWith("generic") || product.contains("sdk")
+    }
+
+    fun toHealthUrl(rawApiUrl: String): String {
+        // Ensure we hit the unauthenticated /health endpoint
+        var url = rawApiUrl
+        // Emu remap for local hosts
+        try {
+            val uri = Uri.parse(url)
+            val host = uri.host?.lowercase()
+            val needsRemap = isEmulator() && (host == "localhost" || host == "127.0.0.1" || host == "host.docker.internal")
+            val scheme = uri.scheme ?: "http"
+            val portPart = if (uri.port != -1) ":${uri.port}" else ""
+            val base = if (needsRemap) "$scheme://10.0.2.2$portPart" else "$scheme://${uri.host ?: ""}$portPart"
+            // Replace any /api or /api/ segment at end with /health
+            val path = (uri.encodedPath ?: "/").trimEnd('/')
+            val healthPath = if (path.endsWith("/api")) "/health" else if (path.endsWith("/api/")) "/health" else "/health"
+            return base + healthPath
+        } catch (e: Exception) {
+            // Fallback: naive replace
+            return rawApiUrl.replace("/api/", "/health").replace("/api", "/health")
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -84,6 +139,34 @@ fun SettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    // Connection status dot: green=ok, red=error, gray=unknown
+                    val dotColor = when (testOk) {
+                        true -> Color(0xFF2E7D32)
+                        false -> MaterialTheme.colorScheme.error
+                        null -> MaterialTheme.colorScheme.onSurfaceVariant
+                    }
+                    Row(
+                        modifier = Modifier.padding(end = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        if (lastLatencyMs != null && testOk == true) {
+                            Text(
+                                text = "${'$'}{lastLatencyMs} ms",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            )
+                        }
+                        Box(
+                            modifier =
+                                Modifier
+                                    .size(12.dp)
+                                    .clip(androidx.compose.foundation.shape.CircleShape)
+                                    .background(dotColor),
+                        )
                     }
                 },
                 colors =
@@ -286,6 +369,97 @@ fun SettingsScreen(
                 }
             }
 
+            // Connection test
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors =
+                    CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    ),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Server connectivity",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Button(
+                            onClick = {
+                                isTesting = true
+                                testOk = null
+                                testMessage = null
+                                lastLatencyMs = null
+                                coroutineScope.launch {
+                                    val rawApi = preferencesManager.getServerUrl()
+                                    val healthUrl = toHealthUrl(rawApi)
+                                    val req = Request.Builder().url(healthUrl).get().build()
+                                    val start = System.nanoTime()
+                                    try {
+                                        val resp = withContext(Dispatchers.IO) { testClient.newCall(req).execute() }
+                                        val tookMs = (System.nanoTime() - start) / 1_000_000
+                                        if (resp.isSuccessful) {
+                                            testOk = true
+                                            lastLatencyMs = tookMs
+                                            testMessage = "Reachable (${tookMs} ms)"
+                                        } else {
+                                            testOk = false
+                                            testMessage = "HTTP ${resp.code}"
+                                        }
+                                        resp.close()
+                                    } catch (e: Exception) {
+                                        testOk = false
+                                        testMessage = e.message ?: "Connection error"
+                                    } finally {
+                                        isTesting = false
+                                    }
+                                }
+                            },
+                            enabled = !isTesting,
+                        ) {
+                            if (isTesting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    strokeWidth = 2.dp,
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Testing…")
+                            } else {
+                                Text("Test connection")
+                            }
+                        }
+                        when (testOk) {
+                            true -> Text(
+                                text = testMessage ?: "Reachable",
+                                color = Color(0xFF2E7D32),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            false -> Text(
+                                text = testMessage ?: "Not reachable",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                            null -> {}
+                        }
+                    }
+                    if (testOk == false) {
+                        Text(
+                            text = "Tip: On emulator use http://10.0.2.2:PORT/api/. On a device use your PC's LAN IP.",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors =
@@ -393,8 +567,31 @@ fun SettingsScreen(
             )
         }
     }
-}
 
+    // Perform a silent health check when entering the screen to set the indicator
+    LaunchedEffect(Unit) {
+        try {
+            val rawApi = preferencesManager.getServerUrl()
+            val healthUrl = toHealthUrl(rawApi)
+            val req = Request.Builder().url(healthUrl).get().build()
+            val start = System.nanoTime()
+            val resp = withContext(Dispatchers.IO) { testClient.newCall(req).execute() }
+            val tookMs = (System.nanoTime() - start) / 1_000_000
+            if (resp.isSuccessful) {
+                testOk = true
+                lastLatencyMs = tookMs
+                testMessage = "Reachable (${tookMs} ms)"
+            } else {
+                testOk = false
+                testMessage = "HTTP ${resp.code}"
+            }
+            resp.close()
+        } catch (e: Exception) {
+            testOk = false
+            testMessage = e.message ?: "Connection error"
+        }
+    }
+}
 private fun formatServerUrlForDisplay(raw: String): String {
     var s = raw.trim()
     if (s.isEmpty()) return ""

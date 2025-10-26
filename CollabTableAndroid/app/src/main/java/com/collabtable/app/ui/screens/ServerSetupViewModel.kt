@@ -18,6 +18,8 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
+import android.os.Build
+import android.net.Uri
 
 class ServerSetupViewModel(
     private val preferencesManager: PreferencesManager,
@@ -86,6 +88,25 @@ class ServerSetupViewModel(
                 // Validate password is not empty
                 if (password.isBlank()) {
                     _validationError.value = "Password cannot be empty"
+                    _isValidating.value = false
+                    return@launch
+                }
+
+                // On physical devices, block local-only hosts that won't resolve
+                val isEmulator = run {
+                    val fp = Build.FINGERPRINT.lowercase()
+                    val model = Build.MODEL.lowercase()
+                    val brand = Build.BRAND.lowercase()
+                    val device = Build.DEVICE.lowercase()
+                    val product = Build.PRODUCT.lowercase()
+                    fp.contains("generic") || fp.contains("emulator") ||
+                        model.contains("google_sdk") || model.contains("emulator") || model.contains("android sdk built for") ||
+                        brand.startsWith("generic") || device.startsWith("generic") || product.contains("sdk")
+                }
+                val host = try { Uri.parse(normalizedUrl).host?.lowercase() } catch (_: Exception) { null }
+                val localOnlyHosts = setOf("localhost", "127.0.0.1", "host.docker.internal", "10.0.2.2")
+                if (!isEmulator && host != null && host in localOnlyHosts) {
+                    _validationError.value = "On a physical device, use your computer's LAN IP (e.g., 192.168.x.x:3000) instead of '$host'."
                     _isValidating.value = false
                     return@launch
                 }
