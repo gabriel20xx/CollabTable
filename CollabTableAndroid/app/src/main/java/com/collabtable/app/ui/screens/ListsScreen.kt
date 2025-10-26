@@ -161,17 +161,11 @@ fun ListsScreen(
                     to: Int,
                 ) {
                     if (from == to) return
+                    if (isEmpty() || from !in indices) return
                     val item = removeAt(from)
-                    add(
-                        if (to > size) {
-                            size
-                        } else if (to < 0) {
-                            0
-                        } else {
-                            to
-                        },
-                        item,
-                    )
+                    // When moving downwards, the target index shifts left by one after removal
+                    val insertIndex = (if (to > from) to - 1 else to).coerceIn(0, size)
+                    add(insertIndex, item)
                 }
 
                 val reorderState =
@@ -179,9 +173,10 @@ fun ListsScreen(
                         onMove = { from, to ->
                             dragging = true
                             val newList = working.toMutableList()
-                            // Map from Lazy positions (including dividers) to data indices
+                            // Map from Lazy positions (with dividers) to data indices.
+                            // to.index can be odd (between items). Insert AFTER the upper item for better feel.
                             val fromData = from.index / 2
-                            val toData = to.index / 2
+                            val toData = (to.index + 1) / 2
                             newList.move(fromData, toData)
                             working = newList
                         },
@@ -202,7 +197,7 @@ fun ListsScreen(
                 ) {
                     // Interleave dividers as separate list items so they don't move with dragged rows
                     items(
-                        count = working.size * 2 - 1,
+                        count = if (working.isEmpty()) 0 else working.size * 2 - 1,
                         key = { pos ->
                             if (pos % 2 == 0) working[pos / 2].id else "divider-$pos"
                         },

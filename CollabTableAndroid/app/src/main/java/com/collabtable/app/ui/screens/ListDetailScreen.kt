@@ -2506,30 +2506,26 @@ fun ManageColumnsDialog(
                 Divider()
 
                 // Column list with drag-and-drop reordering
-                // Local extension mirroring the working behavior used in ListsScreen
+                // Local extension mirroring the working behavior used in ListsScreen,
+                // adjusting target index when moving downwards to account for prior removal.
                 fun <T> MutableList<T>.move(
                     from: Int,
                     to: Int,
                 ) {
                     if (from == to) return
-                    if (isEmpty()) return
-                    if (from !in indices) return
+                    if (isEmpty() || from !in indices) return
                     val item = removeAt(from)
-                    val insertIndex =
-                        when {
-                            to > size -> size
-                            to < 0 -> 0
-                            else -> to
-                        }
+                    val insertIndex = (if (to > from) to - 1 else to).coerceIn(0, size)
                     add(insertIndex, item)
                 }
 
                 val reorderState =
                     rememberReorderableLazyListState(
                         onMove = { from, to ->
-                            // Map from Lazy positions (including dividers) to data indices
+                            // Map from Lazy positions (with dividers) to data indices.
+                            // Insert AFTER the upper item when hovering between rows.
                             val fromData = from.index / 2
-                            val toData = to.index / 2
+                            val toData = (to.index + 1) / 2
                             reorderedFields.move(fromData, toData)
                         },
                     )
@@ -2546,7 +2542,7 @@ fun ManageColumnsDialog(
                 ) {
                     // Interleave dividers as separate Lazy items so dividers don't move with dragged rows
                     items(
-                        count = reorderedFields.size * 2 - 1,
+                        count = if (reorderedFields.isEmpty()) 0 else reorderedFields.size * 2 - 1,
                         key = { pos ->
                             if (pos % 2 == 0) reorderedFields[pos / 2].id else "divider-$pos"
                         },
