@@ -147,12 +147,15 @@ fun ListsScreen(
                     )
                 }
             } else {
-                // Maintain a working copy for smooth drag animations; commit to DB on drag end
-                var working by remember { mutableStateOf(lists) }
+                // Maintain a working list as a mutable state list for smoother edge animations
+                val working = remember { androidx.compose.runtime.mutableStateListOf<CollabList>() }
                 var dragging by remember { mutableStateOf(false) }
                 // Keep working list in sync when not dragging
                 LaunchedEffect(lists, dragging) {
-                    if (!dragging) working = lists
+                    if (!dragging) {
+                        working.clear()
+                        working.addAll(lists)
+                    }
                 }
 
                 fun MutableList<CollabList>.move(
@@ -168,10 +171,8 @@ fun ListsScreen(
                     rememberReorderableLazyListState(
                         onMove = { from, to ->
                             dragging = true
-                            val newList = working.toMutableList()
-                            // Indices provided by reorderable correspond to draggable items only (dividers ignored)
-                            newList.move(from.index, to.index)
-                            working = newList
+                            // Indices provided by reorderable correspond to draggable items only
+                            working.move(from.index, to.index)
                         },
                         onDragEnd = { _, _ ->
                             dragging = false
