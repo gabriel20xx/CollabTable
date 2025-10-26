@@ -161,10 +161,7 @@ fun ListsScreen(
                 ) {
                     if (from == to) return
                     if (isEmpty() || from !in indices) return
-                    val item = removeAt(from)
-                    // When moving downwards, the target index shifts left by one after removal
-                    val insertIndex = (if (to > from) to - 1 else to).coerceIn(0, size)
-                    add(insertIndex, item)
+                    add(to.coerceIn(0, size), removeAt(from))
                 }
 
                 val reorderState =

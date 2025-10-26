@@ -2515,9 +2515,7 @@ fun ManageColumnsDialog(
                 ) {
                     if (from == to) return
                     if (isEmpty() || from !in indices) return
-                    val item = removeAt(from)
-                    val insertIndex = (if (to > from) to - 1 else to).coerceIn(0, size)
-                    add(insertIndex, item)
+                    add(to.coerceIn(0, size), removeAt(from))
                 }
 
                 val reorderState =
