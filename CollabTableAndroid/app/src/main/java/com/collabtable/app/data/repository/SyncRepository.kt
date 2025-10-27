@@ -55,6 +55,10 @@ class SyncRepository(context: Context) {
             try {
                 val lastServerTs = getLastServerSyncTs()
                 val lastLocalTs = getLastLocalSyncTs()
+                // Capture a snapshot timestamp BEFORE reading local changes to avoid missing
+                // updates that happen during an in-flight sync. We'll advance the local watermark
+                // to this snapshot once the sync completes successfully.
+                val localSnapshotTs = System.currentTimeMillis()
                 val isInitialSync = lastServerTs == 0L
                 if (isInitialSync) {
                     Logger.i("Sync", "[SYNC] Starting initial sync with server")
@@ -62,9 +66,13 @@ class SyncRepository(context: Context) {
 
                 // Gather local changes since last sync
                 val localLists = database.listDao().getListsUpdatedSince(lastLocalTs)
+                    .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
                 val localFields = database.fieldDao().getFieldsUpdatedSince(lastLocalTs)
+                    .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
                 val localItems = database.itemDao().getItemsUpdatedSince(lastLocalTs)
+                    .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
                 val localValues = database.itemValueDao().getValuesUpdatedSince(lastLocalTs)
+                    .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
 
                 // Only log send when there are actual local changes
                 val localTotal = localLists.size + localFields.size + localItems.size + localValues.size
@@ -179,7 +187,9 @@ class SyncRepository(context: Context) {
 
                 // Update watermarks: server ts from response, local ts from device clock now
                 setLastServerSyncTs(syncResponse.serverTimestamp)
-                setLastLocalSyncTs(System.currentTimeMillis())
+                // Advance local watermark to the snapshot taken before reading local changes.
+                // This avoids missing updates that occurred while the sync was in-flight.
+                setLastLocalSyncTs(localSnapshotTs)
 
                 if (isInitialSync) {
                     Logger.i("Sync", "[SYNC] Initial sync completed")
