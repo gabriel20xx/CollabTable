@@ -275,7 +275,7 @@ router.get('/', (req: Request, res: Response) => {
                                     </div>
                                     <div class="list-id">ID: \${list.id}</div>
                                     <div class="list-id">Created: \${fmtDate(list.createdAt)}</div>
-                                    <div class="list-id">Updated: \${fmtDate(list.updatedAt)}</div>
+                                    <div class="list-id">Updated: \${fmtDate(list.effectiveUpdatedAt ?? list.updatedAt)}</div>
                                 </div>
                             </div>
                             
@@ -368,7 +368,7 @@ router.get('/web/data', async (req: Request, res: Response) => {
         };
         // Normalize key casing across SQLite (camelCase) and Postgres (lowercase)
         const pick = (obj: any, a: string, b: string) => obj[a] ?? obj[b];
-        const formattedLists = (lists as any[]).map(list => ({
+        let formattedLists = (lists as any[]).map(list => ({
             ...list,
             isDeleted: !!pick(list, 'isDeleted', 'isdeleted'),
             createdAt: toMillis(pick(list, 'createdAt', 'createdat')),
@@ -394,6 +394,42 @@ router.get('/web/data', async (req: Request, res: Response) => {
             fieldId: pick(v, 'fieldId', 'fieldid'),
             updatedAt: toMillis(pick(v, 'updatedAt', 'updatedat'))
         }));
+        // Compute effective updatedAt for lists based on latest change in the list itself or its children
+        const itemIdToListId = new Map<string, string>();
+        for (const it of formattedItems as any[]) {
+            if (it && it.id && it.listId) itemIdToListId.set(it.id, it.listId);
+        }
+        const listToMaxField = new Map<string, number>();
+        for (const f of formattedFields as any[]) {
+            if (!f || !f.listId) continue;
+            const t = typeof f.updatedAt === 'number' ? f.updatedAt : 0;
+            const prev = listToMaxField.get(f.listId) || 0;
+            if (t > prev) listToMaxField.set(f.listId, t);
+        }
+        const listToMaxItem = new Map<string, number>();
+        for (const it of formattedItems as any[]) {
+            if (!it || !it.listId) continue;
+            const t = typeof it.updatedAt === 'number' ? it.updatedAt : 0;
+            const prev = listToMaxItem.get(it.listId) || 0;
+            if (t > prev) listToMaxItem.set(it.listId, t);
+        }
+        const listToMaxValue = new Map<string, number>();
+        for (const val of formattedValues as any[]) {
+            if (!val || !val.itemId) continue;
+            const lId = itemIdToListId.get(val.itemId);
+            if (!lId) continue;
+            const t = typeof val.updatedAt === 'number' ? val.updatedAt : 0;
+            const prev = listToMaxValue.get(lId) || 0;
+            if (t > prev) listToMaxValue.set(lId, t);
+        }
+        formattedLists = formattedLists.map((l: any) => {
+            const fMax = listToMaxField.get(l.id) || 0;
+            const iMax = listToMaxItem.get(l.id) || 0;
+            const vMax = listToMaxValue.get(l.id) || 0;
+            const base = typeof l.updatedAt === 'number' ? l.updatedAt : 0;
+            const eff = Math.max(base, fMax, iMax, vMax);
+            return { ...l, effectiveUpdatedAt: eff === 0 ? l.updatedAt : eff };
+        });
     
     res.json({
       lists: formattedLists,

@@ -34,6 +34,12 @@ interface FieldDao {
         timestamp: Long,
     )
 
+    @Query("UPDATE fields SET isDeleted = 1, updatedAt = :timestamp WHERE listId = :listId")
+    suspend fun softDeleteFieldsByList(
+        listId: String,
+        timestamp: Long,
+    )
+
     @Query("DELETE FROM fields WHERE id = :fieldId")
     suspend fun deleteField(fieldId: String)
 

@@ -92,7 +92,6 @@ fun ListsScreen(
                     val context = LocalContext.current
                     val prefsLocal = remember { PreferencesManager.getInstance(context) }
                     ConnectionStatusAction(prefs = prefsLocal)
-                    SortMenu(prefs = prefs)
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
                             Icons.Default.Settings,
@@ -201,32 +200,45 @@ fun ListsScreen(
                         },
                     )
 
-                LazyColumn(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .reorderable(reorderState),
-                    state = reorderState.listState,
-                    contentPadding = PaddingValues(vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                ) {
-                    itemsIndexed(working, key = { _, it -> it.id }) { _, list ->
-                        ReorderableItem(reorderState, key = list.id) { _ ->
-                            Box(modifier = Modifier.animateItemPlacement()) {
-                                ListItem(
-                                    list = list,
-                                    onListClick = { onNavigateToList(list.id) },
-                                    onEditClick = { listToEdit = list },
-                                    onDeleteClick = { listToDelete = list },
-                                    dragHandle = {
-                                        Icon(
-                                            imageVector = Icons.Default.DragHandle,
-                                            contentDescription = "Reorder",
-                                            modifier = Modifier.detectReorder(reorderState),
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    },
-                                )
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // Controls above the list (align with table view UX)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SortMenu(prefs = prefs)
+                    }
+
+                    LazyColumn(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .reorderable(reorderState),
+                        state = reorderState.listState,
+                        contentPadding = PaddingValues(vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                    ) {
+                        itemsIndexed(working, key = { _, it -> it.id }) { _, list ->
+                            ReorderableItem(reorderState, key = list.id) { _ ->
+                                Box(modifier = Modifier.animateItemPlacement()) {
+                                    ListItem(
+                                        list = list,
+                                        onListClick = { onNavigateToList(list.id) },
+                                        onEditClick = { listToEdit = list },
+                                        onDeleteClick = { listToDelete = list },
+                                        dragHandle = {
+                                            Icon(
+                                                imageVector = Icons.Default.DragHandle,
+                                                contentDescription = "Reorder",
+                                                modifier = Modifier.detectReorder(reorderState),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        },
+                                    )
+                                }
                             }
                         }
                     }

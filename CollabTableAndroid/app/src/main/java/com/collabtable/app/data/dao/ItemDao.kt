@@ -45,4 +45,10 @@ interface ItemDao {
     // Get all items updated since timestamp, including deleted ones for sync
     @Query("SELECT * FROM items WHERE updatedAt >= :since")
     suspend fun getItemsUpdatedSince(since: Long): List<Item>
+
+    @Query("UPDATE items SET isDeleted = 1, updatedAt = :timestamp WHERE listId = :listId")
+    suspend fun softDeleteItemsByList(
+        listId: String,
+        timestamp: Long,
+    )
 }

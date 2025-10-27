@@ -122,6 +122,18 @@ router.post('/sync', async (req: Request, res: Response) => {
             list.updatedAt,
             list.isDeleted ? 1 : 0
           ]);
+          // If a list was deleted, cascade the deletion to child records on server
+          // - mark fields and items as deleted (tombstones) so other clients learn about them
+          // - remove item_values belonging to items under this list (no tombstone support for values)
+          if (list.isDeleted) {
+            try {
+              await tx.execute('UPDATE fields SET isDeleted = 1, updatedAt = ? WHERE listId = ?', [list.updatedAt, list.id]);
+              await tx.execute('UPDATE items SET isDeleted = 1, updatedAt = ? WHERE listId = ?', [list.updatedAt, list.id]);
+              await tx.execute('DELETE FROM item_values WHERE itemId IN (SELECT id FROM items WHERE listId = ?)', [list.id]);
+            } catch (err) {
+              console.warn('[SYNC] Cascade delete for list failed:', String(err));
+            }
+          }
         }
       }
 
@@ -138,6 +150,14 @@ router.post('/sync', async (req: Request, res: Response) => {
             field.updatedAt,
             field.isDeleted ? 1 : 0
           ]);
+          // If a field was deleted, remove any item_values referencing it so clients converge
+          if (field.isDeleted) {
+            try {
+              await tx.execute('DELETE FROM item_values WHERE fieldId = ?', [field.id]);
+            } catch (err) {
+              console.warn('[SYNC] Cascade delete for field failed:', String(err));
+            }
+          }
         }
       }
 
@@ -150,6 +170,14 @@ router.post('/sync', async (req: Request, res: Response) => {
             item.updatedAt,
             item.isDeleted ? 1 : 0
           ]);
+          // If an item was deleted, remove its values (no tombstone support for values)
+          if (item.isDeleted) {
+            try {
+              await tx.execute('DELETE FROM item_values WHERE itemId = ?', [item.id]);
+            } catch (err) {
+              console.warn('[SYNC] Cascade delete for item failed:', String(err));
+            }
+          }
         }
       }
 

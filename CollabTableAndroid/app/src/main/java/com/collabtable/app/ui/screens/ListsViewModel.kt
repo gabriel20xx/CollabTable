@@ -156,7 +156,12 @@ class ListsViewModel(
             val list = database.listDao().getListById(listId)
             if (list != null) {
                 Logger.i("Tables", "🗑️ Deleting table: \"${list.name}\"")
-                database.listDao().softDeleteList(listId, System.currentTimeMillis())
+                val ts = System.currentTimeMillis()
+                // Soft-delete the list, and cascade soft-deletes to its fields and items so sync uploads tombstones
+                database.listDao().softDeleteList(listId, ts)
+                // Cascade locally to ensure children are marked deleted and uploaded on next sync
+                database.fieldDao().softDeleteFieldsByList(listId, ts)
+                database.itemDao().softDeleteItemsByList(listId, ts)
                 // Sync immediately after deleting
                 performSync()
             }
