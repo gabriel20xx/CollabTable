@@ -377,6 +377,8 @@ router.get('/web/data', async (req: Request, res: Response) => {
         const formattedFields = (fields as any[]).map(field => ({
             ...field,
             listId: pick(field, 'listId', 'listid'),
+            // Normalize fieldType casing across DBs and provide a sensible default
+            fieldType: pick(field, 'fieldType', 'fieldtype') ?? 'STRING',
             isDeleted: !!pick(field, 'isDeleted', 'isdeleted'),
             createdAt: toMillis(pick(field, 'createdAt', 'createdat')),
             updatedAt: toMillis(pick(field, 'updatedAt', 'updatedat'))
