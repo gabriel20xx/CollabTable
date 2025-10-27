@@ -27,13 +27,13 @@ object ApiClient {
             val request = chain.request()
             val password =
                 context?.let {
-                    PreferencesManager.getInstance(it).getServerPassword()
+                    PreferencesManager.getInstance(it).getServerPassword()?.trim()
                 }
 
             val newRequest =
-                if (!password.isNullOrBlank()) {
+                if (!password.isNullOrBlank() && password != "\$password") {
                     request.newBuilder()
-                        .header("Authorization", "Bearer ${'$'}password")
+                        .header("Authorization", "Bearer $password")
                         .build()
                 } else {
                     request

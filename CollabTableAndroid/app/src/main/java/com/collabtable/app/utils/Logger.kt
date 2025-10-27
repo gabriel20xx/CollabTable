@@ -33,29 +33,33 @@ object Logger {
     val logs: StateFlow<List<LogEntry>> = _logs.asStateFlow()
 
     private const val MAX_LOGS = 500
+    private const val DEDUPE_WINDOW_MS = 1_000L
 
     fun d(
         tag: String,
         message: String,
     ) {
-        log(LogLevel.DEBUG, tag, message)
-        Log.d(tag, message)
+        if (log(LogLevel.DEBUG, tag, message)) {
+            Log.d(tag, message)
+        }
     }
 
     fun i(
         tag: String,
         message: String,
     ) {
-        log(LogLevel.INFO, tag, message)
-        Log.i(tag, message)
+        if (log(LogLevel.INFO, tag, message)) {
+            Log.i(tag, message)
+        }
     }
 
     fun w(
         tag: String,
         message: String,
     ) {
-        log(LogLevel.WARN, tag, message)
-        Log.w(tag, message)
+        if (log(LogLevel.WARN, tag, message)) {
+            Log.w(tag, message)
+        }
     }
 
     fun e(
@@ -64,11 +68,12 @@ object Logger {
         throwable: Throwable? = null,
     ) {
         val msg = if (throwable != null) "$message: ${throwable.message}" else message
-        log(LogLevel.ERROR, tag, msg)
-        if (throwable != null) {
-            Log.e(tag, message, throwable)
-        } else {
-            Log.e(tag, message)
+        if (log(LogLevel.ERROR, tag, msg)) {
+            if (throwable != null) {
+                Log.e(tag, message, throwable)
+            } else {
+                Log.e(tag, message)
+            }
         }
     }
 
@@ -76,16 +81,16 @@ object Logger {
         level: LogLevel,
         tag: String,
         message: String,
-    ) {
-        val entry =
-            LogEntry(
-                timestamp = System.currentTimeMillis(),
-                level = level,
-                tag = tag,
-                message = message,
-            )
-
+    ): Boolean {
+        val now = System.currentTimeMillis()
+        val last = _logs.value.lastOrNull()
+        // Suppress exact duplicate consecutive logs within a short window
+        if (last != null && last.level == level && last.tag == tag && last.message == message && (now - last.timestamp) <= DEDUPE_WINDOW_MS) {
+            return false
+        }
+        val entry = LogEntry(timestamp = now, level = level, tag = tag, message = message)
         _logs.value = (_logs.value + entry).takeLast(MAX_LOGS)
+        return true
     }
 
     fun clear() {

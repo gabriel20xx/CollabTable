@@ -46,6 +46,8 @@ import com.collabtable.app.ui.components.ConnectionStatusAction
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -115,7 +117,8 @@ fun SettingsScreen(
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp),
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
@@ -188,11 +191,15 @@ fun SettingsScreen(
                             val trimmed = passwordInput.trim()
                             if (trimmed.isEmpty()) {
                                 passwordError = "Password cannot be empty"
+                            } else if (trimmed == "\$password") {
+                                passwordError = "Enter the actual server password, not the placeholder \$password"
                             } else {
                                 preferencesManager.setServerPassword(trimmed)
                                 // Trigger a quick sync in background to validate
                                 coroutineScope.launch(Dispatchers.IO) {
                                     try {
+                                        // Clear any auth backoff immediately when updating password
+                                        syncRepository.resetAuthBackoff()
                                         syncRepository.performSync()
                                     } catch (_: Exception) { }
                                 }

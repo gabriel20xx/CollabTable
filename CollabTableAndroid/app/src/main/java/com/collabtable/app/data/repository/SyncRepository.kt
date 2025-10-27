@@ -5,6 +5,7 @@ import androidx.room.withTransaction
 import com.collabtable.app.data.api.ApiClient
 import com.collabtable.app.data.api.SyncRequest
 import com.collabtable.app.data.database.CollabTableDatabase
+import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.utils.Logger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
@@ -17,6 +18,13 @@ class SyncRepository(context: Context) {
     private val api = ApiClient.api
     private val prefs = appContext.getSharedPreferences("collab_table_prefs", Context.MODE_PRIVATE)
 
+        @Volatile private var authBackoffUntil: Long = 0L
+        @Volatile private var authBackoffMs: Long = 0L
+
+        fun resetAuthBackoff() {
+            authBackoffMs = 0L
+            authBackoffUntil = 0L
+        }
     // We keep separate watermarks to avoid clock-skew issues:
     // - server watermark: server-assigned timestamp for fetching server changes
     // - local watermark: device local time for selecting local changes to upload
@@ -53,6 +61,18 @@ class SyncRepository(context: Context) {
             // Prevent overlapping syncs across screens/viewmodels
             syncMutex.withLock {
             try {
+                // If not authenticated, skip making network calls (e.g., after leaving server)
+                val prefMgr = PreferencesManager.getInstance(appContext)
+                val currentPassword = prefMgr.getServerPassword()?.trim()
+                if (currentPassword.isNullOrBlank() || currentPassword == "\$password") {
+                    // Quietly skip to avoid spamming server with missing Authorization
+                    return@withContext Result.success(Unit)
+                }
+                // Respect auth backoff window to avoid spamming the server on repeated 401s
+                val now = System.currentTimeMillis()
+                if (authBackoffUntil > now) {
+                    return@withContext Result.success(Unit)
+                }
                 val lastServerTs = getLastServerSyncTs()
                 val lastLocalTs = getLastLocalSyncTs()
                 // Capture a snapshot timestamp BEFORE reading local changes to avoid missing
@@ -100,12 +120,13 @@ class SyncRepository(context: Context) {
                 if (!response.isSuccessful) {
                     if (response.code() == 401) {
                         // Unauthorized: likely bad/missing password. Reset sync baseline and surface a clear error.
-                        Logger.e("Sync", "[ERROR] Unauthorized (401). Check server password in Settings.")
                         setLastServerSyncTs(0)
                         setLastLocalSyncTs(0)
+                        // Apply exponential backoff on repeated auth failures
+                        authBackoffMs = if (authBackoffMs == 0L) 2_000L else (authBackoffMs * 2).coerceAtMost(300_000L)
+                        authBackoffUntil = System.currentTimeMillis() + authBackoffMs
                         return@withContext Result.failure(Exception("Unauthorized (401). Please verify server password."))
                     }
-                    Logger.e("Sync", "[ERROR] Sync failed: HTTP ${response.code()}")
                     return@withContext Result.failure(Exception("Sync failed: ${response.code()}"))
                 }
                 val syncResponse = response.body()!!
@@ -195,17 +216,16 @@ class SyncRepository(context: Context) {
                     Logger.i("Sync", "[SYNC] Initial sync completed")
                 }
 
+                // Successful sync clears any previous auth backoff
+                resetAuthBackoff()
+
                 return@withContext Result.success(Unit)
             } catch (e: Exception) {
-                if (e is java.net.UnknownHostException) {
-                    Logger.e("Sync", "[ERROR] Unknown host. If you're running the server on the host machine, use 10.0.2.2 on the Android emulator or a LAN IP on a physical device.")
-                }
                 // If WS indicated unauthorized, align behavior with HTTP path
                 if (e.message?.contains("Unauthorized") == true) {
                     setLastServerSyncTs(0)
                     setLastLocalSyncTs(0)
                 }
-                Logger.e("Sync", "[ERROR] Sync error: ${e.message}")
                 return@withContext Result.failure(e)
             }
             }

@@ -85,10 +85,15 @@ class ServerSetupViewModel(
                 // Ensure it ends with /
                 normalizedUrl = if (normalizedUrl.endsWith("/")) normalizedUrl else "$normalizedUrl/"
 
-                // Validate password is not empty (trim leading/trailing spaces)
+                // Validate password is not empty (trim leading/trailing spaces) and not a placeholder
                 val trimmedPassword = password.trim()
                 if (trimmedPassword.isBlank()) {
                     _validationError.value = "Password cannot be empty"
+                    _isValidating.value = false
+                    return@launch
+                }
+                if (trimmedPassword == "\$password") {
+                    _validationError.value = "Enter the actual server password, not the placeholder $password"
                     _isValidating.value = false
                     return@launch
                 }
@@ -179,7 +184,7 @@ class ServerSetupViewModel(
                     val authRequest =
                         Request.Builder()
                             .url(testUrl)
-                            .header("Authorization", "Bearer ${'$'}trimmedPassword")
+                            .header("Authorization", "Bearer $trimmedPassword")
                             .get()
                             .build()
 
