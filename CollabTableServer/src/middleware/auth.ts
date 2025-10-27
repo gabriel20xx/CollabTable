@@ -18,6 +18,12 @@ export const authenticatePassword = (req: Request, res: Response, next: NextFunc
   const authHeader = req.headers.authorization;
   
   if (!authHeader) {
+    // Log diagnostic info to help trace intermittent 401s
+    console.warn('[AUTH] Missing Authorization header', {
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+    });
     return res.status(401).json({ 
       error: 'Unauthorized', 
       message: 'No authorization header provided' 
@@ -27,6 +33,13 @@ export const authenticatePassword = (req: Request, res: Response, next: NextFunc
   // Parse the authorization header
   const parts = authHeader.split(' ');
   if (parts.length !== 2 || parts[0] !== 'Bearer') {
+    console.warn('[AUTH] Invalid authorization header format', {
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+      // Do not log full header to avoid leaking secrets; include prefix only
+      headerPreview: authHeader.substring(0, Math.min(authHeader.length, 20)) + '...'
+    });
     return res.status(401).json({ 
       error: 'Unauthorized', 
       message: 'Invalid authorization header format. Expected: Bearer <password>' 
@@ -37,6 +50,14 @@ export const authenticatePassword = (req: Request, res: Response, next: NextFunc
 
   // Validate password
   if (providedPassword !== serverPassword) {
+    // Avoid logging the full password; log only length and a small preview
+    const safePreview = providedPassword ? `${providedPassword.substring(0, 2)}…(${providedPassword.length})` : 'null';
+    console.warn('[AUTH] Invalid password', {
+      path: req.path,
+      method: req.method,
+      ip: req.ip,
+      providedPreview: safePreview,
+    });
     return res.status(401).json({ 
       error: 'Unauthorized', 
       message: 'Invalid password' 

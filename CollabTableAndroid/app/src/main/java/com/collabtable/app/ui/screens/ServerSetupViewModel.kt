@@ -41,7 +41,7 @@ class ServerSetupViewModel(
 
     fun validateAndSaveServerUrl(
         url: String,
-        password: String,
+    password: String,
     ) {
         viewModelScope.launch {
             _isValidating.value = true
@@ -85,8 +85,9 @@ class ServerSetupViewModel(
                 // Ensure it ends with /
                 normalizedUrl = if (normalizedUrl.endsWith("/")) normalizedUrl else "$normalizedUrl/"
 
-                // Validate password is not empty
-                if (password.isBlank()) {
+                // Validate password is not empty (trim leading/trailing spaces)
+                val trimmedPassword = password.trim()
+                if (trimmedPassword.isBlank()) {
                     _validationError.value = "Password cannot be empty"
                     _isValidating.value = false
                     return@launch
@@ -178,7 +179,7 @@ class ServerSetupViewModel(
                     val authRequest =
                         Request.Builder()
                             .url(testUrl)
-                            .header("Authorization", "Bearer $password")
+                            .header("Authorization", "Bearer ${'$'}trimmedPassword")
                             .get()
                             .build()
 
@@ -191,7 +192,7 @@ class ServerSetupViewModel(
                     if (authResponse.isSuccessful) {
                         // Password is valid, save both URL and password
                         preferencesManager.setServerUrl(finalUrl)
-                        preferencesManager.setServerPassword(password)
+                        preferencesManager.setServerPassword(trimmedPassword)
                         // Reset sync baseline for a fresh initial sync on new server
                         preferencesManager.clearSyncState()
                         preferencesManager.setIsFirstRun(false)

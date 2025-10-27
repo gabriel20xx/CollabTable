@@ -4,6 +4,7 @@ import android.content.Context
 import com.collabtable.app.data.preferences.PreferencesManager
 import android.os.Build
 import android.net.Uri
+import com.collabtable.app.utils.Logger
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -32,7 +33,7 @@ object ApiClient {
             val newRequest =
                 if (!password.isNullOrBlank()) {
                     request.newBuilder()
-                        .header("Authorization", "Bearer $password")
+                        .header("Authorization", "Bearer ${'$'}password")
                         .build()
                 } else {
                     request
@@ -101,11 +102,17 @@ object ApiClient {
         this.context = context.applicationContext
         val prefs = PreferencesManager.getInstance(context)
         baseUrl = normalizeForAndroidEmulator(prefs.getServerUrl())
+        try {
+            Logger.i("HTTP", "API base URL initialized to $baseUrl")
+        } catch (_: Exception) { }
         retrofit = buildRetrofit()
     }
 
     fun setBaseUrl(url: String) {
         baseUrl = normalizeForAndroidEmulator(url)
+        try {
+            Logger.i("HTTP", "API base URL set to $baseUrl")
+        } catch (_: Exception) { }
         retrofit = buildRetrofit()
     }
 
