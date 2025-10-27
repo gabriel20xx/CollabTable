@@ -49,6 +49,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import com.collabtable.app.R
 import com.collabtable.app.data.api.ApiClient
 import com.collabtable.app.data.database.CollabTableDatabase
@@ -82,6 +84,9 @@ fun SettingsScreen(
     val syncIntervalMs by preferencesManager.syncPollIntervalMs.collectAsState()
     var syncIntervalInput by remember(syncIntervalMs) { mutableStateOf(syncIntervalMs.toString()) }
     var syncIntervalError by remember { mutableStateOf<String?>(null) }
+    var passwordInput by remember { mutableStateOf("") }
+    var passwordError by remember { mutableStateOf<String?>(null) }
+    var passwordUpdated by remember { mutableStateOf(false) }
 
     // Removed test connectivity logic; the connection indicator is shown via ConnectionStatusAction
 
@@ -143,6 +148,82 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(8.dp))
+
+            // Authentication: allow updating server password without leaving
+            Text(
+                text = "Authentication",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "Server password",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TextField(
+                            value = passwordInput,
+                            onValueChange = {
+                                passwordInput = it
+                                passwordError = null
+                                passwordUpdated = false
+                            },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true,
+                            placeholder = { Text("Enter server password") },
+                            visualTransformation = PasswordVisualTransformation(),
+                        )
+                        Button(onClick = {
+                            val trimmed = passwordInput.trim()
+                            if (trimmed.isEmpty()) {
+                                passwordError = "Password cannot be empty"
+                            } else {
+                                preferencesManager.setServerPassword(trimmed)
+                                // Trigger a quick sync in background to validate
+                                coroutineScope.launch(Dispatchers.IO) {
+                                    try {
+                                        syncRepository.performSync()
+                                    } catch (_: Exception) { }
+                                }
+                                passwordUpdated = true
+                                passwordError = null
+                            }
+                        }) {
+                            Text("Update")
+                        }
+                    }
+                    if (passwordError != null) {
+                        Text(
+                            text = passwordError!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    } else if (passwordUpdated) {
+                        Text(
+                            text = "Password updated",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    } else {
+                        Text(
+                            text = "Tip: This must match the server's SERVER_PASSWORD",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
+            }
 
             Text(
                 text = "Appearance",
