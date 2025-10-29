@@ -90,6 +90,9 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -410,6 +413,7 @@ fun ListDetailScreen(
                                     fieldWidths[field.id] = newWidth.dp
                                 },
                                 scrollState = horizontalScrollState,
+                                isLast = (field.id == stableFields.lastOrNull()?.id),
                             )
                         }
                     }
@@ -602,9 +606,11 @@ fun FieldHeader(
     width: Dp,
     onWidthChange: (Float) -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
+    isLast: Boolean,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
+    var autoScrollJob by remember { mutableStateOf<Job?>(null) }
 
     Box(
         modifier =
@@ -636,19 +642,54 @@ fun FieldHeader(
                         Modifier
                             .size(24.dp)
                             .pointerInput(Unit) {
-                                detectDragGestures { change, dragAmount ->
+                                detectDragGestures(
+                                    onDragStart = {
+                                        // no-op
+                                    },
+                                    onDragEnd = {
+                                        autoScrollJob?.cancel()
+                                        autoScrollJob = null
+                                    },
+                                    onDragCancel = {
+                                        autoScrollJob?.cancel()
+                                        autoScrollJob = null
+                                    },
+                                ) { change, dragAmount ->
                                     change.consume()
                                     with(density) {
                                         onWidthChange(dragAmount.x.toDp().value)
                                     }
-                                    // Auto-scroll when resizing near the edges to keep the handle visible
-                                    val edgePx = with(density) { 32.dp.toPx() }
-                                    if (dragAmount.x > 0 && scrollState.value.toFloat() >= (scrollState.maxValue - edgePx)) {
-                                        val target = (scrollState.value.toFloat() + edgePx / 2f).coerceAtMost(scrollState.maxValue.toFloat())
-                                        scope.launch { scrollState.scrollTo(target.toInt()) }
-                                    } else if (dragAmount.x < 0 && scrollState.value.toFloat() <= edgePx) {
-                                        val target = (scrollState.value.toFloat() - edgePx / 2f).coerceAtLeast(0f)
-                                        scope.launch { scrollState.scrollTo(target.toInt()) }
+                                    val leftCancelThreshold = -4f
+                                    val autoStepDp = 2f
+                                    if (isLast) {
+                                        // Start or maintain continuous expand+scroll when at/right of the handle
+                                        if (dragAmount.x >= 0f || autoScrollJob != null) {
+                                            if (autoScrollJob == null) {
+                                                autoScrollJob = scope.launch {
+                                                    while (isActive) {
+                                                        // Keep expanding a bit and reveal the end as space grows
+                                                        onWidthChange(autoStepDp)
+                                                        scrollState.scrollTo(scrollState.maxValue)
+                                                        delay(16)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        // Cancel only on a clear leftward move to avoid jitter stopping expansion
+                                        if (dragAmount.x < leftCancelThreshold) {
+                                            autoScrollJob?.cancel()
+                                            autoScrollJob = null
+                                        }
+                                    } else {
+                                        // Non-last columns: gentle nudge near edges
+                                        val edgePx = with(density) { 32.dp.toPx() }
+                                        if (dragAmount.x > 0f && scrollState.value.toFloat() >= (scrollState.maxValue - edgePx)) {
+                                            val target = (scrollState.value.toFloat() + edgePx / 2f).coerceAtMost(scrollState.maxValue.toFloat())
+                                            scope.launch { scrollState.scrollTo(target.toInt()) }
+                                        } else if (dragAmount.x < 0f && scrollState.value.toFloat() <= edgePx) {
+                                            val target = (scrollState.value.toFloat() - edgePx / 2f).coerceAtLeast(0f)
+                                            scope.launch { scrollState.scrollTo(target.toInt()) }
+                                        }
                                     }
                                 }
                             },
