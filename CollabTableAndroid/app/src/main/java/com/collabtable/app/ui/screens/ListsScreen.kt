@@ -79,6 +79,22 @@ fun ListsScreen(
 
     val lists by viewModel.lists.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    var nowMs by remember { mutableStateOf(System.currentTimeMillis()) }
+
+    // Periodically refresh 'now' to keep the relative "Updated … ago" labels current.
+    // Use fine-grained updates (1s) while any table is < 60s old; otherwise back off to 30s.
+    LaunchedEffect(lists) {
+        while (true) {
+            val currentNow = System.currentTimeMillis()
+            val minAgeSec =
+                lists.minOfOrNull { list ->
+                    ((currentNow - list.updatedAt).coerceAtLeast(0L) / 1000L)
+                } ?: Long.MAX_VALUE
+            val delayMs = if (minAgeSec < 60L) 1_000L else 30_000L
+            delay(delayMs)
+            nowMs = System.currentTimeMillis()
+        }
+    }
 
     var showCreateDialog by remember { mutableStateOf(false) }
     var listToDelete by remember { mutableStateOf<CollabList?>(null) }
@@ -226,6 +242,7 @@ fun ListsScreen(
                                 Box(modifier = Modifier.animateItemPlacement()) {
                                     ListItem(
                                         list = list,
+                                        nowMs = nowMs,
                                         onListClick = { onNavigateToList(list.id) },
                                         onEditClick = { listToEdit = list },
                                         onDeleteClick = { listToDelete = list },
@@ -295,6 +312,7 @@ fun ListsScreen(
 @Composable
 fun ListItem(
     list: CollabList,
+    nowMs: Long,
     onListClick: () -> Unit,
     onEditClick: () -> Unit,
     onDeleteClick: () -> Unit,
@@ -323,6 +341,12 @@ fun ListItem(
         ) {
             Text(text = list.name, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(2.dp))
+            val subtitle = remember(list.updatedAt, nowMs) { formatUpdatedAgo(list.updatedAt, nowMs) }
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         // Actions on the right
@@ -448,6 +472,29 @@ private fun SortMenu(prefs: PreferencesManager) {
                 text = { Text("Name (Z–A)") },
                 onClick = { prefs.setSortOrder(PreferencesManager.SORT_NAME_DESC); expanded = false },
             )
+        }
+    }
+}
+
+// Format updatedAt relative to now: "Updated 5 sec/min/hour(s) ago" (days included when applicable)
+private fun formatUpdatedAgo(updatedAt: Long, nowMs: Long): String {
+    val delta = (nowMs - updatedAt).coerceAtLeast(0L)
+    val seconds = delta / 1000
+    return when {
+        seconds < 60 -> "Updated ${seconds}s ago"
+        seconds < 3600 -> {
+            val minutes = seconds / 60
+            "Updated ${minutes}m ago"
+        }
+        seconds < 86_400 -> {
+            val hours = seconds / 3600
+            val unit = if (hours == 1L) "hour" else "hours"
+            "Updated ${hours} $unit ago"
+        }
+        else -> {
+            val days = seconds / 86_400
+            val unit = if (days == 1L) "day" else "days"
+            "Updated ${days} $unit ago"
         }
     }
 }
