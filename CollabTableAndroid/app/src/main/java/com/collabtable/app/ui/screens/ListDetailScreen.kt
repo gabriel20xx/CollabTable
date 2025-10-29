@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -56,6 +57,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +89,7 @@ import org.burnoutcrew.reorderable.reorderable
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -402,9 +405,11 @@ fun ListDetailScreen(
                                 width = fieldWidths[field.id] ?: 150.dp,
                                 onWidthChange = { delta ->
                                     val currentWidth = fieldWidths[field.id] ?: 150.dp
-                                    val newWidth = (currentWidth.value + delta).coerceIn(100f, 400f)
+                                    // Enforce only a minimum width; remove the previous max (400dp)
+                                    val newWidth = (currentWidth.value + delta).coerceAtLeast(100f)
                                     fieldWidths[field.id] = newWidth.dp
                                 },
+                                scrollState = horizontalScrollState,
                             )
                         }
                     }
@@ -596,8 +601,10 @@ fun FieldHeader(
     field: Field,
     width: Dp,
     onWidthChange: (Float) -> Unit,
+    scrollState: androidx.compose.foundation.ScrollState,
 ) {
     val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
 
     Box(
         modifier =
@@ -633,6 +640,15 @@ fun FieldHeader(
                                     change.consume()
                                     with(density) {
                                         onWidthChange(dragAmount.x.toDp().value)
+                                    }
+                                    // Auto-scroll when resizing near the edges to keep the handle visible
+                                    val edgePx = with(density) { 32.dp.toPx() }
+                                    if (dragAmount.x > 0 && scrollState.value.toFloat() >= (scrollState.maxValue - edgePx)) {
+                                        val target = (scrollState.value.toFloat() + edgePx / 2f).coerceAtMost(scrollState.maxValue.toFloat())
+                                        scope.launch { scrollState.scrollTo(target.toInt()) }
+                                    } else if (dragAmount.x < 0 && scrollState.value.toFloat() <= edgePx) {
+                                        val target = (scrollState.value.toFloat() - edgePx / 2f).coerceAtLeast(0f)
+                                        scope.launch { scrollState.scrollTo(target.toInt()) }
                                     }
                                 }
                             },
@@ -670,6 +686,7 @@ fun ItemRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .height(IntrinsicSize.Min)
                 .clickable(onClick = onClick)
                 .horizontalScroll(scrollState),
         verticalAlignment = Alignment.CenterVertically,
@@ -683,6 +700,7 @@ fun ItemRow(
                     modifier =
                         Modifier
                             .width(fieldWidth)
+                            .fillMaxHeight()
                             .border(
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.outline,
