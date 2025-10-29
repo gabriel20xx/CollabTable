@@ -8,6 +8,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.scrollable
+import androidx.compose.foundation.gestures.rememberScrollableState
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -130,7 +133,7 @@ fun ListDetailScreen(
 
     // Shared scroll state for synchronized horizontal scrolling
     val horizontalScrollState = rememberScrollState()
-    val scope = rememberCoroutineScope()
+    // Removed top-level scope; local scopes are used where needed
 
     // Field widths state (resizable columns)
     val fieldWidths = remember { mutableStateMapOf<String, Dp>() }
@@ -497,25 +500,24 @@ fun ListDetailScreen(
                             }
                         }
 
-                        // Filler area that occupies remaining viewport height and enables horizontal dragging
-                        // to scroll the table even when tapping below the last row on small tables.
+                        // Filler area that occupies remaining viewport height and supports the same
+                        // horizontal scroll physics (drag + fling) as the header/rows.
                         item(key = "hscroll_filler") {
+                            val fillerScrollableState = rememberScrollableState { delta ->
+                                // Match Row.horizontalScroll: dragging left (delta < 0) should increase scroll value
+                                // to reveal the right side, hence negate the delta.
+                                horizontalScrollState.dispatchRawDelta(-delta)
+                            }
                             Box(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
                                         .fillParentMaxHeight()
-                                        .pointerInput(horizontalScrollState) {
-                                            detectDragGestures { change, dragAmount ->
-                                                change.consume()
-                                                val max = horizontalScrollState.maxValue.toFloat()
-                                                val current = horizontalScrollState.value.toFloat()
-                                                val target = (current - dragAmount.x).coerceIn(0f, max)
-                                                // Drag right (positive x) should reveal right side (increase scroll)
-                                                // We subtract dragAmount.x because scrolling value increases when content moves left.
-                                                scope.launch { horizontalScrollState.scrollTo(target.toInt()) }
-                                            }
-                                        },
+                                        .scrollable(
+                                            state = fillerScrollableState,
+                                            orientation = Orientation.Horizontal,
+                                            flingBehavior = androidx.compose.foundation.gestures.ScrollableDefaults.flingBehavior(),
+                                        ),
                             )
                         }
                     }
