@@ -66,6 +66,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -504,9 +505,9 @@ fun ListDetailScreen(
                         // horizontal scroll physics (drag + fling) as the header/rows.
                         item(key = "hscroll_filler") {
                             val fillerScrollableState = rememberScrollableState { delta ->
-                                // Match Row.horizontalScroll: dragging left (delta < 0) should increase scroll value
-                                // to reveal the right side, hence negate the delta.
-                                horizontalScrollState.dispatchRawDelta(-delta)
+                                // Mirror Row.horizontalScroll: rely on reverseDirection for LTR/RTL,
+                                // and dispatch deltas directly to the shared ScrollState.
+                                horizontalScrollState.dispatchRawDelta(delta)
                             }
                             Box(
                                 modifier =
@@ -516,6 +517,7 @@ fun ListDetailScreen(
                                         .scrollable(
                                             state = fillerScrollableState,
                                             orientation = Orientation.Horizontal,
+                                            reverseDirection = LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Ltr,
                                             flingBehavior = androidx.compose.foundation.gestures.ScrollableDefaults.flingBehavior(),
                                         ),
                             )
