@@ -2,6 +2,7 @@ package com.collabtable.app.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -140,6 +141,38 @@ class PreferencesManager(context: Context) {
         _syncPollIntervalMs.value = clamped
     }
 
+    // Persist per-list column widths (fieldId -> widthDp)
+    // Stored as a JSON object string in SharedPreferences under key: COLUMN_WIDTHS_PREFIX + listId
+    fun getColumnWidths(listId: String): Map<String, Float> {
+        val key = COLUMN_WIDTHS_PREFIX + listId
+        val raw = prefs.getString(key, null) ?: return emptyMap()
+        return try {
+            val json = JSONObject(raw)
+            val map = mutableMapOf<String, Float>()
+            val it = json.keys()
+            while (it.hasNext()) {
+                val fieldId = it.next()
+                val width = json.optDouble(fieldId, Double.NaN)
+                if (!width.isNaN()) {
+                    map[fieldId] = width.toFloat()
+                }
+            }
+            map
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    fun setColumnWidths(listId: String, widthsDp: Map<String, Float>) {
+        val key = COLUMN_WIDTHS_PREFIX + listId
+        val json = JSONObject()
+        widthsDp.forEach { (fieldId, width) ->
+            // Persist as double for precision, value is in dp units
+            json.put(fieldId, width.toDouble())
+        }
+        prefs.edit().putString(key, json.toString()).apply()
+    }
+
     companion object {
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_FIRST_RUN = "first_run"
@@ -150,10 +183,11 @@ class PreferencesManager(context: Context) {
         private const val KEY_AMOLED_DARK = "amoled_dark"
         private const val KEY_SORT_ORDER = "sort_order"
     private const val KEY_SYNC_POLL_INTERVAL_MS = "sync_poll_interval_ms"
+        private const val COLUMN_WIDTHS_PREFIX = "column_widths_" // + listId
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"
-    private const val DEFAULT_SYNC_POLL_INTERVAL_MS = 250L
-    private const val MIN_SYNC_POLL_INTERVAL_MS = 250L
-    private const val MAX_SYNC_POLL_INTERVAL_MS = 600_000L // 10 minutes
+        private const val DEFAULT_SYNC_POLL_INTERVAL_MS = 250L
+        private const val MIN_SYNC_POLL_INTERVAL_MS = 250L
+        private const val MAX_SYNC_POLL_INTERVAL_MS = 600_000L // 10 minutes
         const val THEME_MODE_SYSTEM = "system"
         const val THEME_MODE_LIGHT = "light"
         const val THEME_MODE_DARK = "dark"

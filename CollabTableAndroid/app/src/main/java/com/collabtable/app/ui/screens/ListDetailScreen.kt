@@ -103,6 +103,7 @@ fun ListDetailScreen(
     val context = LocalContext.current
     val database = remember { CollabTableDatabase.getDatabase(context) }
     val viewModel = remember { ListDetailViewModel(database, listId, context) }
+    val prefs = remember { PreferencesManager.getInstance(context) }
 
     val list by viewModel.list.collectAsState()
     val fields by viewModel.fields.collectAsState()
@@ -129,16 +130,19 @@ fun ListDetailScreen(
 
     // Shared scroll state for synchronized horizontal scrolling
     val horizontalScrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
 
     // Field widths state (resizable columns)
     val fieldWidths = remember { mutableStateMapOf<String, Dp>() }
 
-    // Initialize field widths
+    // Initialize field widths (load persisted per-list widths, fallback to default)
     LaunchedEffect(stableFields) {
+        // Load saved widths for this listId
+        val saved = prefs.getColumnWidths(listId)
         stableFields.forEach { field ->
-            if (!fieldWidths.containsKey(field.id)) {
-                fieldWidths[field.id] = 150.dp
-            }
+            val savedWidth = saved[field.id]?.coerceAtLeast(100f)
+            val widthDp = (savedWidth ?: 150f).dp
+            fieldWidths[field.id] = widthDp
         }
     }
 
@@ -411,6 +415,11 @@ fun ListDetailScreen(
                                     // Enforce only a minimum width; remove the previous max (400dp)
                                     val newWidth = (currentWidth.value + delta).coerceAtLeast(100f)
                                     fieldWidths[field.id] = newWidth.dp
+                                    // Persist updated widths for this listId
+                                    prefs.setColumnWidths(
+                                        listId,
+                                        fieldWidths.mapValues { it.value.value },
+                                    )
                                 },
                                 scrollState = horizontalScrollState,
                                 isLast = (field.id == stableFields.lastOrNull()?.id),
@@ -486,6 +495,28 @@ fun ListDetailScreen(
                                     onClick = { itemToEdit = itemWithValues },
                                 )
                             }
+                        }
+
+                        // Filler area that occupies remaining viewport height and enables horizontal dragging
+                        // to scroll the table even when tapping below the last row on small tables.
+                        item(key = "hscroll_filler") {
+                            Box(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .fillParentMaxHeight()
+                                        .pointerInput(horizontalScrollState) {
+                                            detectDragGestures { change, dragAmount ->
+                                                change.consume()
+                                                val max = horizontalScrollState.maxValue.toFloat()
+                                                val current = horizontalScrollState.value.toFloat()
+                                                val target = (current - dragAmount.x).coerceIn(0f, max)
+                                                // Drag right (positive x) should reveal right side (increase scroll)
+                                                // We subtract dragAmount.x because scrolling value increases when content moves left.
+                                                scope.launch { horizontalScrollState.scrollTo(target.toInt()) }
+                                            }
+                                        },
+                            )
                         }
                     }
                 }
