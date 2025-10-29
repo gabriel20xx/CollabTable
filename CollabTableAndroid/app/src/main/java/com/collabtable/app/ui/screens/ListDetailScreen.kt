@@ -48,6 +48,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -71,6 +72,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -108,6 +111,10 @@ fun ListDetailScreen(
     val database = remember { CollabTableDatabase.getDatabase(context) }
     val viewModel = remember { ListDetailViewModel(database, listId, context) }
     val prefs = remember { PreferencesManager.getInstance(context) }
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val headerTextStyle = MaterialTheme.typography.labelLarge
+    val bodyTextStyle = MaterialTheme.typography.bodyMedium
 
     val list by viewModel.list.collectAsState()
     val fields by viewModel.fields.collectAsState()
@@ -150,52 +157,10 @@ fun ListDetailScreen(
         }
     }
 
-    // Apply filtering, sorting, and grouping
-    val processedItems =
-        remember(stableItems, stableFields, filterField, filterValue, sortField, sortAscending, groupByField) {
-            var result = stableItems
-
-            // Apply filter
-            if (filterField != null && filterValue.isNotBlank()) {
-                result =
-                    result.filter { itemWithValues ->
-                        val value = itemWithValues.values.find { it.fieldId == filterField!!.id }?.value ?: ""
-                        value.contains(filterValue, ignoreCase = true)
-                    }
-            }
-
-            // Apply sort
-            if (sortField != null) {
-                result =
-                    result.sortedWith(
-                        compareBy { itemWithValues ->
-                            val value = itemWithValues.values.find { it.fieldId == sortField!!.id }?.value ?: ""
-                            if (sortAscending) value else value
-                        },
-                    )
-                if (!sortAscending) {
-                    result = result.reversed()
-                }
-            }
-
-            result
-        }
-
-    // Group items if groupByField is set
-    val groupedItems =
-        remember(processedItems, groupByField) {
-            if (groupByField != null) {
-                processedItems.groupBy { itemWithValues ->
-                    itemWithValues.values.find { it.fieldId == groupByField!!.id }?.value ?: "(Empty)"
-                }
-            } else {
-                mapOf("" to processedItems)
-            }
-        }
-
+    // Scaffold with top bar and FAB
     Scaffold(
         topBar = {
-            TopAppBar(
+            SmallTopAppBar(
                 title = {
                     Row(
                         modifier = Modifier.clickable { showRenameListDialog = true },
@@ -223,11 +188,10 @@ fun ListDetailScreen(
                         Icon(Icons.Default.Settings, contentDescription = "Manage Columns")
                     }
                 },
-                colors =
-                    TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                    ),
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                ),
             )
         },
         floatingActionButton = {
@@ -238,6 +202,40 @@ fun ListDetailScreen(
             }
         },
     ) { padding ->
+        // Apply filtering, sorting, and grouping to items
+        fun valueFor(item: ItemWithValues, field: Field?): String {
+            if (field == null) return ""
+            return item.values.find { it.fieldId == field.id }?.value ?: ""
+        }
+
+        val filteredItems: List<ItemWithValues> =
+            if (filterField != null && filterValue.isNotBlank()) {
+                val needle = filterValue.lowercase(Locale.getDefault())
+                stableItems.filter { item ->
+                    valueFor(item, filterField).lowercase(Locale.getDefault()).contains(needle)
+                }
+            } else {
+                stableItems
+            }
+
+        val sortedItems: List<ItemWithValues> =
+            if (sortField != null) {
+                val base = filteredItems.sortedWith(compareBy { item -> valueFor(item, sortField) })
+                if (sortAscending) base else base.asReversed()
+            } else {
+                filteredItems
+            }
+
+        val processedItems: List<ItemWithValues> = sortedItems
+
+        val groupedItems: Map<String, List<ItemWithValues>> =
+            if (groupByField != null) {
+                processedItems.groupBy { item ->
+                    valueFor(item, groupByField).ifBlank { "(Empty)" }
+                }
+            } else {
+                mapOf(" all" to processedItems)
+            }
         if (stableFields.isEmpty()) {
             Box(
                 modifier =
@@ -398,6 +396,51 @@ fun ListDetailScreen(
                             } else {
                                 null
                             },
+                    )
+
+                    // Auto-resize button (chip style)
+                    FilterChip(
+                        selected = false,
+                        onClick = {
+                            val newWidths = mutableMapOf<String, Float>()
+                            stableFields.forEach { field ->
+                                val headerPx = textMeasurer.measure(
+                                    AnnotatedString(field.name),
+                                    style = headerTextStyle,
+                                ).size.width.toFloat()
+
+                                var maxContentPx = 0f
+                                stableItems.forEach { itemWithValues ->
+                                    val v = itemWithValues.values.find { it.fieldId == field.id }?.value
+                                    val display = getDisplayTextForMeasure(field, v)
+                                    if (display.isNotEmpty()) {
+                                        val w = textMeasurer.measure(
+                                            AnnotatedString(display),
+                                            style = bodyTextStyle,
+                                        ).size.width.toFloat()
+                                        if (w > maxContentPx) maxContentPx = w
+                                    }
+                                }
+
+                                val widthDp = with(density) {
+                                    val headerDp = headerPx.toDp() + 12.dp + 12.dp + 24.dp + 2.dp
+                                    val contentDp = maxContentPx.toDp() + 8.dp + 8.dp + 2.dp
+                                    val base = maxOf(headerDp, contentDp, 100.dp)
+                                    (base + 6.dp).value
+                                }
+                                newWidths[field.id] = widthDp
+                            }
+                            newWidths.forEach { (id, w) -> fieldWidths[id] = w.dp }
+                            prefs.setColumnWidths(listId, fieldWidths.mapValues { it.value.value })
+                        },
+                        label = { Text("Auto-fit") },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.FitScreen,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
                     )
                 }
 
@@ -631,6 +674,40 @@ fun ListDetailScreen(
                 itemToEdit = null
             },
         )
+    }
+}
+
+// Produce the display text used in cells for measurement purposes (single-line content baseline)
+private fun getDisplayTextForMeasure(field: Field, raw: String?): String {
+    val value = raw ?: ""
+    return when (field.getType()) {
+        com.collabtable.app.data.model.FieldType.TEXT,
+        com.collabtable.app.data.model.FieldType.MULTILINE_TEXT,
+        com.collabtable.app.data.model.FieldType.NUMBER,
+        com.collabtable.app.data.model.FieldType.DROPDOWN,
+        com.collabtable.app.data.model.FieldType.AUTOCOMPLETE,
+        com.collabtable.app.data.model.FieldType.DURATION,
+        com.collabtable.app.data.model.FieldType.LOCATION,
+        com.collabtable.app.data.model.FieldType.DATE,
+        com.collabtable.app.data.model.FieldType.TIME,
+        com.collabtable.app.data.model.FieldType.DATETIME -> value
+
+        com.collabtable.app.data.model.FieldType.CURRENCY -> if (value.isBlank()) "" else field.getCurrency() + value
+        com.collabtable.app.data.model.FieldType.PERCENTAGE -> if (value.isBlank()) "" else "$value%"
+        com.collabtable.app.data.model.FieldType.CHECKBOX -> if (value == "true") "✓" else ""
+        com.collabtable.app.data.model.FieldType.SWITCH -> if (value == "true") "ON" else "OFF"
+        com.collabtable.app.data.model.FieldType.URL -> value
+        com.collabtable.app.data.model.FieldType.EMAIL -> value
+        com.collabtable.app.data.model.FieldType.PHONE -> value
+        com.collabtable.app.data.model.FieldType.RATING -> {
+            val n = value.toIntOrNull() ?: 0
+            "★".repeat(n)
+        }
+        com.collabtable.app.data.model.FieldType.COLOR -> value
+        com.collabtable.app.data.model.FieldType.IMAGE -> if (value.isBlank()) "" else "🖼️ $value"
+        com.collabtable.app.data.model.FieldType.FILE -> if (value.isBlank()) "" else "📎 $value"
+        com.collabtable.app.data.model.FieldType.BARCODE -> value
+        com.collabtable.app.data.model.FieldType.SIGNATURE -> if (value.isBlank()) "" else "✍️ Signed"
     }
 }
 
