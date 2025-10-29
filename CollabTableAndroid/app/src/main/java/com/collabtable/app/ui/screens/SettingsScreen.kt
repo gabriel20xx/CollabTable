@@ -52,7 +52,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import com.collabtable.app.R
 import com.collabtable.app.data.api.ApiClient
 import com.collabtable.app.data.database.CollabTableDatabase
@@ -86,9 +85,7 @@ fun SettingsScreen(
     val syncIntervalMs by preferencesManager.syncPollIntervalMs.collectAsState()
     var syncIntervalInput by remember(syncIntervalMs) { mutableStateOf(syncIntervalMs.toString()) }
     var syncIntervalError by remember { mutableStateOf<String?>(null) }
-    var passwordInput by remember { mutableStateOf("") }
-    var passwordError by remember { mutableStateOf<String?>(null) }
-    var passwordUpdated by remember { mutableStateOf(false) }
+    // Authentication UI removed
 
     // Removed test connectivity logic; the connection indicator is shown via ConnectionStatusAction
 
@@ -150,87 +147,9 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            // Rely on Column's verticalArrangement for consistent spacing
 
-            // Authentication: allow updating server password without leaving
-            Text(
-                text = "Authentication",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = "Server password",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        TextField(
-                            value = passwordInput,
-                            onValueChange = {
-                                passwordInput = it
-                                passwordError = null
-                                passwordUpdated = false
-                            },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true,
-                            placeholder = { Text("Enter server password") },
-                            visualTransformation = PasswordVisualTransformation(),
-                        )
-                        Button(onClick = {
-                            val trimmed = passwordInput.trim()
-                            if (trimmed.isEmpty()) {
-                                passwordError = "Password cannot be empty"
-                            } else if (trimmed == "\$password") {
-                                passwordError = "Enter the actual server password, not the placeholder \$password"
-                            } else {
-                                preferencesManager.setServerPassword(trimmed)
-                                // Trigger a quick sync in background to validate
-                                coroutineScope.launch(Dispatchers.IO) {
-                                    try {
-                                        // Clear any auth backoff immediately when updating password
-                                        syncRepository.resetAuthBackoff()
-                                        syncRepository.performSync()
-                                    } catch (_: Exception) { }
-                                }
-                                passwordUpdated = true
-                                passwordError = null
-                            }
-                        }) {
-                            Text("Update")
-                        }
-                    }
-                    if (passwordError != null) {
-                        Text(
-                            text = passwordError!!,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    } else if (passwordUpdated) {
-                        Text(
-                            text = "Password updated",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    } else {
-                        Text(
-                            text = "Tip: This must match the server's SERVER_PASSWORD",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.labelSmall,
-                        )
-                    }
-                }
-            }
+            // Authentication section removed
 
             Text(
                 text = "Appearance",
@@ -294,29 +213,6 @@ fun SettingsScreen(
                     )
                 }
                 Switch(checked = amoledDark, onCheckedChange = { preferencesManager.setAmoledDarkEnabled(it) })
-            }
-
-            Button(
-                onClick = { showLeaveDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLeaving,
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
-            ) {
-                if (isLeaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = MaterialTheme.colorScheme.onError,
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Leaving...")
-                } else {
-                    Text("Leave Server")
-                }
             }
 
             // Sync settings
@@ -408,6 +304,30 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.width(8.dp))
                         Text("Open Logs")
                     }
+                }
+            }
+
+            // Leave Server button relocated below Diagnostics section
+            Button(
+                onClick = { showLeaveDialog = true },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = !isLeaving,
+                colors =
+                    ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                    ),
+            ) {
+                if (isLeaving) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = MaterialTheme.colorScheme.onError,
+                        strokeWidth = 2.dp,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Leaving...")
+                } else {
+                    Text("Leave Server")
                 }
             }
 
