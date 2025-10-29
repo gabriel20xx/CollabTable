@@ -307,27 +307,41 @@ fun SettingsScreen(
                 }
             }
 
-            // Leave Server button relocated below Diagnostics section
-            Button(
-                onClick = { showLeaveDialog = true },
+            // Leave Server section
+            Text(
+                text = "Leave Server",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isLeaving,
-                colors =
-                    ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error,
-                        contentColor = MaterialTheme.colorScheme.onError,
-                    ),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
             ) {
-                if (isLeaving) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = MaterialTheme.colorScheme.onError,
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Leaving...")
-                } else {
-                    Text("Leave Server")
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Button(
+                        onClick = { showLeaveDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLeaving,
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            ),
+                    ) {
+                        if (isLeaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = MaterialTheme.colorScheme.onError,
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Leaving...")
+                        } else {
+                            Text("Leave Server")
+                        }
+                    }
                 }
             }
 
