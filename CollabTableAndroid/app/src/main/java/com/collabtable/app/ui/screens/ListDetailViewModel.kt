@@ -130,11 +130,14 @@ class ListDetailViewModel(
                     emptyList()
                 }
 
-            // Insert atomically to avoid intermediate inconsistent states
+            // Insert atomically to avoid intermediate inconsistent states and bump list.updatedAt
             database.withTransaction {
                 database.fieldDao().insertField(newField)
                 if (newValues.isNotEmpty()) {
                     database.itemValueDao().insertValues(newValues)
+                }
+                database.listDao().getListById(listId)?.let { l ->
+                    database.listDao().updateList(l.copy(updatedAt = timestamp))
                 }
             }
 
@@ -144,7 +147,13 @@ class ListDetailViewModel(
 
     fun deleteField(fieldId: String) {
         viewModelScope.launch {
-            database.fieldDao().softDeleteField(fieldId, System.currentTimeMillis())
+            val ts = System.currentTimeMillis()
+            database.withTransaction {
+                database.fieldDao().softDeleteField(fieldId, ts)
+                database.listDao().getListById(listId)?.let { l ->
+                    database.listDao().updateList(l.copy(updatedAt = ts))
+                }
+            }
             performSync()
         }
     }
@@ -158,14 +167,20 @@ class ListDetailViewModel(
         viewModelScope.launch {
             val field = database.fieldDao().getFieldById(fieldId)
             if (field != null) {
-                database.fieldDao().updateField(
-                    field.copy(
-                        name = name,
-                        fieldType = fieldType,
-                        fieldOptions = fieldOptions,
-                        updatedAt = System.currentTimeMillis(),
-                    ),
-                )
+                val ts = System.currentTimeMillis()
+                database.withTransaction {
+                    database.fieldDao().updateField(
+                        field.copy(
+                            name = name,
+                            fieldType = fieldType,
+                            fieldOptions = fieldOptions,
+                            updatedAt = ts,
+                        ),
+                    )
+                    database.listDao().getListById(listId)?.let { l ->
+                        database.listDao().updateList(l.copy(updatedAt = ts))
+                    }
+                }
                 performSync()
             }
         }
@@ -197,6 +212,9 @@ class ListDetailViewModel(
                     }
                 if (values.isNotEmpty()) {
                     database.itemValueDao().insertValues(values)
+                }
+                database.listDao().getListById(listId)?.let { l ->
+                    database.listDao().updateList(l.copy(updatedAt = timestamp))
                 }
             }
             performSync()
@@ -230,6 +248,9 @@ class ListDetailViewModel(
                 if (values.isNotEmpty()) {
                     database.itemValueDao().insertValues(values)
                 }
+                database.listDao().getListById(listId)?.let { l ->
+                    database.listDao().updateList(l.copy(updatedAt = timestamp))
+                }
             }
             performSync()
         }
@@ -242,12 +263,18 @@ class ListDetailViewModel(
         viewModelScope.launch {
             val itemValue = database.itemValueDao().getValueById(itemValueId)
             if (itemValue != null) {
-                database.itemValueDao().updateValue(
-                    itemValue.copy(
-                        value = newValue,
-                        updatedAt = System.currentTimeMillis(),
-                    ),
-                )
+                val ts = System.currentTimeMillis()
+                database.withTransaction {
+                    database.itemValueDao().updateValue(
+                        itemValue.copy(
+                            value = newValue,
+                            updatedAt = ts,
+                        ),
+                    )
+                    database.listDao().getListById(listId)?.let { l ->
+                        database.listDao().updateList(l.copy(updatedAt = ts))
+                    }
+                }
                 performSync()
             }
         }
@@ -255,7 +282,13 @@ class ListDetailViewModel(
 
     fun deleteItem(itemId: String) {
         viewModelScope.launch {
-            database.itemDao().softDeleteItem(itemId, System.currentTimeMillis())
+            val ts = System.currentTimeMillis()
+            database.withTransaction {
+                database.itemDao().softDeleteItem(itemId, ts)
+                database.listDao().getListById(listId)?.let { l ->
+                    database.listDao().updateList(l.copy(updatedAt = ts))
+                }
+            }
             performSync()
         }
     }
@@ -263,8 +296,13 @@ class ListDetailViewModel(
     fun reorderFields(reorderedFields: List<Field>) {
         viewModelScope.launch {
             val timestamp = System.currentTimeMillis()
-            // Use DAO-level transaction for clarity
-            database.fieldDao().reorderFieldsInTransaction(reorderedFields, timestamp)
+            // Reorder within a transaction and bump list.updatedAt
+            database.withTransaction {
+                database.fieldDao().reorderFieldsInTransaction(reorderedFields, timestamp)
+                database.listDao().getListById(listId)?.let { l ->
+                    database.listDao().updateList(l.copy(updatedAt = timestamp))
+                }
+            }
             performSync()
         }
     }

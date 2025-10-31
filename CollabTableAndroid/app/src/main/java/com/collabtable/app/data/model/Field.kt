@@ -69,11 +69,12 @@ data class Field(
     val isDeleted: Boolean = false,
 ) {
     fun getType(): FieldType {
+        val raw = fieldType.ifBlank { "TEXT" }.uppercase()
         return try {
-            FieldType.valueOf(fieldType)
+            FieldType.valueOf(raw)
         } catch (e: Exception) {
-            // Handle legacy field types
-            when (fieldType) {
+            // Handle legacy/synonym field types
+            when (raw) {
                 "STRING" -> FieldType.TEXT
                 "PRICE" -> FieldType.CURRENCY
                 "AMOUNT" -> FieldType.NUMBER
@@ -84,7 +85,7 @@ data class Field(
     }
 
     fun getDropdownOptions(): List<String> {
-        return if (fieldType == "DROPDOWN" && fieldOptions.isNotBlank()) {
+        return if (getType() == FieldType.DROPDOWN && fieldOptions.isNotBlank()) {
             fieldOptions.split("|")
         } else {
             emptyList()
@@ -92,7 +93,7 @@ data class Field(
     }
 
     fun getCurrency(): String {
-        return if ((fieldType == "CURRENCY" || fieldType == "PRICE") && fieldOptions.isNotBlank()) {
+        return if ((getType() == FieldType.CURRENCY) && fieldOptions.isNotBlank()) {
             fieldOptions
         } else {
             "CHF"
@@ -100,7 +101,7 @@ data class Field(
     }
 
     fun getMaxRating(): Int {
-        return if (fieldType == "RATING" && fieldOptions.isNotBlank()) {
+        return if (getType() == FieldType.RATING && fieldOptions.isNotBlank()) {
             fieldOptions.toIntOrNull() ?: 5
         } else {
             5
@@ -108,7 +109,7 @@ data class Field(
     }
 
     fun getAutocompleteOptions(): List<String> {
-        return if (fieldType == "AUTOCOMPLETE" && fieldOptions.isNotBlank()) {
+        return if (getType() == FieldType.AUTOCOMPLETE && fieldOptions.isNotBlank()) {
             fieldOptions.split("|")
         } else {
             emptyList()

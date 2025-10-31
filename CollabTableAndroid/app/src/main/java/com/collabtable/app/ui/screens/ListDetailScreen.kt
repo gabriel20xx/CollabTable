@@ -1345,13 +1345,23 @@ fun AddFieldDialog(
                                 "CURRENCY" -> "Currency"
                                 "PERCENTAGE" -> "Percentage"
                                 "DROPDOWN" -> "Dropdown"
+                                "AUTOCOMPLETE" -> "Autocomplete"
                                 "CHECKBOX" -> "Checkbox"
+                                "SWITCH" -> "Switch"
                                 "URL" -> "URL"
                                 "EMAIL" -> "Email"
                                 "PHONE" -> "Phone"
                                 "DATE" -> "Date"
                                 "TIME" -> "Time"
                                 "DATETIME" -> "Date & Time"
+                                "DURATION" -> "Duration"
+                                "IMAGE" -> "Image"
+                                "FILE" -> "File"
+                                "BARCODE" -> "Barcode"
+                                "SIGNATURE" -> "Signature"
+                                "RATING" -> "Rating"
+                                "COLOR" -> "Color"
+                                "LOCATION" -> "Location"
                                 else -> "Text"
                             },
                         onValueChange = {},
@@ -1599,8 +1609,9 @@ fun AddFieldDialog(
             TextButton(
                 onClick = {
                     if (fieldName.isNotBlank()) {
+                        val normalizedType = selectedFieldType.uppercase()
                         val options =
-                            when (selectedFieldType) {
+                            when (normalizedType) {
                                 "CURRENCY" -> currency.trim()
                                 "DROPDOWN" ->
                                     dropdownOptions.split(",")
@@ -1615,12 +1626,12 @@ fun AddFieldDialog(
                                 "RATING" -> currency.trim().ifBlank { "5" }
                                 else -> ""
                             }
-                        onAdd(fieldName.trim(), selectedFieldType, options)
+                        onAdd(fieldName.trim(), normalizedType, options)
                     }
                 },
                 enabled =
                     fieldName.isNotBlank() &&
-                        (selectedFieldType !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()),
+                        (selectedFieldType.uppercase() !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()),
             ) {
                 Text(stringResource(R.string.add))
             }
@@ -1641,7 +1652,7 @@ fun EditFieldDialog(
     onUpdate: (String, String, String) -> Unit,
 ) {
     var name by remember { mutableStateOf(field.name) }
-    var selectedFieldType by remember { mutableStateOf(field.fieldType ?: "TEXT") }
+    var selectedFieldType by remember { mutableStateOf(field.fieldType?.uppercase() ?: "TEXT") }
     var dropdownOptions by remember { mutableStateOf(field.getDropdownOptions().joinToString(", ")) }
     var currency by remember { mutableStateOf(field.getCurrency()) }
     var expanded by remember { mutableStateOf(false) }
@@ -1676,13 +1687,23 @@ fun EditFieldDialog(
                                 "CURRENCY", "PRICE" -> "Currency"
                                 "PERCENTAGE" -> "Percentage"
                                 "DROPDOWN" -> "Dropdown"
+                                "AUTOCOMPLETE" -> "Autocomplete"
                                 "CHECKBOX" -> "Checkbox"
+                                "SWITCH" -> "Switch"
                                 "URL" -> "URL"
                                 "EMAIL" -> "Email"
                                 "PHONE" -> "Phone"
                                 "DATE" -> "Date"
                                 "TIME" -> "Time"
                                 "DATETIME" -> "Date & Time"
+                                "DURATION" -> "Duration"
+                                "IMAGE" -> "Image"
+                                "FILE" -> "File"
+                                "BARCODE" -> "Barcode"
+                                "SIGNATURE" -> "Signature"
+                                "RATING" -> "Rating"
+                                "COLOR" -> "Color"
+                                "LOCATION" -> "Location"
                                 else -> "Text"
                             },
                         onValueChange = {},
@@ -1929,8 +1950,9 @@ fun EditFieldDialog(
         confirmButton = {
             TextButton(
                 onClick = {
+                    val normalizedType = selectedFieldType.uppercase()
                     val options =
-                        when (selectedFieldType) {
+                        when (normalizedType) {
                             "CURRENCY", "PRICE" -> currency.trim()
                             "DROPDOWN" ->
                                 dropdownOptions.split(",")
@@ -1945,7 +1967,7 @@ fun EditFieldDialog(
                             "RATING" -> currency.trim().ifBlank { "5" }
                             else -> ""
                         }
-                    onUpdate(name.trim(), selectedFieldType, options)
+                    onUpdate(name.trim(), normalizedType, options)
                 },
                 enabled = name.isNotBlank() && (selectedFieldType !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()),
             ) {

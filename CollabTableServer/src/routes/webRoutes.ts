@@ -262,7 +262,8 @@ router.get('/', (req: Request, res: Response) => {
                 }
                 
                 container.innerHTML = lists.map(list => {
-                    const listFields = fields.filter(f => f.listId === list.id);
+                    // Only show non-deleted fields in tags and columns
+                    const listFields = fields.filter(f => f.listId === list.id && !f.isDeleted);
                     const listItems = items.filter(i => i.listId === list.id);
                     
                     return \`
@@ -282,7 +283,7 @@ router.get('/', (req: Request, res: Response) => {
                             <div class="fields-container">
                                 <strong>Fields (\${listFields.length}):</strong><br>
                                 \${listFields.length > 0 
-                                    ? listFields.map(f => \`<span class="field-tag \${f.isDeleted ? 'deleted' : ''}">\${f.name} (\${f.fieldType})</span>\`).join('')
+                                    ? listFields.map(f => \`<span class="field-tag">\${f.name} (\${f.fieldType})</span>\`).join('')
                                     : '<span style="color: #999;">No fields</span>'
                                 }
                             </div>
@@ -343,9 +344,9 @@ router.get('/web/data', async (req: Request, res: Response) => {
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
     
-    // Exclude deleted lists and items from web UI
+    // Exclude deleted lists/items/fields from web UI
     const lists = await dbAdapter.queryAll('SELECT * FROM lists WHERE isDeleted = 0 ORDER BY updatedAt DESC');
-    const fields = await dbAdapter.queryAll('SELECT * FROM fields ORDER BY listId ASC, "order" ASC');
+    const fields = await dbAdapter.queryAll('SELECT * FROM fields WHERE isDeleted = 0 ORDER BY listId ASC, "order" ASC');
     const items = await dbAdapter.queryAll('SELECT * FROM items WHERE isDeleted = 0 ORDER BY listId ASC, updatedAt DESC');
     const values = await dbAdapter.queryAll('SELECT * FROM item_values');
     
