@@ -711,6 +711,36 @@ private fun getDisplayTextForMeasure(field: Field, raw: String?): String {
     }
 }
 
+// Centralized mapping from canonical/legacy field type strings to user-facing labels
+private fun fieldTypeToLabel(type: String): String {
+    return when (type.uppercase()) {
+        "TEXT", "STRING" -> "Text"
+        "MULTILINE_TEXT" -> "Multi-line Text"
+        "NUMBER" -> "Number"
+        "CURRENCY", "PRICE" -> "Currency"
+        "PERCENTAGE" -> "Percentage"
+        "DROPDOWN" -> "Dropdown"
+        "AUTOCOMPLETE" -> "Autocomplete"
+        "CHECKBOX" -> "Checkbox"
+        "SWITCH" -> "Switch"
+        "URL" -> "URL"
+        "EMAIL" -> "Email"
+        "PHONE" -> "Phone"
+        "DATE" -> "Date"
+        "TIME" -> "Time"
+        "DATETIME" -> "Date & Time"
+        "DURATION" -> "Duration"
+        "IMAGE" -> "Image"
+        "FILE" -> "File"
+        "BARCODE" -> "Barcode"
+        "SIGNATURE" -> "Signature"
+        "RATING" -> "Rating"
+        "COLOR" -> "Color"
+        "LOCATION" -> "Location"
+        else -> "Text"
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun FieldHeader(
@@ -1337,33 +1367,7 @@ fun AddFieldDialog(
                     onExpandedChange = { expanded = !expanded },
                 ) {
                     OutlinedTextField(
-                        value =
-                            when (selectedFieldType) {
-                                "TEXT" -> "Text"
-                                "MULTILINE_TEXT" -> "Multi-line Text"
-                                "NUMBER" -> "Number"
-                                "CURRENCY" -> "Currency"
-                                "PERCENTAGE" -> "Percentage"
-                                "DROPDOWN" -> "Dropdown"
-                                "AUTOCOMPLETE" -> "Autocomplete"
-                                "CHECKBOX" -> "Checkbox"
-                                "SWITCH" -> "Switch"
-                                "URL" -> "URL"
-                                "EMAIL" -> "Email"
-                                "PHONE" -> "Phone"
-                                "DATE" -> "Date"
-                                "TIME" -> "Time"
-                                "DATETIME" -> "Date & Time"
-                                "DURATION" -> "Duration"
-                                "IMAGE" -> "Image"
-                                "FILE" -> "File"
-                                "BARCODE" -> "Barcode"
-                                "SIGNATURE" -> "Signature"
-                                "RATING" -> "Rating"
-                                "COLOR" -> "Color"
-                                "LOCATION" -> "Location"
-                                else -> "Text"
-                            },
+                        value = fieldTypeToLabel(selectedFieldType),
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Field Type") },
@@ -1679,33 +1683,7 @@ fun EditFieldDialog(
                     onExpandedChange = { expanded = !expanded },
                 ) {
                     OutlinedTextField(
-                        value =
-                            when (selectedFieldType) {
-                                "TEXT", "STRING" -> "Text"
-                                "MULTILINE_TEXT" -> "Multi-line Text"
-                                "NUMBER" -> "Number"
-                                "CURRENCY", "PRICE" -> "Currency"
-                                "PERCENTAGE" -> "Percentage"
-                                "DROPDOWN" -> "Dropdown"
-                                "AUTOCOMPLETE" -> "Autocomplete"
-                                "CHECKBOX" -> "Checkbox"
-                                "SWITCH" -> "Switch"
-                                "URL" -> "URL"
-                                "EMAIL" -> "Email"
-                                "PHONE" -> "Phone"
-                                "DATE" -> "Date"
-                                "TIME" -> "Time"
-                                "DATETIME" -> "Date & Time"
-                                "DURATION" -> "Duration"
-                                "IMAGE" -> "Image"
-                                "FILE" -> "File"
-                                "BARCODE" -> "Barcode"
-                                "SIGNATURE" -> "Signature"
-                                "RATING" -> "Rating"
-                                "COLOR" -> "Color"
-                                "LOCATION" -> "Location"
-                                else -> "Text"
-                            },
+                        value = fieldTypeToLabel(selectedFieldType),
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Field Type") },
