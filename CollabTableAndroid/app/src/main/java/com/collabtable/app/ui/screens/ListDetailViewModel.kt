@@ -11,6 +11,7 @@ import com.collabtable.app.data.model.Item
 import com.collabtable.app.data.model.ItemValue
 import com.collabtable.app.data.model.ItemWithValues
 import com.collabtable.app.data.repository.SyncRepository
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,6 +19,7 @@ import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.launch
 import java.util.UUID
 
+@OptIn(FlowPreview::class)
 class ListDetailViewModel(
     private val database: CollabTableDatabase,
     private val listId: String,

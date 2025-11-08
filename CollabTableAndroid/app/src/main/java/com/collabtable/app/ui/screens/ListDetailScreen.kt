@@ -66,11 +66,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.AnnotatedString
@@ -124,15 +126,15 @@ fun ListDetailScreen(
     // Use derivedStateOf to create stable references
     val stableFields by remember { derivedStateOf { fields } }
     val stableItems by remember { derivedStateOf { items } }
-
-    var showManageColumnsDialog by remember { mutableStateOf(false) }
-    var showAddItemDialog by remember { mutableStateOf(false) }
-    var pendingScrollToBottom by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<ItemWithValues?>(null) }
     var showSortDialog by remember { mutableStateOf(false) }
     var showGroupDialog by remember { mutableStateOf(false) }
     var showFilterDialog by remember { mutableStateOf(false) }
     var showRenameListDialog by remember { mutableStateOf(false) }
+    var showManageColumnsDialog by remember { mutableStateOf(false) }
+    var showAddItemDialog by remember { mutableStateOf(false) }
+    // Flag to trigger scroll to bottom after adding an item
+    var pendingScrollToBottom by remember { mutableStateOf(false) }
 
     // Filter/Sort state
     var sortField by remember { mutableStateOf<Field?>(null) }
@@ -162,7 +164,7 @@ fun ListDetailScreen(
     // Scaffold with top bar and FAB
     Scaffold(
         topBar = {
-            SmallTopAppBar(
+            TopAppBar(
                 title = {
                     Row(
                         modifier = Modifier.clickable { showRenameListDialog = true },
@@ -183,9 +185,9 @@ fun ListDetailScreen(
                     }
                 },
                 actions = {
-                    val context = LocalContext.current
-                    val prefs = remember { PreferencesManager.getInstance(context) }
-                    ConnectionStatusAction(prefs = prefs)
+                    val localCtx = LocalContext.current
+                    val localPrefs = remember { PreferencesManager.getInstance(localCtx) }
+                    ConnectionStatusAction(prefs = localPrefs)
                     IconButton(onClick = { showManageColumnsDialog = true }) {
                         Icon(Icons.Default.Settings, contentDescription = "Manage Columns")
                     }
@@ -450,36 +452,7 @@ fun ListDetailScreen(
                     )
                 }
 
-                // Field headers with long-press to delete and resize handles
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(horizontalScrollState),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    stableFields.forEach { field ->
-                        key(field.id) {
-                            FieldHeader(
-                                field = field,
-                                width = fieldWidths[field.id] ?: 150.dp,
-                                onWidthChange = { delta ->
-                                    val currentWidth = fieldWidths[field.id] ?: 150.dp
-                                    // Enforce only a minimum width; remove the previous max (400dp)
-                                    val newWidth = (currentWidth.value + delta).coerceAtLeast(100f)
-                                    fieldWidths[field.id] = newWidth.dp
-                                    // Persist updated widths for this listId
-                                    prefs.setColumnWidths(
-                                        listId,
-                                        fieldWidths.mapValues { it.value.value },
-                                    )
-                                },
-                                scrollState = horizontalScrollState,
-                                isLast = (field.id == stableFields.lastOrNull()?.id),
-                            )
-                        }
-                    }
-                }
+                // Header will be rendered as a stickyHeader inside the LazyColumn below
 
                 // Items list with synchronized scrolling
                 if (stableItems.isEmpty()) {
@@ -528,11 +501,21 @@ fun ListDetailScreen(
                             pendingScrollToBottom = false
                         }
                     }
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        state = listState,
-                    ) {
-                        groupedItems.entries.forEach { (groupName, groupItems) ->
+
+                    // Measure header height so we can allow content to scroll "behind" it
+                    // but still make the last item fully visible by providing extra bottom padding.
+                    var headerHeightPx by remember { mutableStateOf(0) }
+
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            state = listState,
+                            contentPadding = PaddingValues(
+                                top = 0.dp,
+                                bottom = with(density) { headerHeightPx.toDp() },
+                            ),
+                        ) {
+                            groupedItems.entries.forEach { (groupName, groupItems) ->
                             // Show group header if grouping is enabled
                             if (groupByField != null) {
                                 item(key = "group_$groupName") {
@@ -565,26 +548,61 @@ fun ListDetailScreen(
                             }
                         }
 
-                        // Filler area that occupies remaining viewport height and supports the same
-                        // horizontal scroll physics (drag + fling) as the header/rows.
-                        item(key = "hscroll_filler") {
-                            val fillerScrollableState = rememberScrollableState { delta ->
-                                // Mirror Row.horizontalScroll: rely on reverseDirection for LTR/RTL,
-                                // and dispatch deltas directly to the shared ScrollState.
-                                horizontalScrollState.dispatchRawDelta(delta)
+                            // Filler area that occupies remaining viewport height and supports the same
+                            // horizontal scroll physics (drag + fling) as the header/rows.
+                            item(key = "hscroll_filler") {
+                                val fillerScrollableState = rememberScrollableState { delta ->
+                                    // Mirror Row.horizontalScroll: rely on reverseDirection for LTR/RTL,
+                                    // and dispatch deltas directly to the shared ScrollState.
+                                    horizontalScrollState.dispatchRawDelta(delta)
+                                }
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .fillParentMaxHeight()
+                                            .scrollable(
+                                                state = fillerScrollableState,
+                                                orientation = Orientation.Horizontal,
+                                                reverseDirection = LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Ltr,
+                                                flingBehavior = androidx.compose.foundation.gestures.ScrollableDefaults.flingBehavior(),
+                                            ),
+                                )
                             }
-                            Box(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .fillParentMaxHeight()
-                                        .scrollable(
-                                            state = fillerScrollableState,
-                                            orientation = Orientation.Horizontal,
-                                            reverseDirection = LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Ltr,
-                                            flingBehavior = androidx.compose.foundation.gestures.ScrollableDefaults.flingBehavior(),
-                                        ),
-                            )
+                        }
+
+                        // Overlaid header: content scrolls behind this until the end,
+                        // thanks to the extra bottom padding applied above.
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .onGloballyPositioned { coordinates -> headerHeightPx = coordinates.size.height }
+                                    .background(MaterialTheme.colorScheme.surface)
+                                    .horizontalScroll(horizontalScrollState)
+                                    .align(Alignment.TopStart)
+                                    .zIndex(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            stableFields.forEach { field ->
+                                key(field.id) {
+                                    FieldHeader(
+                                        field = field,
+                                        width = fieldWidths[field.id] ?: 150.dp,
+                                        onWidthChange = { delta ->
+                                            val currentWidth = fieldWidths[field.id] ?: 150.dp
+                                            val newWidth = (currentWidth.value + delta).coerceAtLeast(100f)
+                                            fieldWidths[field.id] = newWidth.dp
+                                            prefs.setColumnWidths(
+                                                listId,
+                                                fieldWidths.mapValues { it.value.value },
+                                            )
+                                        },
+                                        scrollState = horizontalScrollState,
+                                        isLast = (field.id == stableFields.lastOrNull()?.id),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -1678,7 +1696,7 @@ fun EditFieldDialog(
     onUpdate: (String, String, String) -> Unit,
 ) {
     var name by remember { mutableStateOf(field.name) }
-    var selectedFieldType by remember { mutableStateOf(field.fieldType?.uppercase() ?: "TEXT") }
+    var selectedFieldType by remember { mutableStateOf(field.fieldType.uppercase()) }
     var dropdownOptions by remember { mutableStateOf(field.getDropdownOptions().joinToString(", ")) }
     var currency by remember { mutableStateOf(field.getCurrency()) }
     var expanded by remember { mutableStateOf(false) }
@@ -2478,8 +2496,6 @@ fun FieldInput(
                     val options = field.getAutocompleteOptions()
                     if (options.isNotEmpty()) {
                         Text("Suggestions: ${options.take(3).joinToString(", ")}")
-                    } else {
-                        null
                     }
                 },
             )
@@ -2853,6 +2869,7 @@ fun ManageColumnsDialog(
     }
 }
 
+@Suppress("UNUSED_PARAMETER")
 @Composable
 fun ColumnItem(
     field: Field,

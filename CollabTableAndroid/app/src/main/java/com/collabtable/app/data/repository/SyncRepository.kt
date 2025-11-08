@@ -1,6 +1,8 @@
 package com.collabtable.app.data.repository
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.room.withTransaction
 import com.collabtable.app.data.api.ApiClient
 import com.collabtable.app.data.api.SyncRequest
@@ -63,11 +65,17 @@ class SyncRepository(context: Context) {
         prefs.edit().putLong("last_local_sync_ts", ts).apply()
     }
 
-    suspend fun performSync(): Result<Unit> =
+    suspend fun performSync(forceFullDown: Boolean = false): Result<Unit> =
         withContext(Dispatchers.IO) {
             // Prevent overlapping syncs across screens/viewmodels
             syncMutex.withLock {
             try {
+                // Only attempt network sync when app is in foreground to avoid background DNS issues
+                // Foreground check removed (lifecycle owner not available in this module); rely solely on network availability.
+                // Skip sync when there's no validated network available
+                if (!isNetworkAvailable()) {
+                    return@withContext Result.success(Unit)
+                }
                 // If not authenticated, skip making network calls (e.g., after leaving server)
                 val prefMgr = PreferencesManager.getInstance(appContext)
                 val currentPassword = prefMgr.getServerPassword()?.trim()
@@ -100,9 +108,16 @@ class SyncRepository(context: Context) {
                 // lastSyncTimestamp to 0 for this request. This avoids permanently missing historical rows.
                 val hasAnyLists = database.listDao().getAllListIds().isNotEmpty()
                 val hasAnyItems = database.itemDao().getAllItemIds().isNotEmpty()
-                val effectiveLastServerTs = if (lastServerTs > 0 && (!hasAnyLists || !hasAnyItems)) 0L else lastServerTs
+                val effectiveLastServerTs = when {
+                    // App start can request a full down-sync regardless of local contents
+                    forceFullDown && lastServerTs > 0L -> 0L
+                    // Fallback: if local looks empty but we have a watermark, do a one-time full down-sync
+                    lastServerTs > 0L && (!hasAnyLists || !hasAnyItems) -> 0L
+                    else -> lastServerTs
+                }
                 if (effectiveLastServerTs == 0L && lastServerTs > 0L) {
-                    Logger.w("Sync", "Local store empty but watermark set; performing one-time full down-sync")
+                    val reason = if (forceFullDown) "startup forced" else "local empty"
+                    Logger.w("Sync", "$reason full down-sync requested")
                 }
 
                 // Gather local changes since last sync
@@ -272,5 +287,17 @@ class SyncRepository(context: Context) {
 
     companion object {
         private val syncMutex = Mutex()
+    }
+
+    private fun isNetworkAvailable(): Boolean {
+        val cm = appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(network) ?: return false
+        val hasInternet = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        val isValidated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        val hasTransport = caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+        return hasInternet && isValidated && hasTransport
     }
 }
