@@ -38,14 +38,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBox
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -181,7 +181,7 @@ fun ListDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 },
                 actions = {
@@ -340,7 +340,7 @@ fun ListDetailScreen(
                         },
                         leadingIcon = {
                             Icon(
-                                Icons.Default.List,
+                                Icons.AutoMirrored.Filled.List,
                                 contentDescription = null,
                                 modifier = Modifier.size(18.dp),
                             )
@@ -491,8 +491,8 @@ fun ListDetailScreen(
                     // If a new item was just added, scroll to bottom after composition
                     LaunchedEffect(processedItems.size, pendingScrollToBottom) {
                         if (pendingScrollToBottom) {
-                            // totalItemsCount includes the trailing filler; scroll to the last real item index
-                            val lastIndex = (listState.layoutInfo.totalItemsCount - 2).coerceAtLeast(0)
+                            // Scroll to the last real item index
+                            val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
                             try {
                                 listState.animateScrollToItem(lastIndex)
                             } catch (_: Exception) {
@@ -501,87 +501,14 @@ fun ListDetailScreen(
                             pendingScrollToBottom = false
                         }
                     }
-
-                    // Measure header height so we can allow content to scroll "behind" it
-                    // but still make the last item fully visible by providing extra bottom padding.
-                    var headerHeightPx by remember { mutableStateOf(0) }
-
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            state = listState,
-                            contentPadding = PaddingValues(
-                                top = 0.dp,
-                                bottom = with(density) { headerHeightPx.toDp() },
-                            ),
-                        ) {
-                            groupedItems.entries.forEach { (groupName, groupItems) ->
-                            // Show group header if grouping is enabled
-                            if (groupByField != null) {
-                                item(key = "group_$groupName") {
-                                    Surface(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        color = MaterialTheme.colorScheme.secondaryContainer,
-                                    ) {
-                                        Text(
-                                            text = "$groupName (${groupItems.size})",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            modifier = Modifier.padding(12.dp),
-                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
-                                        )
-                                    }
-                                }
-                            }
-
-                            // Show items in the group
-                            items(
-                                items = groupItems,
-                                key = { it.item.id },
-                            ) { itemWithValues ->
-                                ItemRow(
-                                    fields = stableFields,
-                                    fieldWidths = fieldWidths,
-                                    itemWithValues = itemWithValues,
-                                    scrollState = horizontalScrollState,
-                                    onClick = { itemToEdit = itemWithValues },
-                                )
-                            }
-                        }
-
-                            // Filler area that occupies remaining viewport height and supports the same
-                            // horizontal scroll physics (drag + fling) as the header/rows.
-                            item(key = "hscroll_filler") {
-                                val fillerScrollableState = rememberScrollableState { delta ->
-                                    // Mirror Row.horizontalScroll: rely on reverseDirection for LTR/RTL,
-                                    // and dispatch deltas directly to the shared ScrollState.
-                                    horizontalScrollState.dispatchRawDelta(delta)
-                                }
-                                Box(
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .fillParentMaxHeight()
-                                            .scrollable(
-                                                state = fillerScrollableState,
-                                                orientation = Orientation.Horizontal,
-                                                reverseDirection = LocalLayoutDirection.current == androidx.compose.ui.unit.LayoutDirection.Ltr,
-                                                flingBehavior = androidx.compose.foundation.gestures.ScrollableDefaults.flingBehavior(),
-                                            ),
-                                )
-                            }
-                        }
-
-                        // Overlaid header: content scrolls behind this until the end,
-                        // thanks to the extra bottom padding applied above.
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        // Fixed header (does not participate in vertical scroll)
                         Row(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .onGloballyPositioned { coordinates -> headerHeightPx = coordinates.size.height }
                                     .background(MaterialTheme.colorScheme.surface)
-                                    .horizontalScroll(horizontalScrollState)
-                                    .align(Alignment.TopStart)
-                                    .zIndex(1f),
+                                    .horizontalScroll(horizontalScrollState),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             stableFields.forEach { field ->
@@ -600,6 +527,31 @@ fun ListDetailScreen(
                                         },
                                         scrollState = horizontalScrollState,
                                         isLast = (field.id == stableFields.lastOrNull()?.id),
+                                    )
+                                }
+                            }
+                        }
+
+                        // Items list below the fixed header
+                        val canScroll = listState.canScrollForward || listState.canScrollBackward
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            state = listState,
+                            contentPadding = PaddingValues(0.dp),
+                            userScrollEnabled = canScroll,
+                        ) {
+                            groupedItems.entries.forEach { (_, groupItems) ->
+                                // Show items in the group
+                                items(
+                                    items = groupItems,
+                                    key = { it.item.id },
+                                ) { itemWithValues ->
+                                    ItemRow(
+                                        fields = stableFields,
+                                        fieldWidths = fieldWidths,
+                                        itemWithValues = itemWithValues,
+                                        scrollState = horizontalScrollState,
+                                        onClick = { itemToEdit = itemWithValues },
                                     )
                                 }
                             }
@@ -2718,7 +2670,7 @@ fun ManageColumnsDialog(
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 // Column list with drag-and-drop reordering
                 // Local extension mirroring the working behavior used in ListsScreen,
@@ -2790,7 +2742,7 @@ fun ManageColumnsDialog(
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 // Add button
                 Row(
@@ -3027,7 +2979,7 @@ fun EditItemDialog(
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 // Fields list
                 LazyColumn(
@@ -3052,7 +3004,7 @@ fun EditItemDialog(
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 // Action buttons
                 Row(
@@ -3262,7 +3214,7 @@ private fun FilterSortDialog(
                         }
                     }
 
-                    Divider()
+                    HorizontalDivider()
 
                     // Group By Section
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -3312,7 +3264,7 @@ private fun FilterSortDialog(
                         }
                     }
 
-                    Divider()
+                    HorizontalDivider()
 
                     // Filter Section
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -3374,7 +3326,7 @@ private fun FilterSortDialog(
                     }
                 }
 
-                Divider()
+                HorizontalDivider()
 
                 // Action buttons
                 Row(
