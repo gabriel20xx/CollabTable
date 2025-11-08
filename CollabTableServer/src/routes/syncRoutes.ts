@@ -181,16 +181,89 @@ router.post('/sync', async (req: Request, res: Response) => {
         }
       }
 
+      // Before inserting item values, verify parent item and field existence to avoid FK violations (PG strictness)
+      const orphanValues: any[] = [];
       if (itemValues && itemValues.length > 0) {
-        for (const value of itemValues) {
-          await tx.execute(UPSERT_ITEM_VALUE, [
-            value.id,
-            value.itemId,
-            value.fieldId,
-            value.value,
-            value.updatedAt
-          ]);
+        // Build distinct parent id lists
+        const distinctItemIds = [...new Set(itemValues.map(v => v.itemId).filter(Boolean))];
+        const distinctFieldIds = [...new Set(itemValues.map(v => v.fieldId).filter(Boolean))];
+
+        // Helper to build IN clause placeholders (?,?,?) matching adapter's ? substitution
+        const makeIn = (arr: string[]) => arr.map(() => '?').join(', ');
+
+  let existingItemIds = new Set<string>();
+  let existingFieldIds = new Set<string>();
+  const fieldToList: Record<string, string> = {};
+        try {
+          if (distinctItemIds.length > 0) {
+            const rows = await tx.queryAll(`SELECT id FROM items WHERE id IN (${makeIn(distinctItemIds)})`, distinctItemIds);
+            existingItemIds = new Set(rows.map((r: any) => r.id));
+          }
+          if (distinctFieldIds.length > 0) {
+            const rows = await tx.queryAll(`SELECT id, listId FROM fields WHERE id IN (${makeIn(distinctFieldIds)})`, distinctFieldIds);
+            existingFieldIds = new Set(rows.map((r: any) => r.id));
+            rows.forEach((r: any) => { fieldToList[r.id] = r.listid ?? r.listId; });
+          }
+        } catch (e) {
+          console.warn('[SYNC] Failed preloading parent ids for values:', e);
         }
+
+        for (const value of itemValues) {
+          const hasItem = existingItemIds.has(value.itemId);
+          const hasField = existingFieldIds.has(value.fieldId);
+          if (!hasField) {
+            // Missing field -> skip value
+            orphanValues.push({ id: value.id, itemId: value.itemId, fieldId: value.fieldId, reason: 'missingField' });
+            continue;
+          }
+          // If item missing but field exists, synthesize a stub item to preserve referential integrity
+          if (!hasItem) {
+            const inferredListId = fieldToList[value.fieldId];
+            if (!inferredListId) {
+              orphanValues.push({ id: value.id, itemId: value.itemId, fieldId: value.fieldId, reason: 'missingItemNoList' });
+              continue;
+            }
+            const ts = value.updatedAt ?? Date.now();
+            try {
+              await tx.execute(UPSERT_ITEM, [
+                value.itemId,
+                inferredListId,
+                ts,
+                ts,
+                0
+              ]);
+              existingItemIds.add(value.itemId);
+              console.warn('[SYNC] Created stub item for orphan value:', value.itemId, 'in list', inferredListId);
+            } catch (e) {
+              orphanValues.push({ id: value.id, itemId: value.itemId, fieldId: value.fieldId, reason: 'failedCreateStubItem' });
+              continue;
+            }
+          }
+          try {
+            await tx.execute(UPSERT_ITEM_VALUE, [
+              value.id,
+              value.itemId,
+              value.fieldId,
+              value.value,
+              value.updatedAt
+            ]);
+          } catch (err: any) {
+            // Catch FK violation just in case race or deletion happened inside same sync
+            if (err && err.code === '23503') {
+              orphanValues.push({ id: value.id, itemId: value.itemId, fieldId: value.fieldId, reason: 'fkViolation' });
+              console.warn('[SYNC] Skipped value due to FK violation:', value.id, '->', err.detail || err.message);
+              continue;
+            }
+            throw err; // rethrow other errors
+          }
+        }
+
+        if (orphanValues.length > 0) {
+          console.warn(`[SYNC] Skipped ${orphanValues.length} orphan item_value record(s); will inform client.`);
+        }
+        // Attach orphanValues to request context (not ideal, but simplest without altering adapter signature)
+        // We'll include them in response below.
+        (req as any)._orphanValues = orphanValues;
       }
     });
 
@@ -284,6 +357,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       fields: normFields,
       items: normItems,
       itemValues: normValues,
+      orphanItemValues: (req as any)._orphanValues || [],
       serverTimestamp
     });
   } catch (error) {
