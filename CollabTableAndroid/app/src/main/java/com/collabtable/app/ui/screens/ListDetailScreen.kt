@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
@@ -126,6 +127,7 @@ fun ListDetailScreen(
 
     var showManageColumnsDialog by remember { mutableStateOf(false) }
     var showAddItemDialog by remember { mutableStateOf(false) }
+    var pendingScrollToBottom by remember { mutableStateOf(false) }
     var itemToEdit by remember { mutableStateOf<ItemWithValues?>(null) }
     var showSortDialog by remember { mutableStateOf(false) }
     var showGroupDialog by remember { mutableStateOf(false) }
@@ -218,12 +220,15 @@ fun ListDetailScreen(
                 stableItems
             }
 
+        // Default ordering: append new items at bottom by createdAt ascending.
+        // If an explicit sortField is chosen, use that instead.
         val sortedItems: List<ItemWithValues> =
             if (sortField != null) {
                 val base = filteredItems.sortedWith(compareBy { item -> valueFor(item, sortField) })
                 if (sortAscending) base else base.asReversed()
             } else {
-                filteredItems
+                // Items from DB may not be ordered; enforce createdAt ascending
+                filteredItems.sortedBy { it.item.createdAt }
             }
 
         val processedItems: List<ItemWithValues> = sortedItems
@@ -270,6 +275,7 @@ fun ListDetailScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
                             .background(MaterialTheme.colorScheme.surfaceVariant)
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -508,8 +514,23 @@ fun ListDetailScreen(
                         }
                     }
                 } else {
+                    val listState = rememberLazyListState()
+                    // If a new item was just added, scroll to bottom after composition
+                    LaunchedEffect(processedItems.size, pendingScrollToBottom) {
+                        if (pendingScrollToBottom) {
+                            // totalItemsCount includes the trailing filler; scroll to the last real item index
+                            val lastIndex = (listState.layoutInfo.totalItemsCount - 2).coerceAtLeast(0)
+                            try {
+                                listState.animateScrollToItem(lastIndex)
+                            } catch (_: Exception) {
+                                listState.scrollToItem(lastIndex)
+                            }
+                            pendingScrollToBottom = false
+                        }
+                    }
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
+                        state = listState,
                     ) {
                         groupedItems.entries.forEach { (groupName, groupItems) ->
                             // Show group header if grouping is enabled
@@ -597,6 +618,7 @@ fun ListDetailScreen(
             onAdd = { fieldValues ->
                 viewModel.addItemWithValues(fieldValues)
                 showAddItemDialog = false
+                pendingScrollToBottom = true
             },
         )
     }

@@ -318,52 +318,59 @@ fun ListItem(
     onDeleteClick: () -> Unit,
     dragHandle: (@Composable () -> Unit)? = null,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+    // Expand the touch target to include the vertical spacing between rows without visually changing layout.
+    // We wrap the original row in a full-width Box with the same outer padding, then add a clickable
+    // modifier that uses additional vertical padding but negative padding inside to keep visual spacing.
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp) // keep original horizontal spacing
+            .clickable(onClick = onListClick) // entire row (including margins) is tappable
+            .padding(vertical = 4.dp) // expand touch area (original visual was 8.dp inside Row)
     ) {
-        // Drag handle on the far left
-        if (dragHandle != null) {
-            dragHandle()
-            Spacer(modifier = Modifier.width(8.dp))
-        }
-
-        // Table name centered/left and clickable
-        Column(
-            modifier =
-                Modifier
-                    .weight(1f)
-                    .clickable(onClick = onListClick),
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp), // actual visual spacing remains ~8dp total (4 + 4)
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = list.name, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(2.dp))
-            val subtitle = remember(list.updatedAt, nowMs) { formatUpdatedAgo(list.updatedAt, nowMs) }
-            Text(
-                text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+            // Drag handle on the far left
+            if (dragHandle != null) {
+                dragHandle()
+                Spacer(modifier = Modifier.width(8.dp))
+            }
 
-        // Actions on the right
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onEditClick) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Edit",
-                    tint = MaterialTheme.colorScheme.primary,
+            // Table name and subtitle
+            Column(
+                modifier = Modifier.weight(1f),
+            ) {
+                Text(text = list.name, style = MaterialTheme.typography.titleMedium)
+                Spacer(modifier = Modifier.height(2.dp))
+                val subtitle = remember(list.updatedAt, nowMs) { formatUpdatedAgo(list.updatedAt, nowMs) }
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            IconButton(onClick = onDeleteClick) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error,
-                )
+
+            // Actions on the right (retain individual click targets)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onEditClick) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Edit",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                IconButton(onClick = onDeleteClick) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Delete",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
     }

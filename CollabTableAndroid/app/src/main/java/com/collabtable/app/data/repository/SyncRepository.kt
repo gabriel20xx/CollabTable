@@ -8,6 +8,7 @@ import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.utils.Logger
 import kotlinx.coroutines.Dispatchers
+import java.net.UnknownHostException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -18,12 +19,18 @@ class SyncRepository(context: Context) {
     private val api = ApiClient.api
     private val prefs = appContext.getSharedPreferences("collab_table_prefs", Context.MODE_PRIVATE)
 
-        @Volatile private var authBackoffUntil: Long = 0L
-        @Volatile private var authBackoffMs: Long = 0L
+    @Volatile private var authBackoffUntil: Long = 0L
+    @Volatile private var authBackoffMs: Long = 0L
+    @Volatile private var networkBackoffUntil: Long = 0L
+    @Volatile private var networkBackoffMs: Long = 0L
 
         fun resetAuthBackoff() {
             authBackoffMs = 0L
             authBackoffUntil = 0L
+        }
+        private fun resetNetworkBackoff() {
+            networkBackoffMs = 0L
+            networkBackoffUntil = 0L
         }
     // We keep separate watermarks to avoid clock-skew issues:
     // - server watermark: server-assigned timestamp for fetching server changes
@@ -73,6 +80,10 @@ class SyncRepository(context: Context) {
                 if (authBackoffUntil > now) {
                     return@withContext Result.success(Unit)
                 }
+                // Respect network backoff for transient DNS failures / unreachable host
+                if (networkBackoffUntil > now) {
+                    return@withContext Result.success(Unit)
+                }
                 val lastServerTs = getLastServerSyncTs()
                 val lastLocalTs = getLastLocalSyncTs()
                 // Capture a snapshot timestamp BEFORE reading local changes to avoid missing
@@ -82,6 +93,16 @@ class SyncRepository(context: Context) {
                 val isInitialSync = lastServerTs == 0L
                 if (isInitialSync) {
                     Logger.i("Sync", "[SYNC] Starting initial sync with server")
+                }
+
+                // If our local DB appears empty but we have a nonzero server watermark (e.g., after reinstall
+                // or clearing local data), request a one-time full down-sync by resetting the effective
+                // lastSyncTimestamp to 0 for this request. This avoids permanently missing historical rows.
+                val hasAnyLists = database.listDao().getAllListIds().isNotEmpty()
+                val hasAnyItems = database.itemDao().getAllItemIds().isNotEmpty()
+                val effectiveLastServerTs = if (lastServerTs > 0 && (!hasAnyLists || !hasAnyItems)) 0L else lastServerTs
+                if (effectiveLastServerTs == 0L && lastServerTs > 0L) {
+                    Logger.w("Sync", "Local store empty but watermark set; performing one-time full down-sync")
                 }
 
                 // Gather local changes since last sync
@@ -108,7 +129,7 @@ class SyncRepository(context: Context) {
                 // Send to server and get updates
                 val syncRequest =
                     SyncRequest(
-                        lastSyncTimestamp = lastServerTs,
+                        lastSyncTimestamp = effectiveLastServerTs,
                         lists = localLists,
                         fields = localFields,
                         items = localItems,
@@ -116,7 +137,23 @@ class SyncRepository(context: Context) {
                     )
 
                 // HTTP-only sync
-                val response = api.sync(syncRequest)
+                val response = try {
+                    api.sync(syncRequest)
+                } catch (e: UnknownHostException) {
+                    // Host could not be resolved; apply exponential backoff and surface a warning once.
+                    networkBackoffMs = if (networkBackoffMs == 0L) 5_000L else (networkBackoffMs * 2).coerceAtMost(180_000L)
+                    networkBackoffUntil = System.currentTimeMillis() + networkBackoffMs
+                    Logger.w("Sync", "Network host unresolved (DNS). Backing off for ${networkBackoffMs/1000}s: ${e.message}")
+                    return@withContext Result.failure(Exception("Network unreachable: unable to resolve host"))
+                } catch (e: Exception) {
+                    if (e.message?.contains("Unable to resolve host", ignoreCase = true) == true) {
+                        networkBackoffMs = if (networkBackoffMs == 0L) 5_000L else (networkBackoffMs * 2).coerceAtMost(180_000L)
+                        networkBackoffUntil = System.currentTimeMillis() + networkBackoffMs
+                        Logger.w("Sync", "DNS failure. Backing off for ${networkBackoffMs/1000}s: ${e.message}")
+                        return@withContext Result.failure(Exception("Network unreachable: unable to resolve host"))
+                    }
+                    throw e
+                }
                 if (!response.isSuccessful) {
                     if (response.code() == 401) {
                         // Unauthorized: likely bad/missing password. Reset sync baseline and surface a clear error.
@@ -218,6 +255,7 @@ class SyncRepository(context: Context) {
 
                 // Successful sync clears any previous auth backoff
                 resetAuthBackoff()
+                resetNetworkBackoff()
 
                 return@withContext Result.success(Unit)
             } catch (e: Exception) {
@@ -226,6 +264,7 @@ class SyncRepository(context: Context) {
                     setLastServerSyncTs(0)
                     setLastLocalSyncTs(0)
                 }
+                // Do not reset network backoff here; it's managed where thrown.
                 return@withContext Result.failure(e)
             }
             }
