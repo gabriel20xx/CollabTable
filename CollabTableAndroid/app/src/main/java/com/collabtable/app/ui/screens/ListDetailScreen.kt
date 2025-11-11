@@ -937,20 +937,6 @@ fun FieldHeader(
                     )
                 }
 
-                // Alignment segmented control (single-select)
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    val opts = listOf("start" to "L", "center" to "C", "end" to "R")
-                    opts.forEach { (value, label) ->
-                        FilterChip(
-                            selected = alignment == value,
-                            onClick = { onAlignmentChange(value) },
-                            label = { Text(label) },
-                        )
-                    }
-                }
             }
         }
     }
@@ -2016,19 +2002,20 @@ fun EditFieldDialog(
                     }
                 }
 
-                // Content alignment (single-select) using FilterChips to support current Material3 version
+                // Content alignment (single-select) using a connected Material3 SegmentedButton group
                 Text(
                     text = "Content Alignment",
                     style = MaterialTheme.typography.titleSmall,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    val opts = listOf("start" to "Left", "center" to "Center", "end" to "Right")
-                    opts.forEach { (value, label) ->
-                        FilterChip(
+                val alignmentOptions = listOf("start" to "Left", "center" to "Center", "end" to "Right")
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(top = 4.dp)) {
+                    alignmentOptions.forEachIndexed { index, (value, label) ->
+                        SegmentedButton(
                             selected = selectedAlignment == value,
                             onClick = { selectedAlignment = value },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = alignmentOptions.size),
+                            icon = { if (selectedAlignment == value) Icon(Icons.Default.Check, contentDescription = null) },
                             label = { Text(label) },
-                            leadingIcon = if (selectedAlignment == value) { { Icon(Icons.Default.Check, contentDescription = null) } } else null,
                         )
                     }
                 }

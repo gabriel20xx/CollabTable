@@ -92,6 +92,9 @@ app/src/main/java/com/collabtable/app/
 2. Fill in values for each field
 3. Values are saved automatically as you type
 
+### Column Content Alignment
+In the Edit Column dialog you can choose how each column's cell content is aligned (Left, Center, Right) via a single connected Material 3 segmented button group. The selection persists per list/field and updates immediately when you save changes. To adjust later, open the Manage Columns dialog or edit the field again.
+
 ### Deleting
 - Tap the delete icon next to any table, field, or item
 - Confirm the deletion
