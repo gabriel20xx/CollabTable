@@ -1,8 +1,5 @@
 package com.collabtable.app.ui.navigation
 
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -108,26 +105,14 @@ fun MainApp() {
                 navController = navController,
                 startDestination = Routes.Tables,
             ) {
-                composable(
-                    route = Routes.Tables,
-                    enterTransition = { fadeIn(tween(200)) },
-                    exitTransition = { fadeOut(tween(200)) },
-                    popEnterTransition = { fadeIn(tween(200)) },
-                    popExitTransition = { fadeOut(tween(200)) },
-                ) {
+                composable(Routes.Tables) {
                     ListsScreen(
                         onNavigateToList = { listId -> navController.navigate("list/$listId") },
                         onNavigateToSettings = { navController.navigate(Routes.Settings) },
                         onNavigateToLogs = { navController.navigate(Routes.Logs) },
                     )
                 }
-                composable(
-                    route = Routes.Settings,
-                    enterTransition = { fadeIn(tween(200)) },
-                    exitTransition = { fadeOut(tween(200)) },
-                    popEnterTransition = { fadeIn(tween(200)) },
-                    popExitTransition = { fadeOut(tween(200)) },
-                ) {
+                composable(Routes.Settings) {
                     SettingsScreen(
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToLogs = { navController.navigate(Routes.Logs) },
@@ -137,22 +122,12 @@ fun MainApp() {
                         },
                     )
                 }
-                composable(
-                    route = Routes.Logs,
-                    enterTransition = { fadeIn(tween(200)) },
-                    exitTransition = { fadeOut(tween(200)) },
-                    popEnterTransition = { fadeIn(tween(200)) },
-                    popExitTransition = { fadeOut(tween(200)) },
-                ) {
+                composable(Routes.Logs) {
                     LogsScreen(onNavigateBack = { navController.popBackStack() })
                 }
                 composable(
                     route = Routes.ListDetail,
                     arguments = listOf(navArgument("listId") { type = NavType.StringType }),
-                    enterTransition = { fadeIn(tween(200)) },
-                    exitTransition = { fadeOut(tween(200)) },
-                    popEnterTransition = { fadeIn(tween(200)) },
-                    popExitTransition = { fadeOut(tween(200)) },
                 ) { backStackEntry ->
                     val listId = backStackEntry.arguments?.getString("listId") ?: return@composable
                     ListDetailScreen(listId = listId, onNavigateBack = { navController.popBackStack() })
