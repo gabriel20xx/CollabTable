@@ -45,12 +45,12 @@ class ListDetailViewModel(
     }
 
     private fun loadListData() {
-        // Track first emissions to flip loading off after initial data is ready
+        // Track first emissions; show content once fields + items arrive (list meta can lag)
         var hasList = false
         var hasFields = false
         var hasItems = false
         fun maybeLoaded() {
-            if (hasList && hasFields && hasItems) {
+            if (hasFields && hasItems) {
                 _isLoading.value = false
             }
         }
@@ -63,7 +63,7 @@ class ListDetailViewModel(
                     _list.value = listWithFields?.list
                     if (!hasList) {
                         hasList = true
-                        maybeLoaded()
+                        // list not required to render rows; don't gate loading on it
                     }
                 }
         }
@@ -94,6 +94,12 @@ class ListDetailViewModel(
                         maybeLoaded()
                     }
                 }
+        }
+
+        // Fallback: ensure loading overlay disappears even if one of flows stalls
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(2_000)
+            if (_isLoading.value) _isLoading.value = false
         }
     }
 
