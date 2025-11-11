@@ -573,15 +573,13 @@ fun ListDetailScreen(
                                 }
                             }
                         }
-                        }
 
                         // Items list below the fixed header
-                        val canScroll = listState.canScrollForward || listState.canScrollBackward
                         LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize(),
                             state = listState,
                             contentPadding = PaddingValues(0.dp),
-                            userScrollEnabled = canScroll,
                         ) {
                             groupedItems.entries.forEach { (_, groupItems) ->
                                 // Show items in the group
@@ -724,6 +722,10 @@ fun ListDetailScreen(
             },
         )
     }
+    // END ListDetailScreen composable
+}
+
+// Extra closing brace to properly terminate ListDetailScreen; previous edits removed one
 }
 
 // Pure helpers used for transforming and grouping items
