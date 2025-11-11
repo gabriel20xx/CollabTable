@@ -1,6 +1,7 @@
 package com.collabtable.app.ui.navigation
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
@@ -93,7 +94,13 @@ fun MainApp() {
             }
         },
     ) { innerPadding ->
-        Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        // Apply the innerPadding from the Scaffold so content is not obscured by the bottom navigation bar.
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding),
+            color = MaterialTheme.colorScheme.background,
+        ) {
             NavHost(
                 navController = navController,
                 startDestination = Routes.Tables,
