@@ -133,11 +133,6 @@ fun SettingsScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
                 actions = {
                     ConnectionStatusAction(prefs = preferencesManager)
                 },
@@ -322,110 +317,7 @@ fun SettingsScreen(
                 }
             }
 
-            // Diagnostics / Logs
-            Text(
-                text = "Diagnostics",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Text(
-                        text = "View application logs",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Button(onClick = onNavigateToLogs, modifier = Modifier.fillMaxWidth()) {
-                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Open Logs")
-                    }
-                }
-            }
-
-            // Leave Server section
-            Text(
-                text = "Leave Server",
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    // Warning/info text appears above the action button
-                    Text(
-                        text = "Leaving removes local data",
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    Text(
-                        text = "Disconnects and clears local database",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "Clears stored server URL and password",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "Deletes all local data (tables, fields, items)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = "Returns to server setup screen",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-
-                    // Action button placed after the information for better UX
-                    Button(
-                        onClick = { showLeaveDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLeaving,
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError,
-                            ),
-                    ) {
-                        if (isLeaving) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(16.dp),
-                                color = MaterialTheme.colorScheme.onError,
-                                strokeWidth = 2.dp,
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Leaving...")
-                        } else {
-                            Text("Leave Server")
-                        }
-                    }
-                }
-            }
-
-            
-        }
-
-        // Notifications section (placed after main content but before dialogs)
-        Column(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(padding)
-                    .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
+            // Notifications section (moved inside the main scroll column so it doesn't overlay other content)
             Text(
                 text = "Notifications",
                 style = MaterialTheme.typography.titleMedium,
@@ -523,7 +415,102 @@ fun SettingsScreen(
                     )
                 }
             }
+
+            // Diagnostics / Logs
+            Text(
+                text = "Diagnostics",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "View application logs",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Button(onClick = onNavigateToLogs, modifier = Modifier.fillMaxWidth()) {
+                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Open Logs")
+                    }
+                }
+            }
+
+            // Leave Server section
+            Text(
+                text = "Leave Server",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    // Warning/info text appears above the action button
+                    Text(
+                        text = "Leaving removes local data",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "Disconnects and clears local database",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "Clears stored server URL and password",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "Deletes all local data (tables, fields, items)",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = "Returns to server setup screen",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+
+                    // Action button placed after the information for better UX
+                    Button(
+                        onClick = { showLeaveDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLeaving,
+                        colors =
+                            ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            ),
+                    ) {
+                        if (isLeaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = MaterialTheme.colorScheme.onError,
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Leaving...")
+                        } else {
+                            Text("Leave Server")
+                        }
+                    }
+                }
+            }
+
+            
         }
+
 
         if (showLeaveDialog) {
             AlertDialog(
