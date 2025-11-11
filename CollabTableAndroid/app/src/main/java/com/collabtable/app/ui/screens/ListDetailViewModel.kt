@@ -34,6 +34,9 @@ class ListDetailViewModel(
     private val _items = MutableStateFlow<List<ItemWithValues>>(emptyList())
     val items: StateFlow<List<ItemWithValues>> = _items.asStateFlow()
 
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
+
     private val syncRepository = SyncRepository(context)
 
     init {
@@ -42,6 +45,15 @@ class ListDetailViewModel(
     }
 
     private fun loadListData() {
+        // Track first emissions to flip loading off after initial data is ready
+        var hasList = false
+        var hasFields = false
+        var hasItems = false
+        fun maybeLoaded() {
+            if (hasList && hasFields && hasItems) {
+                _isLoading.value = false
+            }
+        }
         viewModelScope.launch {
             database
                 .listDao()
@@ -49,6 +61,10 @@ class ListDetailViewModel(
                 .debounce(75)
                 .collect { listWithFields ->
                     _list.value = listWithFields?.list
+                    if (!hasList) {
+                        hasList = true
+                        maybeLoaded()
+                    }
                 }
         }
 
@@ -59,6 +75,10 @@ class ListDetailViewModel(
                 .debounce(75)
                 .collect { itemsData ->
                     _items.value = itemsData
+                    if (!hasItems) {
+                        hasItems = true
+                        maybeLoaded()
+                    }
                 }
         }
 
@@ -69,6 +89,10 @@ class ListDetailViewModel(
                 .debounce(75)
                 .collect { fieldsData ->
                     _fields.value = fieldsData
+                    if (!hasFields) {
+                        hasFields = true
+                        maybeLoaded()
+                    }
                 }
         }
     }

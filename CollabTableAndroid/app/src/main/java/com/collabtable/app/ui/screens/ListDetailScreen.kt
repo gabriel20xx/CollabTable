@@ -121,6 +121,7 @@ fun ListDetailScreen(
     val list by viewModel.list.collectAsState()
     val fields by viewModel.fields.collectAsState()
     val items by viewModel.items.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
 
     // Use derivedStateOf to create stable references
     val stableFields by remember { derivedStateOf { fields } }
@@ -239,15 +240,18 @@ fun ListDetailScreen(
 
         val processedItems = transformed.processed
         val groupedItems = transformed.grouped
-        if (stableFields.isEmpty()) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // Root container to allow loading overlay
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+        ) {
+            if (stableFields.isEmpty()) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
                     Text(
                         text = "No fields yet. Add fields to get started!",
                         style = MaterialTheme.typography.bodyLarge,
@@ -260,14 +264,12 @@ fun ListDetailScreen(
                         Text(stringResource(R.string.add_field))
                     }
                 }
-            }
-        } else {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-            ) {
+            } else {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxSize(),
+                ) {
                 // Filter/Sort/Group Controls - Always visible above table
                 Row(
                     modifier =
@@ -560,6 +562,17 @@ fun ListDetailScreen(
                                     )
                                 }
                             }
+
+                            // Loading overlay during initial content load
+                            if (isLoading) {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    androidx.compose.material3.CircularProgressIndicator()
+                                }
+                            }
+                        }
                         }
 
                         // Items list below the fixed header
