@@ -207,7 +207,15 @@ class ListDetailViewModel(
         viewModelScope.launch {
             val ts = System.currentTimeMillis()
             database.withTransaction {
+                // Soft delete the field
                 database.fieldDao().softDeleteField(fieldId, ts)
+                // Determine remaining active fields by consulting the current state flow (already up-to-date via collector)
+                // Fields state already excludes soft-deleted ones (query filters isDeleted = 0), so just check size after removal
+                val remainingFields = _fields.value
+                if (remainingFields.isEmpty()) {
+                    // Last column deleted: soft-delete all items for this list to clear table content
+                    database.itemDao().softDeleteItemsByList(listId, ts)
+                }
                 database.listDao().getListById(listId)?.let { l ->
                     database.listDao().updateList(l.copy(updatedAt = ts))
                 }
