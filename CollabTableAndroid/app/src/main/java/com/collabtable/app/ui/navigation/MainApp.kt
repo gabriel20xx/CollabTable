@@ -84,7 +84,8 @@ fun MainApp() {
                     label = { Text("Tables") },
                 )
                 NavigationBarItem(
-                    selected = currentRoute == Routes.SETTINGS,
+                    // Highlight settings tab for both Settings screen and Logs screen
+                    selected = currentRoute == Routes.SETTINGS || currentRoute == Routes.LOGS,
                     onClick = {
                         navController.navigate(Routes.SETTINGS) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
