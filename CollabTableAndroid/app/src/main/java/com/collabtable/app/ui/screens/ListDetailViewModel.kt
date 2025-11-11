@@ -254,6 +254,32 @@ class ListDetailViewModel(
         }
     }
 
+    fun updateFieldAlignment(fieldId: String, alignment: String) {
+        viewModelScope.launch {
+            val field = database.fieldDao().getFieldById(fieldId)
+            if (field != null) {
+                val ts = System.currentTimeMillis()
+                val normalized = when (alignment.lowercase()) {
+                    "center" -> "center"
+                    "end", "right" -> "end"
+                    else -> "start"
+                }
+                database.withTransaction {
+                    database.fieldDao().updateField(
+                        field.copy(
+                            alignment = normalized,
+                            updatedAt = ts,
+                        ),
+                    )
+                    database.listDao().getListById(listId)?.let { l ->
+                        database.listDao().updateList(l.copy(updatedAt = ts))
+                    }
+                }
+                performSync()
+            }
+        }
+    }
+
     fun addItem() {
         viewModelScope.launch {
             val timestamp = System.currentTimeMillis()

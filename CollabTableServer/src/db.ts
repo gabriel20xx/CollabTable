@@ -65,6 +65,8 @@ class SqliteAdapter implements DBAdapter {
         name TEXT NOT NULL,
         fieldType TEXT NOT NULL,
         fieldOptions TEXT,
+        alignment TEXT NOT NULL DEFAULT 'start',
+        alignment TEXT NOT NULL DEFAULT 'start',
         listId TEXT NOT NULL,
         "order" INTEGER NOT NULL,
         createdAt INTEGER NOT NULL,
@@ -97,6 +99,12 @@ class SqliteAdapter implements DBAdapter {
       CREATE INDEX IF NOT EXISTS idx_item_values_itemId ON item_values(itemId);
       CREATE INDEX IF NOT EXISTS idx_item_values_fieldId ON item_values(fieldId);
     `);
+    // Attempt to add alignment column if upgrading an existing DB (ignore error if exists)
+    try {
+      this.db.exec(`ALTER TABLE fields ADD COLUMN alignment TEXT NOT NULL DEFAULT 'start'`);
+    } catch (e) {
+      // Column may already exist; ignore
+    }
   }
 
   async queryAll(sql: string, params: Param[] = []): Promise<any[]> {
@@ -166,6 +174,7 @@ class PostgresAdapter implements DBAdapter {
           name TEXT NOT NULL,
           fieldType TEXT NOT NULL,
           fieldOptions TEXT,
+          alignment TEXT NOT NULL DEFAULT 'start',
           listId TEXT NOT NULL,
           "order" INTEGER NOT NULL,
           createdAt BIGINT NOT NULL,
@@ -199,6 +208,8 @@ class PostgresAdapter implements DBAdapter {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_items_listId ON items(listId);`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_item_values_itemId ON item_values(itemId);`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_item_values_fieldId ON item_values(fieldId);`);
+      // Migrate existing DBs: ensure alignment column exists
+      await client.query(`ALTER TABLE fields ADD COLUMN IF NOT EXISTS alignment TEXT NOT NULL DEFAULT 'start';`);
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK');

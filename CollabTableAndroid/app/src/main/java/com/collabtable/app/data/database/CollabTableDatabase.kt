@@ -38,7 +38,7 @@ val migration2To3 =
         Item::class,
         ItemValue::class,
     ],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class CollabTableDatabase : RoomDatabase() {
@@ -62,7 +62,7 @@ abstract class CollabTableDatabase : RoomDatabase() {
                             context.applicationContext,
                             CollabTableDatabase::class.java,
                             "collab_table_database",
-                        ).addMigrations(migration1To2, migration2To3, migration3To4)
+                        ).addMigrations(migration1To2, migration2To3, migration3To4, migration4To5)
                         .build()
                 dbInstance = instance
                 instance
@@ -83,5 +83,13 @@ val migration3To4 =
     object : Migration(3, 4) {
         override fun migrate(database: SupportSQLiteDatabase) {
             database.execSQL("CREATE INDEX IF NOT EXISTS index_items_listId_createdAt ON items(listId, createdAt)")
+        }
+    }
+
+// Add alignment column to fields with default 'start'
+val migration4To5 =
+    object : Migration(4, 5) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE fields ADD COLUMN alignment TEXT NOT NULL DEFAULT 'start'")
         }
     }

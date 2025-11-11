@@ -63,6 +63,8 @@ data class Field(
     val fieldType: String = "TEXT",
     // JSON string for dropdown options, currency symbol, etc.
     val fieldOptions: String = "",
+    // Content alignment for cells in this column: start | center | end
+    val alignment: String = "start",
     val order: Int,
     val createdAt: Long,
     val updatedAt: Long,

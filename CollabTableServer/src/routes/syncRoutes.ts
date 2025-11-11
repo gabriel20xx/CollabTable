@@ -59,7 +59,7 @@ setInterval(() => {
 // Helper function to get prepared statements (lazy initialization)
 // We'll perform upserts with positional params for cross-DB portability
 const UPSERT_LIST = 'INSERT INTO lists (id, name, createdAt, updatedAt, isDeleted) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = EXCLUDED.name, updatedAt = EXCLUDED.updatedAt, isDeleted = EXCLUDED.isDeleted';
-const UPSERT_FIELD = 'INSERT INTO fields (id, name, fieldType, fieldOptions, listId, "order", createdAt, updatedAt, isDeleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = EXCLUDED.name, fieldType = EXCLUDED.fieldType, fieldOptions = EXCLUDED.fieldOptions, "order" = EXCLUDED."order", updatedAt = EXCLUDED.updatedAt, isDeleted = EXCLUDED.isDeleted';
+const UPSERT_FIELD = 'INSERT INTO fields (id, name, fieldType, fieldOptions, alignment, listId, "order", createdAt, updatedAt, isDeleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = EXCLUDED.name, fieldType = EXCLUDED.fieldType, fieldOptions = EXCLUDED.fieldOptions, alignment = EXCLUDED.alignment, "order" = EXCLUDED."order", updatedAt = EXCLUDED.updatedAt, isDeleted = EXCLUDED.isDeleted';
 const UPSERT_ITEM = 'INSERT INTO items (id, listId, createdAt, updatedAt, isDeleted) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET updatedAt = EXCLUDED.updatedAt, isDeleted = EXCLUDED.isDeleted';
 const UPSERT_ITEM_VALUE = 'INSERT INTO item_values (id, itemId, fieldId, value, updatedAt) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET value = EXCLUDED.value, updatedAt = EXCLUDED.updatedAt';
 
@@ -144,6 +144,7 @@ router.post('/sync', async (req: Request, res: Response) => {
             field.name,
             field.fieldType,
             field.fieldOptions,
+            (field.alignment ?? 'start'),
             field.listId,
             field.order,
             field.createdAt,
@@ -316,6 +317,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       name: f.name,
       fieldType: f.fieldType ?? f.fieldtype,
       fieldOptions: f.fieldOptions ?? f.fieldoptions ?? '',
+      alignment: f.alignment ?? 'start',
       order: f.order,
       createdAt: toMillis(pick(f, 'createdAt', 'createdat')),
       updatedAt: toMillis(pick(f, 'updatedAt', 'updatedat')),

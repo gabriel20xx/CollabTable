@@ -162,16 +162,15 @@ fun ListDetailScreen(
             val widthDp = (savedWidth ?: 150f).dp
             fieldWidths[field.id] = widthDp
         }
-        // Load saved alignments for this listId
+        // Initialize alignments from fields (server/DB source of truth); fallback to prefs if missing
         val savedAlign = prefs.getColumnAlignments(listId)
         stableFields.forEach { field ->
-            val a = savedAlign[field.id]?.lowercase() ?: "start"
-            columnAlignments[field.id] =
-                when (a) {
-                    "center" -> "center"
-                    "end", "right" -> "end"
-                    else -> "start"
-                }
+            val raw = (field.alignment.ifBlank { savedAlign[field.id] ?: "start" }).lowercase()
+            columnAlignments[field.id] = when (raw) {
+                "center" -> "center"
+                "end", "right" -> "end"
+                else -> "start"
+            }
         }
     }
 
@@ -556,7 +555,9 @@ fun ListDetailScreen(
                                         onHeaderClick = { showManageColumnsDialog = true },
                                         alignment = columnAlignments[field.id] ?: "start",
                                         onAlignmentChange = { newAlign ->
+                                            // Update local state and persist via ViewModel + cache to prefs for backward-compat
                                             columnAlignments[field.id] = newAlign
+                                            viewModel.updateFieldAlignment(field.id, newAlign)
                                             prefs.setColumnAlignments(listId, columnAlignments.toMap())
                                         },
                                     )
@@ -609,16 +610,14 @@ fun ListDetailScreen(
             fields = stableFields,
             onDismiss = {
                 showManageColumnsDialog = false
-                // Refresh alignments from preferences in case they changed while editing columns
-                val savedAlign = prefs.getColumnAlignments(listId)
+                // Refresh alignments from current fields (DB-backed)
                 stableFields.forEach { field ->
-                    val a = savedAlign[field.id]?.lowercase() ?: columnAlignments[field.id] ?: "start"
-                    columnAlignments[field.id] =
-                        when (a) {
-                            "center" -> "center"
-                            "end", "right" -> "end"
-                            else -> "start"
-                        }
+                    val a = field.alignment.lowercase().ifBlank { columnAlignments[field.id] ?: "start" }
+                    columnAlignments[field.id] = when (a) {
+                        "center" -> "center"
+                        "end", "right" -> "end"
+                        else -> "start"
+                    }
                 }
             },
             onAddField = { name, fieldType, fieldOptions ->
@@ -626,6 +625,9 @@ fun ListDetailScreen(
             },
             onUpdateField = { fieldId, name, fieldType, fieldOptions ->
                 viewModel.updateField(fieldId, name, fieldType, fieldOptions)
+            },
+            onUpdateAlignment = { fieldId, alignment ->
+                viewModel.updateFieldAlignment(fieldId, alignment)
             },
             onDeleteField = { fieldId ->
                 viewModel.deleteField(fieldId)
@@ -1852,7 +1854,7 @@ fun AddFieldDialog(
 fun EditFieldDialog(
     field: Field,
     onDismiss: () -> Unit,
-    onUpdate: (String, String, String) -> Unit,
+    onUpdate: (String, String, String, String) -> Unit,
 ) {
     var name by remember { mutableStateOf(field.name) }
     var selectedFieldType by remember { mutableStateOf(field.fieldType.uppercase()) }
@@ -2082,24 +2084,6 @@ fun EditFieldDialog(
                     }
                 }
 
-                // Content alignment (single-select) using a connected Material3 SegmentedButton group
-                Text(
-                    text = "Content Alignment",
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                val alignmentOptions = listOf("start" to "Left", "center" to "Center", "end" to "Right")
-                SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(top = 4.dp)) {
-                    alignmentOptions.forEachIndexed { index, (value, label) ->
-                        SegmentedButton(
-                            selected = selectedAlignment == value,
-                            onClick = { selectedAlignment = value },
-                            shape = SegmentedButtonDefaults.itemShape(index = index, count = alignmentOptions.size),
-                            icon = { if (selectedAlignment == value) Icon(Icons.Default.Check, contentDescription = null) },
-                            label = { Text(label) },
-                        )
-                    }
-                }
-
                 // Currency-specific options
                 if (selectedFieldType == "CURRENCY" || selectedFieldType == "PRICE") {
                     OutlinedTextField(
@@ -2148,6 +2132,24 @@ fun EditFieldDialog(
                         supportingText = { Text("Maximum number of stars (default: 5)") },
                     )
                 }
+
+                // Content alignment (single-select) using a connected Material3 SegmentedButton group
+                Text(
+                    text = "Content Alignment",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                val alignmentOptions = listOf("start" to "Left", "center" to "Center", "end" to "Right")
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.padding(top = 4.dp)) {
+                    alignmentOptions.forEachIndexed { index, (value, label) ->
+                        SegmentedButton(
+                            selected = selectedAlignment == value,
+                            onClick = { selectedAlignment = value },
+                            shape = SegmentedButtonDefaults.itemShape(index = index, count = alignmentOptions.size),
+                            icon = { if (selectedAlignment == value) Icon(Icons.Default.Check, contentDescription = null) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
@@ -2172,7 +2174,7 @@ fun EditFieldDialog(
                             "RATING" -> currency.trim().ifBlank { "5" }
                             else -> ""
                         }
-                    onUpdate(name.trim(), normalizedType, options)
+                    onUpdate(name.trim(), normalizedType, options, selectedAlignment)
                     // Persist alignment selection for this field
                     val current = prefs.getColumnAlignments(field.listId).toMutableMap()
                     current[field.id] =
@@ -2847,6 +2849,7 @@ fun ManageColumnsDialog(
     onDismiss: () -> Unit,
     onAddField: (String, String, String) -> Unit,
     onUpdateField: (String, String, String, String) -> Unit,
+    onUpdateAlignment: (String, String) -> Unit,
     onDeleteField: (String) -> Unit,
     onReorderFields: (List<Field>) -> Unit,
 ) {
@@ -3034,8 +3037,9 @@ fun ManageColumnsDialog(
         EditFieldDialog(
             field = field,
             onDismiss = { fieldToEdit = null },
-            onUpdate = { name, fieldType, fieldOptions ->
+            onUpdate = { name, fieldType, fieldOptions, selectedAlignment ->
                 onUpdateField(field.id, name, fieldType, fieldOptions)
+                onUpdateAlignment(field.id, selectedAlignment)
                 fieldToEdit = null
             },
         )

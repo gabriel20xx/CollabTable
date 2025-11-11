@@ -17,10 +17,10 @@ router.get('/list/:listId', async (req: Request, res: Response) => {
 // Create field
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { id, name, fieldType, fieldOptions, listId, order, createdAt, updatedAt, isDeleted } = req.body;
+    const { id, name, fieldType, fieldOptions, alignment, listId, order, createdAt, updatedAt, isDeleted } = req.body;
     await dbAdapter.execute(
-      'INSERT INTO fields (id, name, fieldType, fieldOptions, listId, "order", createdAt, updatedAt, isDeleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, name, fieldType, fieldOptions, listId, order, createdAt, updatedAt, isDeleted ? 1 : 0]
+      'INSERT INTO fields (id, name, fieldType, fieldOptions, alignment, listId, "order", createdAt, updatedAt, isDeleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, name, fieldType, fieldOptions, alignment ?? 'start', listId, order, createdAt, updatedAt, isDeleted ? 1 : 0]
     );
     const field = await dbAdapter.queryOne('SELECT * FROM fields WHERE id = ?', [id]);
     res.status(201).json({ ...(field as any), isDeleted: !!(field as any).isDeleted });
@@ -33,10 +33,10 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const updatedAt = Date.now();
-    const { name, fieldType, fieldOptions, order } = req.body;
+    const { name, fieldType, fieldOptions, alignment, order } = req.body;
     const result = await dbAdapter.execute(
-      'UPDATE fields SET name = ?, fieldType = ?, fieldOptions = ?, "order" = ?, updatedAt = ? WHERE id = ?',
-      [name, fieldType, fieldOptions, order, updatedAt, req.params.id]
+      'UPDATE fields SET name = ?, fieldType = ?, fieldOptions = ?, alignment = ?, "order" = ?, updatedAt = ? WHERE id = ?',
+      [name, fieldType, fieldOptions, alignment ?? 'start', order, updatedAt, req.params.id]
     );
     
     if (result.changes === 0) {
