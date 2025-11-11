@@ -30,6 +30,16 @@ class PreferencesManager(context: Context) {
     private val _syncPollIntervalMs = MutableStateFlow(getSyncPollIntervalMs())
     val syncPollIntervalMs: StateFlow<Long> = _syncPollIntervalMs.asStateFlow()
 
+    // Notification preferences (per list event type)
+    private val _notifyListAdded = MutableStateFlow(isNotifyListAddedEnabled())
+    val notifyListAdded: StateFlow<Boolean> = _notifyListAdded.asStateFlow()
+
+    private val _notifyListEdited = MutableStateFlow(isNotifyListEditedEnabled())
+    val notifyListEdited: StateFlow<Boolean> = _notifyListEdited.asStateFlow()
+
+    private val _notifyListRemoved = MutableStateFlow(isNotifyListRemovedEnabled())
+    val notifyListRemoved: StateFlow<Boolean> = _notifyListRemoved.asStateFlow()
+
     fun getServerUrl(): String {
         return prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL) ?: DEFAULT_SERVER_URL
     }
@@ -141,6 +151,43 @@ class PreferencesManager(context: Context) {
         _syncPollIntervalMs.value = clamped
     }
 
+    // Last time we checked lists for background notifications
+    fun getLastListNotifyCheckTimestamp(): Long {
+        return prefs.getLong(KEY_LAST_LIST_NOTIFY_CHECK_TS, 0L)
+    }
+
+    fun setLastListNotifyCheckTimestamp(ts: Long) {
+        prefs.edit().putLong(KEY_LAST_LIST_NOTIFY_CHECK_TS, ts).apply()
+    }
+
+    // Notification settings accessors
+    private fun isNotifyListAddedEnabled(): Boolean {
+        return prefs.getBoolean(KEY_NOTIFY_LIST_ADDED, true)
+    }
+
+    fun setNotifyListAddedEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIFY_LIST_ADDED, enabled).apply()
+        _notifyListAdded.value = enabled
+    }
+
+    private fun isNotifyListEditedEnabled(): Boolean {
+        return prefs.getBoolean(KEY_NOTIFY_LIST_EDITED, true)
+    }
+
+    fun setNotifyListEditedEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIFY_LIST_EDITED, enabled).apply()
+        _notifyListEdited.value = enabled
+    }
+
+    private fun isNotifyListRemovedEnabled(): Boolean {
+        return prefs.getBoolean(KEY_NOTIFY_LIST_REMOVED, true)
+    }
+
+    fun setNotifyListRemovedEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIFY_LIST_REMOVED, enabled).apply()
+        _notifyListRemoved.value = enabled
+    }
+
     // Persist per-list column widths (fieldId -> widthDp)
     // Stored as a JSON object string in SharedPreferences under key: COLUMN_WIDTHS_PREFIX + listId
     fun getColumnWidths(listId: String): Map<String, Float> {
@@ -183,6 +230,10 @@ class PreferencesManager(context: Context) {
         private const val KEY_AMOLED_DARK = "amoled_dark"
         private const val KEY_SORT_ORDER = "sort_order"
     private const val KEY_SYNC_POLL_INTERVAL_MS = "sync_poll_interval_ms"
+    private const val KEY_NOTIFY_LIST_ADDED = "notify_list_added"
+    private const val KEY_NOTIFY_LIST_EDITED = "notify_list_edited"
+    private const val KEY_NOTIFY_LIST_REMOVED = "notify_list_removed"
+    private const val KEY_LAST_LIST_NOTIFY_CHECK_TS = "last_list_notify_check_ts"
         private const val COLUMN_WIDTHS_PREFIX = "column_widths_" // + listId
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"
         private const val DEFAULT_SYNC_POLL_INTERVAL_MS = 250L

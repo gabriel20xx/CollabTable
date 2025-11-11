@@ -6,6 +6,9 @@ import androidx.lifecycle.viewModelScope
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
 import com.collabtable.app.data.repository.SyncRepository
+import com.collabtable.app.notifications.NotificationHelper
+import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.Lifecycle
 import com.collabtable.app.utils.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -128,6 +131,7 @@ class ListsViewModel(
             database.listDao().insertList(newList)
             // Sync immediately after creating
             performSync()
+            maybeNotifyListAdded(newList)
         }
     }
 
@@ -147,6 +151,7 @@ class ListsViewModel(
                 )
                 // Sync immediately after renaming
                 performSync()
+                maybeNotifyListEdited(list.copy(name = newName.trim()))
             }
         }
     }
@@ -164,6 +169,7 @@ class ListsViewModel(
                 database.itemDao().softDeleteItemsByList(listId, ts)
                 // Sync immediately after deleting
                 performSync()
+                maybeNotifyListRemoved(list)
             }
         }
     }
@@ -174,6 +180,32 @@ class ListsViewModel(
             _isLoading.value = true
             performSync()
             _isLoading.value = false
+        }
+    }
+
+    private fun isInForeground(): Boolean {
+        val state = ProcessLifecycleOwner.get().lifecycle.currentState
+        return state.isAtLeast(Lifecycle.State.STARTED)
+    }
+
+    private fun maybeNotifyListAdded(list: CollabList) {
+        val prefs = com.collabtable.app.data.preferences.PreferencesManager.getInstance(context)
+        if (prefs.notifyListAdded.value && !isInForeground()) {
+            NotificationHelper.showListAdded(context, list.id, list.name)
+        }
+    }
+
+    private fun maybeNotifyListEdited(list: CollabList) {
+        val prefs = com.collabtable.app.data.preferences.PreferencesManager.getInstance(context)
+        if (prefs.notifyListEdited.value && !isInForeground()) {
+            NotificationHelper.showListEdited(context, list.id, list.name)
+        }
+    }
+
+    private fun maybeNotifyListRemoved(list: CollabList) {
+        val prefs = com.collabtable.app.data.preferences.PreferencesManager.getInstance(context)
+        if (prefs.notifyListRemoved.value && !isInForeground()) {
+            NotificationHelper.showListRemoved(context, list.id, list.name)
         }
     }
 }

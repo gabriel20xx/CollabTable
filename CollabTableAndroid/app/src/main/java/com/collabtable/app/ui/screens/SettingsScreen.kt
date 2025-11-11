@@ -29,6 +29,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -36,6 +38,8 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -47,6 +51,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import com.collabtable.app.R
 import com.collabtable.app.data.api.ApiClient
 import com.collabtable.app.data.database.CollabTableDatabase
@@ -70,11 +78,15 @@ fun SettingsScreen(
     val preferencesManager = remember { PreferencesManager.getInstance(context) }
     val syncRepository = remember { SyncRepository(context) }
     val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     val serverUrl = preferencesManager.getServerUrl()
     val themeMode by preferencesManager.themeMode.collectAsState()
     val dynamicColor by preferencesManager.dynamicColor.collectAsState()
     val amoledDark by preferencesManager.amoledDark.collectAsState()
+    val notifyListAdded by preferencesManager.notifyListAdded.collectAsState()
+    val notifyListEdited by preferencesManager.notifyListEdited.collectAsState()
+    val notifyListRemoved by preferencesManager.notifyListRemoved.collectAsState()
     val displayUrl = remember(serverUrl) { formatServerUrlForDisplay(serverUrl) }
     var showLeaveDialog by remember { mutableStateOf(false) }
     var isLeaving by remember { mutableStateOf(false) }
@@ -82,6 +94,38 @@ fun SettingsScreen(
     var syncIntervalInput by remember(syncIntervalMs) { mutableStateOf(syncIntervalMs.toString()) }
     var syncIntervalError by remember { mutableStateOf<String?>(null) }
     // Authentication UI removed
+
+    // Permission launcher for Android 13+ notification permission
+    var pendingPermissionAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val permissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (granted) {
+                pendingPermissionAction?.invoke()
+            } else {
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = "Notification permission denied. Enable it in system settings to turn this on.",
+                    )
+                }
+            }
+            pendingPermissionAction = null
+        }
+
+    fun ensureNotificationPermission(onGranted: () -> Unit) {
+        if (Build.VERSION.SDK_INT < 33) {
+            onGranted()
+            return
+        }
+        val granted =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+                PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            onGranted()
+        } else {
+            pendingPermissionAction = onGranted
+            permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     // Removed test connectivity logic; the connection indicator is shown via ConnectionStatusAction
 
@@ -104,6 +148,7 @@ fun SettingsScreen(
                     ),
             )
         },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { padding ->
         Column(
             modifier =
@@ -370,6 +415,114 @@ fun SettingsScreen(
             }
 
             
+        }
+
+        // Notifications section (placed after main content but before dialogs)
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(padding)
+                    .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Text(
+                text = "Notifications",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("List added")
+                            Text(
+                                text = "Notify when a new list/table is created",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = notifyListAdded,
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    ensureNotificationPermission {
+                                        preferencesManager.setNotifyListAddedEnabled(true)
+                                    }
+                                } else {
+                                    preferencesManager.setNotifyListAddedEnabled(false)
+                                }
+                            },
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("List edited")
+                            Text(
+                                text = "Notify when a list/table name changes",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = notifyListEdited,
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    ensureNotificationPermission {
+                                        preferencesManager.setNotifyListEditedEnabled(true)
+                                    }
+                                } else {
+                                    preferencesManager.setNotifyListEditedEnabled(false)
+                                }
+                            },
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("List removed")
+                            Text(
+                                text = "Notify when a list/table is deleted",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = notifyListRemoved,
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    ensureNotificationPermission {
+                                        preferencesManager.setNotifyListRemovedEnabled(true)
+                                    }
+                                } else {
+                                    preferencesManager.setNotifyListRemovedEnabled(false)
+                                }
+                            },
+                        )
+                    }
+                    Text(
+                        text = "Notifications fire only when the app is in background or not visible.",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
         }
 
         if (showLeaveDialog) {

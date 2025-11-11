@@ -41,7 +41,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.collabtable.app.data.preferences.PreferencesManager
+import android.os.Build
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,9 +60,26 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
     val validationResult by viewModel.validationResult.collectAsState()
     val validationError by viewModel.validationError.collectAsState()
 
+    val permissionLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            // If granted, enable all; else disable all
+            preferencesManager.setNotifyListAddedEnabled(granted)
+            preferencesManager.setNotifyListEditedEnabled(granted)
+            preferencesManager.setNotifyListRemovedEnabled(granted)
+            onSetupComplete()
+        }
+
     LaunchedEffect(validationResult) {
         if (validationResult == true) {
-            onSetupComplete()
+            // On Android 13+ prompt for notifications; otherwise default to enabled
+            if (Build.VERSION.SDK_INT >= 33) {
+                permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                preferencesManager.setNotifyListAddedEnabled(true)
+                preferencesManager.setNotifyListEditedEnabled(true)
+                preferencesManager.setNotifyListRemovedEnabled(true)
+                onSetupComplete()
+            }
         }
     }
 
