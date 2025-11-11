@@ -108,6 +108,8 @@ ktlint {
 detekt {
     buildUponDefaultConfig = true
     allRules = false
+    // Point detekt to the repo's configuration file
+    config = files("$rootDir/detekt.yml")
 }
 
 // Ensure Detekt uses a supported JVM target

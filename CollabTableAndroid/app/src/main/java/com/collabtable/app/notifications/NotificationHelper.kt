@@ -20,14 +20,14 @@ object NotificationHelper {
         context: Context,
         title: String,
         text: String,
-    ): NotificationCompat.Builder {
-        return NotificationCompat.Builder(context, CHANNEL_LIST_EVENTS)
+    ): NotificationCompat.Builder =
+        NotificationCompat
+            .Builder(context, CHANNEL_LIST_EVENTS)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
-    }
 
     private fun notify(
         context: Context,
@@ -79,7 +79,8 @@ object NotificationHelper {
             inbox.setSummaryText("$totalEventCount total event" + if (totalEventCount == 1) "" else "s")
         }
         val summary =
-            NotificationCompat.Builder(context, CHANNEL_LIST_EVENTS)
+            NotificationCompat
+                .Builder(context, CHANNEL_LIST_EVENTS)
                 .setSmallIcon(R.mipmap.ic_launcher)
                 .setContentTitle("List activity")
                 .setContentText("Recent list changes")

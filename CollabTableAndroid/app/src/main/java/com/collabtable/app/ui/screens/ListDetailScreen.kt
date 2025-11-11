@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -54,47 +53,47 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.layout.Layout
-import androidx.compose.ui.unit.Constraints
 import com.collabtable.app.R
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.Field
 import com.collabtable.app.data.model.ItemWithValues
 import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.ui.components.ConnectionStatusAction
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.burnoutcrew.reorderable.ReorderableItem
 import org.burnoutcrew.reorderable.detectReorder
@@ -166,11 +165,12 @@ fun ListDetailScreen(
         val savedAlign = prefs.getColumnAlignments(listId)
         stableFields.forEach { field ->
             val a = savedAlign[field.id]?.lowercase() ?: "start"
-            columnAlignments[field.id] = when (a) {
-                "center" -> "center"
-                "end", "right" -> "end"
-                else -> "start"
-            }
+            columnAlignments[field.id] =
+                when (a) {
+                    "center" -> "center"
+                    "end", "right" -> "end"
+                    else -> "start"
+                }
         }
     }
 
@@ -224,16 +224,17 @@ fun ListDetailScreen(
             filterField,
             filterValue,
         ) {
-            value = withContext(Dispatchers.Default) {
-                transformItems(
-                    items = stableItems,
-                    sortField = sortField,
-                    sortAscending = sortAscending,
-                    groupByField = groupByField,
-                    filterField = filterField,
-                    filterValue = filterValue,
-                )
-            }
+            value =
+                withContext(Dispatchers.Default) {
+                    transformItems(
+                        items = stableItems,
+                        sortField = sortField,
+                        sortAscending = sortAscending,
+                        groupByField = groupByField,
+                        filterField = filterField,
+                        filterValue = filterValue,
+                    )
+                }
         }
 
         val processedItems = transformed.processed
@@ -414,12 +415,13 @@ fun ListDetailScreen(
                                     val v = item.values.find { it.fieldId == field.id }
                                     if (v != null && v.updatedAt > maxValUpdated) maxValUpdated = v.updatedAt
                                 }
-                                val signature = AutoFitSignature(
-                                    name = field.name,
-                                    fieldUpdatedAt = field.updatedAt,
-                                    itemCount = stableItems.size,
-                                    maxValueUpdatedAt = maxValUpdated,
-                                )
+                                val signature =
+                                    AutoFitSignature(
+                                        name = field.name,
+                                        fieldUpdatedAt = field.updatedAt,
+                                        itemCount = stableItems.size,
+                                        maxValueUpdatedAt = maxValUpdated,
+                                    )
 
                                 val cached = autoFitCache[field.id]
                                 if (cached != null && cached.first == signature) {
@@ -429,22 +431,31 @@ fun ListDetailScreen(
                                 }
 
                                 // Measure header and max content width
-                                val headerPx = textMeasurer.measure(AnnotatedString(field.name), style = headerTextStyle).size.width.toFloat()
+                                val headerPx =
+                                    textMeasurer
+                                        .measure(AnnotatedString(field.name), style = headerTextStyle)
+                                        .size.width
+                                        .toFloat()
                                 var maxContentPx = 0f
                                 stableItems.forEach { itemWithValues ->
                                     val v = itemWithValues.values.find { it.fieldId == field.id }?.value
                                     val display = getDisplayTextForMeasure(field, v)
                                     if (display.isNotEmpty()) {
-                                        val w = textMeasurer.measure(AnnotatedString(display), style = bodyTextStyle).size.width.toFloat()
+                                        val w =
+                                            textMeasurer
+                                                .measure(AnnotatedString(display), style = bodyTextStyle)
+                                                .size.width
+                                                .toFloat()
                                         if (w > maxContentPx) maxContentPx = w
                                     }
                                 }
-                                val widthDpValue = with(density) {
-                                    val headerDp = headerPx.toDp() + 12.dp + 12.dp + 24.dp + 2.dp
-                                    val contentDp = maxContentPx.toDp() + 8.dp + 8.dp + 2.dp
-                                    val base = maxOf(headerDp, contentDp, 100.dp)
-                                    (base + 6.dp).value
-                                }
+                                val widthDpValue =
+                                    with(density) {
+                                        val headerDp = headerPx.toDp() + 12.dp + 12.dp + 24.dp + 2.dp
+                                        val contentDp = maxContentPx.toDp() + 8.dp + 8.dp + 2.dp
+                                        val base = maxOf(headerDp, contentDp, 100.dp)
+                                        (base + 6.dp).value
+                                    }
                                 fieldWidths[field.id] = widthDpValue.dp
                                 autoFitCache[field.id] = signature to widthDpValue
                             }
@@ -591,11 +602,12 @@ fun ListDetailScreen(
                 val savedAlign = prefs.getColumnAlignments(listId)
                 stableFields.forEach { field ->
                     val a = savedAlign[field.id]?.lowercase() ?: columnAlignments[field.id] ?: "start"
-                    columnAlignments[field.id] = when (a) {
-                        "center" -> "center"
-                        "end", "right" -> "end"
-                        else -> "start"
-                    }
+                    columnAlignments[field.id] =
+                        when (a) {
+                            "center" -> "center"
+                            "end", "right" -> "end"
+                            else -> "start"
+                        }
                 }
             },
             onAddField = { name, fieldType, fieldOptions ->
@@ -707,7 +719,10 @@ private data class TransformedItems(
     val grouped: Map<String, List<ItemWithValues>>,
 )
 
-private fun valueFor(item: ItemWithValues, field: Field?): String {
+private fun valueFor(
+    item: ItemWithValues,
+    field: Field?,
+): String {
     if (field == null) return ""
     return item.values.find { it.fieldId == field.id }?.value ?: ""
 }
@@ -793,8 +808,8 @@ private data class AutoFitSignature(
 )
 
 // Centralized mapping from canonical/legacy field type strings to user-facing labels
-private fun fieldTypeToLabel(type: String): String {
-    return when (type.uppercase()) {
+private fun fieldTypeToLabel(type: String): String =
+    when (type.uppercase()) {
         "TEXT", "STRING" -> "Text"
         "MULTILINE_TEXT" -> "Multi-line Text"
         "NUMBER" -> "Number"
@@ -820,7 +835,6 @@ private fun fieldTypeToLabel(type: String): String {
         "LOCATION" -> "Location"
         else -> "Text"
     }
-}
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -863,11 +877,12 @@ fun FieldHeader(
                         Modifier
                             .weight(1f)
                             .clickable { onHeaderClick() },
-                    textAlign = when (alignment) {
-                        "center" -> TextAlign.Center
-                        "end" -> TextAlign.End
-                        else -> TextAlign.Start
-                    },
+                    textAlign =
+                        when (alignment) {
+                            "center" -> TextAlign.Center
+                            "end" -> TextAlign.End
+                            else -> TextAlign.Start
+                        },
                 )
 
                 // Resize handle
@@ -939,7 +954,6 @@ fun FieldHeader(
                         tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                     )
                 }
-
             }
         }
     }
@@ -972,16 +986,18 @@ fun ItemRow(
         fields.forEach { field ->
             key(field.id) {
                 val value = valuesByFieldId[field.id]
-                val alignment = when (fieldAlignments[field.id]?.lowercase()) {
-                    "center" -> Alignment.Center
-                    "end", "right" -> Alignment.CenterEnd
-                    else -> Alignment.CenterStart
-                }
-                val textAlign = when (fieldAlignments[field.id]?.lowercase()) {
-                    "center" -> TextAlign.Center
-                    "end", "right" -> TextAlign.End
-                    else -> TextAlign.Start
-                }
+                val alignment =
+                    when (fieldAlignments[field.id]?.lowercase()) {
+                        "center" -> Alignment.Center
+                        "end", "right" -> Alignment.CenterEnd
+                        else -> Alignment.CenterStart
+                    }
+                val textAlign =
+                    when (fieldAlignments[field.id]?.lowercase()) {
+                        "center" -> TextAlign.Center
+                        "end", "right" -> TextAlign.End
+                        else -> TextAlign.Start
+                    }
 
                 Box(
                     modifier =
@@ -989,8 +1005,7 @@ fun ItemRow(
                             .border(
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.outline,
-                            )
-                            .padding(8.dp),
+                            ).padding(8.dp),
                 ) {
                     when (field.getType()) {
                         com.collabtable.app.data.model.FieldType.TEXT -> {
@@ -1330,8 +1345,7 @@ fun ItemRow(
                                                             MaterialTheme.colorScheme.surface
                                                         },
                                                     shape = RoundedCornerShape(4.dp),
-                                                )
-                                                .border(
+                                                ).border(
                                                     1.dp,
                                                     MaterialTheme.colorScheme.outline,
                                                     RoundedCornerShape(4.dp),
@@ -1349,15 +1363,15 @@ fun ItemRow(
                         }
 
                         com.collabtable.app.data.model.FieldType.LOCATION -> {
-                                Text(
-                                    text = value?.value ?: "",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    textAlign = textAlign,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
-                                )
+                            Text(
+                                text = value?.value ?: "",
+                                style = MaterialTheme.typography.bodyMedium,
+                                textAlign = textAlign,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 8.dp),
+                            )
                         }
 
                         com.collabtable.app.data.model.FieldType.IMAGE -> {
@@ -1469,26 +1483,26 @@ private fun EqualHeightRow(
         val count = measurables.size
         val n = widthsPx.size.coerceAtMost(count)
 
-        // First pass: measure children with fixed widths and unconstrained height to find max height
-        var maxHeight = 0
-        val placeablesFirst = Array(n) { i ->
+        // Compute required row height using intrinsics to avoid measuring the same child twice
+        var rowHeight = outerConstraints.minHeight
+        for (i in 0 until n) {
             val w = widthsPx[i].coerceAtLeast(0)
-            val c = Constraints.fixedWidth(w)
-            val p = measurables[i].measure(c)
-            if (p.height > maxHeight) maxHeight = p.height
-            p
+            val h = measurables[i].maxIntrinsicHeight(w)
+            if (h > rowHeight) rowHeight = h
         }
+        rowHeight = rowHeight.coerceIn(outerConstraints.minHeight, outerConstraints.maxHeight)
 
-        // Second pass: remeasure with fixed width and fixed row height so cells share same height
-        val placeables = Array(n) { i ->
-            val w = widthsPx[i].coerceAtLeast(0)
-            val c = Constraints.fixed(width = w, height = maxHeight)
-            measurables[i].measure(c)
-        }
+        // Measure once with fixed width and the computed row height so all cells match
+        val placeables =
+            Array(n) { i ->
+                val w = widthsPx[i].coerceAtLeast(0)
+                val c = Constraints.fixed(width = w, height = rowHeight)
+                measurables[i].measure(c)
+            }
 
-    val totalWidth = widthsPx.take(n).sum()
-    val layoutWidth = totalWidth.coerceIn(outerConstraints.minWidth, outerConstraints.maxWidth)
-    val layoutHeight = maxHeight.coerceIn(outerConstraints.minHeight, outerConstraints.maxHeight)
+        val totalWidth = widthsPx.take(n).sum()
+        val layoutWidth = totalWidth.coerceIn(outerConstraints.minWidth, outerConstraints.maxWidth)
+        val layoutHeight = rowHeight
 
         layout(layoutWidth, layoutHeight) {
             var x = 0
@@ -1785,12 +1799,14 @@ fun AddFieldDialog(
                             when (normalizedType) {
                                 "CURRENCY" -> currency.trim()
                                 "DROPDOWN" ->
-                                    dropdownOptions.split(",")
+                                    dropdownOptions
+                                        .split(",")
                                         .map { it.trim() }
                                         .filter { it.isNotBlank() }
                                         .joinToString("|")
                                 "AUTOCOMPLETE" ->
-                                    dropdownOptions.split(",")
+                                    dropdownOptions
+                                        .split(",")
                                         .map { it.trim() }
                                         .filter { it.isNotBlank() }
                                         .joinToString("|")
@@ -2126,12 +2142,14 @@ fun EditFieldDialog(
                         when (normalizedType) {
                             "CURRENCY", "PRICE" -> currency.trim()
                             "DROPDOWN" ->
-                                dropdownOptions.split(",")
+                                dropdownOptions
+                                    .split(",")
                                     .map { it.trim() }
                                     .filter { it.isNotBlank() }
                                     .joinToString("|")
                             "AUTOCOMPLETE" ->
-                                dropdownOptions.split(",")
+                                dropdownOptions
+                                    .split(",")
                                     .map { it.trim() }
                                     .filter { it.isNotBlank() }
                                     .joinToString("|")
@@ -2141,11 +2159,12 @@ fun EditFieldDialog(
                     onUpdate(name.trim(), normalizedType, options)
                     // Persist alignment selection for this field
                     val current = prefs.getColumnAlignments(field.listId).toMutableMap()
-                    current[field.id] = when (selectedAlignment.lowercase()) {
-                        "center" -> "center"
-                        "end", "right" -> "end"
-                        else -> "start"
-                    }
+                    current[field.id] =
+                        when (selectedAlignment.lowercase()) {
+                            "center" -> "center"
+                            "end", "right" -> "end"
+                            else -> "start"
+                        }
                     prefs.setColumnAlignments(field.listId, current)
                 },
                 enabled = name.isNotBlank() && (selectedFieldType !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()),
@@ -2729,13 +2748,13 @@ fun FieldInput(
                                     .background(
                                         color =
                                             try {
-                                                androidx.compose.ui.graphics.Color(android.graphics.Color.parseColor(value))
+                                                androidx.compose.ui.graphics
+                                                    .Color(android.graphics.Color.parseColor(value))
                                             } catch (e: Exception) {
                                                 MaterialTheme.colorScheme.surface
                                             },
                                         shape = RoundedCornerShape(4.dp),
-                                    )
-                                    .border(
+                                    ).border(
                                         1.dp,
                                         MaterialTheme.colorScheme.outline,
                                         RoundedCornerShape(4.dp),

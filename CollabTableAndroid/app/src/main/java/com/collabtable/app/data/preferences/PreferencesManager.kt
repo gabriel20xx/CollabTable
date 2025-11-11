@@ -7,7 +7,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.json.JSONObject
 
-class PreferencesManager(context: Context) {
+class PreferencesManager(
+    context: Context,
+) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("collab_table_prefs", Context.MODE_PRIVATE)
 
@@ -40,9 +42,7 @@ class PreferencesManager(context: Context) {
     private val _notifyListRemoved = MutableStateFlow(isNotifyListRemovedEnabled())
     val notifyListRemoved: StateFlow<Boolean> = _notifyListRemoved.asStateFlow()
 
-    fun getServerUrl(): String {
-        return prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL) ?: DEFAULT_SERVER_URL
-    }
+    fun getServerUrl(): String = prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL) ?: DEFAULT_SERVER_URL
 
     fun setServerUrl(url: String) {
         val raw = url.trim()
@@ -57,17 +57,13 @@ class PreferencesManager(context: Context) {
         _serverUrl.value = cleanUrl
     }
 
-    fun isFirstRun(): Boolean {
-        return prefs.getBoolean(KEY_FIRST_RUN, true)
-    }
+    fun isFirstRun(): Boolean = prefs.getBoolean(KEY_FIRST_RUN, true)
 
     fun setIsFirstRun(isFirstRun: Boolean) {
         prefs.edit().putBoolean(KEY_FIRST_RUN, isFirstRun).apply()
     }
 
-    fun getServerPassword(): String? {
-        return prefs.getString(KEY_SERVER_PASSWORD, null)
-    }
+    fun getServerPassword(): String? = prefs.getString(KEY_SERVER_PASSWORD, null)
 
     fun setServerPassword(password: String) {
         if (password.isBlank()) {
@@ -83,7 +79,8 @@ class PreferencesManager(context: Context) {
     }
 
     fun clearServerSettings() {
-        prefs.edit()
+        prefs
+            .edit()
             .remove(KEY_SERVER_URL)
             .remove(KEY_SERVER_PASSWORD)
             .remove(KEY_LAST_SYNC_TIMESTAMP)
@@ -92,9 +89,7 @@ class PreferencesManager(context: Context) {
     }
 
     // Theme settings
-    fun getThemeMode(): String {
-        return prefs.getString(KEY_THEME_MODE, THEME_MODE_SYSTEM) ?: THEME_MODE_SYSTEM
-    }
+    fun getThemeMode(): String = prefs.getString(KEY_THEME_MODE, THEME_MODE_SYSTEM) ?: THEME_MODE_SYSTEM
 
     fun setThemeMode(mode: String) {
         val normalized =
@@ -106,18 +101,14 @@ class PreferencesManager(context: Context) {
         _themeMode.value = normalized
     }
 
-    fun isDynamicColorEnabled(): Boolean {
-        return prefs.getBoolean(KEY_DYNAMIC_COLOR, true)
-    }
+    fun isDynamicColorEnabled(): Boolean = prefs.getBoolean(KEY_DYNAMIC_COLOR, true)
 
     fun setDynamicColorEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_DYNAMIC_COLOR, enabled).apply()
         _dynamicColor.value = enabled
     }
 
-    fun isAmoledDarkEnabled(): Boolean {
-        return prefs.getBoolean(KEY_AMOLED_DARK, false)
-    }
+    fun isAmoledDarkEnabled(): Boolean = prefs.getBoolean(KEY_AMOLED_DARK, false)
 
     fun setAmoledDarkEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_AMOLED_DARK, enabled).apply()
@@ -125,9 +116,7 @@ class PreferencesManager(context: Context) {
     }
 
     // Sorting preferences for tables overview
-    fun getSortOrder(): String {
-        return prefs.getString(KEY_SORT_ORDER, SORT_UPDATED_DESC) ?: SORT_UPDATED_DESC
-    }
+    fun getSortOrder(): String = prefs.getString(KEY_SORT_ORDER, SORT_UPDATED_DESC) ?: SORT_UPDATED_DESC
 
     fun setSortOrder(order: String) {
         val normalized =
@@ -152,36 +141,28 @@ class PreferencesManager(context: Context) {
     }
 
     // Last time we checked lists for background notifications
-    fun getLastListNotifyCheckTimestamp(): Long {
-        return prefs.getLong(KEY_LAST_LIST_NOTIFY_CHECK_TS, 0L)
-    }
+    fun getLastListNotifyCheckTimestamp(): Long = prefs.getLong(KEY_LAST_LIST_NOTIFY_CHECK_TS, 0L)
 
     fun setLastListNotifyCheckTimestamp(ts: Long) {
         prefs.edit().putLong(KEY_LAST_LIST_NOTIFY_CHECK_TS, ts).apply()
     }
 
     // Notification settings accessors
-    private fun isNotifyListAddedEnabled(): Boolean {
-        return prefs.getBoolean(KEY_NOTIFY_LIST_ADDED, true)
-    }
+    private fun isNotifyListAddedEnabled(): Boolean = prefs.getBoolean(KEY_NOTIFY_LIST_ADDED, true)
 
     fun setNotifyListAddedEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_NOTIFY_LIST_ADDED, enabled).apply()
         _notifyListAdded.value = enabled
     }
 
-    private fun isNotifyListEditedEnabled(): Boolean {
-        return prefs.getBoolean(KEY_NOTIFY_LIST_EDITED, true)
-    }
+    private fun isNotifyListEditedEnabled(): Boolean = prefs.getBoolean(KEY_NOTIFY_LIST_EDITED, true)
 
     fun setNotifyListEditedEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_NOTIFY_LIST_EDITED, enabled).apply()
         _notifyListEdited.value = enabled
     }
 
-    private fun isNotifyListRemovedEnabled(): Boolean {
-        return prefs.getBoolean(KEY_NOTIFY_LIST_REMOVED, true)
-    }
+    private fun isNotifyListRemovedEnabled(): Boolean = prefs.getBoolean(KEY_NOTIFY_LIST_REMOVED, true)
 
     fun setNotifyListRemovedEnabled(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_NOTIFY_LIST_REMOVED, enabled).apply()
@@ -235,11 +216,12 @@ class PreferencesManager(context: Context) {
             while (it.hasNext()) {
                 val fieldId = it.next()
                 val align = json.optString(fieldId, "start")
-                val normalized = when (align.lowercase()) {
-                    "center" -> "center"
-                    "end", "right" -> "end"
-                    else -> "start"
-                }
+                val normalized =
+                    when (align.lowercase()) {
+                        "center" -> "center"
+                        "end", "right" -> "end"
+                        else -> "start"
+                    }
                 map[fieldId] = normalized
             }
             map
@@ -248,15 +230,19 @@ class PreferencesManager(context: Context) {
         }
     }
 
-    fun setColumnAlignments(listId: String, alignments: Map<String, String>) {
+    fun setColumnAlignments(
+        listId: String,
+        alignments: Map<String, String>,
+    ) {
         val key = COLUMN_ALIGN_PREFIX + listId
         val json = JSONObject()
         alignments.forEach { (fieldId, alignment) ->
-            val normalized = when (alignment.lowercase()) {
-                "center" -> "center"
-                "end", "right" -> "end"
-                else -> "start"
-            }
+            val normalized =
+                when (alignment.lowercase()) {
+                    "center" -> "center"
+                    "end", "right" -> "end"
+                    else -> "start"
+                }
             json.put(fieldId, normalized)
         }
         prefs.edit().putString(key, json.toString()).apply()
@@ -277,7 +263,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_NOTIFY_LIST_REMOVED = "notify_list_removed"
         private const val KEY_LAST_LIST_NOTIFY_CHECK_TS = "last_list_notify_check_ts"
         private const val COLUMN_WIDTHS_PREFIX = "column_widths_" // + listId
-    private const val COLUMN_ALIGN_PREFIX = "column_align_" // + listId
+        private const val COLUMN_ALIGN_PREFIX = "column_align_" // + listId
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"
         private const val DEFAULT_SYNC_POLL_INTERVAL_MS = 250L
         private const val MIN_SYNC_POLL_INTERVAL_MS = 250L
@@ -295,10 +281,9 @@ class PreferencesManager(context: Context) {
         @Volatile
         private var instance: PreferencesManager? = null
 
-        fun getInstance(context: Context): PreferencesManager {
-            return instance ?: synchronized(this) {
+        fun getInstance(context: Context): PreferencesManager =
+            instance ?: synchronized(this) {
                 instance ?: PreferencesManager(context.applicationContext).also { instance = it }
             }
-        }
     }
 }

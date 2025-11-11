@@ -15,7 +15,9 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.net.UnknownHostException
 
-class SyncRepository(context: Context) {
+class SyncRepository(
+    context: Context,
+) {
     private val appContext = context.applicationContext
     private val database = CollabTableDatabase.getDatabase(appContext)
     private val api = ApiClient.api
@@ -51,7 +53,8 @@ class SyncRepository(context: Context) {
     }
 
     private fun setLastServerSyncTs(ts: Long) {
-        prefs.edit()
+        prefs
+            .edit()
             .putLong("last_server_sync_ts", ts)
             // also update legacy for safety
             .putLong("last_sync_timestamp", ts)
@@ -128,16 +131,24 @@ class SyncRepository(context: Context) {
 
                     // Gather local changes since last sync
                     val localLists =
-                        database.listDao().getListsUpdatedSince(lastLocalTs)
+                        database
+                            .listDao()
+                            .getListsUpdatedSince(lastLocalTs)
                             .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
                     val localFields =
-                        database.fieldDao().getFieldsUpdatedSince(lastLocalTs)
+                        database
+                            .fieldDao()
+                            .getFieldsUpdatedSince(lastLocalTs)
                             .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
                     val localItems =
-                        database.itemDao().getItemsUpdatedSince(lastLocalTs)
+                        database
+                            .itemDao()
+                            .getItemsUpdatedSince(lastLocalTs)
                             .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
                     val localValues =
-                        database.itemValueDao().getValuesUpdatedSince(lastLocalTs)
+                        database
+                            .itemValueDao()
+                            .getValuesUpdatedSince(lastLocalTs)
                             .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
 
                     // Only log send when there are actual local changes
@@ -220,8 +231,7 @@ class SyncRepository(context: Context) {
                                 .filter { incoming ->
                                     val localUpdated = localUpdatedMap[incoming.id]
                                     localUpdated == null || incoming.updatedAt >= localUpdated
-                                }
-                                .map { incoming ->
+                                }.map { incoming ->
                                     val localOrder = localIdToOrder[incoming.id]
                                     if (localOrder != null) incoming.copy(orderIndex = localOrder) else incoming
                                 }

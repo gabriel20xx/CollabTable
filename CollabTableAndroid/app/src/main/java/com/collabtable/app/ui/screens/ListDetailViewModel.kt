@@ -43,7 +43,9 @@ class ListDetailViewModel(
 
     private fun loadListData() {
         viewModelScope.launch {
-            database.listDao().getListWithFields(listId)
+            database
+                .listDao()
+                .getListWithFields(listId)
                 .debounce(75)
                 .collect { listWithFields ->
                     _list.value = listWithFields?.list
@@ -51,7 +53,8 @@ class ListDetailViewModel(
         }
 
         viewModelScope.launch {
-            database.itemDao()
+            database
+                .itemDao()
                 .getItemsWithValuesForList(listId)
                 .debounce(75)
                 .collect { itemsData ->
@@ -60,7 +63,9 @@ class ListDetailViewModel(
         }
 
         viewModelScope.launch {
-            database.fieldDao().getFieldsForList(listId)
+            database
+                .fieldDao()
+                .getFieldsForList(listId)
                 .debounce(75)
                 .collect { fieldsData ->
                     _fields.value = fieldsData
@@ -70,7 +75,9 @@ class ListDetailViewModel(
 
     private fun startPeriodicSync() {
         viewModelScope.launch {
-            val prefs = com.collabtable.app.data.preferences.PreferencesManager.getInstance(context)
+            val prefs =
+                com.collabtable.app.data.preferences.PreferencesManager
+                    .getInstance(context)
             while (true) {
                 performSync()
                 val delayMs = prefs.getSyncPollIntervalMs()

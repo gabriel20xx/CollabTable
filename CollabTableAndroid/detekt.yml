@@ -1,0 +1,70 @@
+config:
+  validation: true
+  warningsAsErrors: false
+
+processors:
+  active: true
+
+build:
+  maxIssues: 400 # allow current backlog without failing build
+  excludeCorrectable: false
+
+comments:
+  active: true
+
+style:
+  MagicNumber:
+    active: false # disabled until numeric constants consolidated
+  WildcardImport:
+    active: false
+    excludes: [ '**/test/**', '**/androidTest/**' ]
+  MaxLineLength:
+    active: true
+    maxLineLength: 200
+    excludePackageStatements: true
+    excludeImportStatements: true
+    excludeCommentStatements: true
+
+complexity:
+  LongMethod:
+    active: true
+    threshold: 600
+    ignoreAnnotated: [ 'Composable' ]
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 80
+    ignoreAnnotated: [ 'Composable' ]
+  LongParameterList:
+    active: true
+    functionThreshold: 16
+    constructorThreshold: 10
+    ignoreDefaultParameters: true
+    ignoreAnnotated: [ 'Composable' ]
+  TooManyFunctions:
+    active: true
+    thresholdInClasses: 80
+    thresholdInInterfaces: 50
+    thresholdInObjects: 50
+    thresholdInFiles: 90
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: true
+    exceptionNames:
+      - 'java.lang.Exception'
+      - 'java.lang.RuntimeException'
+      - 'java.lang.Throwable'
+    allowedExceptionNameRegex: '_|(ignore|expected)'
+    ignoreAnnotated: [ 'Composable' ]
+  SwallowedException:
+    active: true # enable to surface real issues
+
+empty-blocks:
+  active: true
+
+performance:
+  active: true
+
+naming:
+  FunctionNaming:
+    active: false
