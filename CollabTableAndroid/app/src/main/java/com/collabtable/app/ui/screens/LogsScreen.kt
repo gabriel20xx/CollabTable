@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
@@ -55,8 +54,6 @@ import androidx.compose.ui.unit.sp
 import com.collabtable.app.utils.LogEntry
 import com.collabtable.app.utils.LogLevel
 import com.collabtable.app.utils.Logger
-import android.content.Intent
-import androidx.compose.ui.platform.LocalContext
 
 enum class TimeRange(val label: String, val milliseconds: Long) {
     LAST_10_SECONDS("Last 10 seconds", 10_000),
@@ -129,20 +126,6 @@ fun LogsScreen(onNavigateBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    // Export logs via share intent
-                    val ctx = LocalContext.current
-                    IconButton(onClick = {
-                        val all = logs.joinToString(separator = "\n") { it.toFormattedString() }
-                        val sendIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, all)
-                            putExtra(Intent.EXTRA_SUBJECT, "CollabTable Logs")
-                        }
-                        val chooser = Intent.createChooser(sendIntent, "Export logs")
-                        ctx.startActivity(chooser)
-                    }) {
-                        Icon(Icons.Default.Share, contentDescription = "Export logs")
-                    }
                     IconButton(onClick = { showFilterSheet = true }) {
                         Badge(
                             containerColor =
@@ -261,7 +244,7 @@ fun LogsScreen(onNavigateBack: () -> Unit) {
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.background),
+                            .background(Color(0xFF1E1E1E)),
                     contentPadding = PaddingValues(8.dp),
                 ) {
                     items(filteredLogs) { log ->
