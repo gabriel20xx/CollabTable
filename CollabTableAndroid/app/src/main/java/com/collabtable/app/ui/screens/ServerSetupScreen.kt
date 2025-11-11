@@ -1,6 +1,8 @@
 package com.collabtable.app.ui.screens
 
 import android.os.Build
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -45,6 +47,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.collabtable.app.data.preferences.PreferencesManager
+import androidx.core.content.ContextCompat
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,25 +63,54 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
     val validationResult by viewModel.validationResult.collectAsState()
     val validationError by viewModel.validationError.collectAsState()
 
+    var completed by remember { mutableStateOf(false) }
+    fun finishOnce() {
+        if (!completed) {
+            completed = true
+            onSetupComplete()
+        }
+    }
+
     val permissionLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             // If granted, enable all; else disable all
             preferencesManager.setNotifyListAddedEnabled(granted)
             preferencesManager.setNotifyListEditedEnabled(granted)
             preferencesManager.setNotifyListRemovedEnabled(granted)
-            onSetupComplete()
+            // Also set content-updated preference consistently
+            try {
+                preferencesManager.setNotifyListContentUpdatedEnabled(granted)
+            } catch (_: Throwable) {
+                // Older builds may not have this preference; ignore
+            }
+            finishOnce()
         }
 
     LaunchedEffect(validationResult) {
-        if (validationResult == true) {
+        if (validationResult == true && !completed) {
             // On Android 13+ prompt for notifications; otherwise default to enabled
             if (Build.VERSION.SDK_INT >= 33) {
-                permissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                val granted =
+                    ContextCompat.checkSelfPermission(
+                        context,
+                        Manifest.permission.POST_NOTIFICATIONS,
+                    ) == PackageManager.PERMISSION_GRANTED
+                if (granted) {
+                    preferencesManager.setNotifyListAddedEnabled(true)
+                    preferencesManager.setNotifyListEditedEnabled(true)
+                    preferencesManager.setNotifyListRemovedEnabled(true)
+                    try { preferencesManager.setNotifyListContentUpdatedEnabled(true) } catch (_: Throwable) {}
+                    finishOnce()
+                } else {
+                    // Request permission; callback will complete
+                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
             } else {
                 preferencesManager.setNotifyListAddedEnabled(true)
                 preferencesManager.setNotifyListEditedEnabled(true)
                 preferencesManager.setNotifyListRemovedEnabled(true)
-                onSetupComplete()
+                try { preferencesManager.setNotifyListContentUpdatedEnabled(true) } catch (_: Throwable) {}
+                finishOnce()
             }
         }
     }
