@@ -68,6 +68,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -146,6 +147,9 @@ fun ListDetailScreen(
     // Field widths state (resizable columns)
     val fieldWidths = remember { mutableStateMapOf<String, Dp>() }
 
+    // Per-column content alignment: "start" | "center" | "end"
+    val columnAlignments = remember { mutableStateMapOf<String, String>() }
+
     // Initialize field widths (load persisted per-list widths, fallback to default)
     LaunchedEffect(stableFields) {
         // Load saved widths for this listId
@@ -154,6 +158,16 @@ fun ListDetailScreen(
             val savedWidth = saved[field.id]?.coerceAtLeast(100f)
             val widthDp = (savedWidth ?: 150f).dp
             fieldWidths[field.id] = widthDp
+        }
+        // Load saved alignments for this listId
+        val savedAlign = prefs.getColumnAlignments(listId)
+        stableFields.forEach { field ->
+            val a = savedAlign[field.id]?.lowercase() ?: "start"
+            columnAlignments[field.id] = when (a) {
+                "center" -> "center"
+                "end", "right" -> "end"
+                else -> "start"
+            }
         }
     }
 
@@ -524,6 +538,11 @@ fun ListDetailScreen(
                                         scrollState = horizontalScrollState,
                                         isLast = (field.id == stableFields.lastOrNull()?.id),
                                         onHeaderClick = { showManageColumnsDialog = true },
+                                        alignment = columnAlignments[field.id] ?: "start",
+                                        onAlignmentChange = { newAlign ->
+                                            columnAlignments[field.id] = newAlign
+                                            prefs.setColumnAlignments(listId, columnAlignments.toMap())
+                                        },
                                     )
                                 }
                             }
@@ -547,6 +566,7 @@ fun ListDetailScreen(
                                     ItemRow(
                                         fields = stableFields,
                                         fieldWidths = fieldWidths,
+                                        fieldAlignments = columnAlignments,
                                         itemWithValues = itemWithValues,
                                         onClick = { itemToEdit = itemWithValues },
                                     )
@@ -562,7 +582,19 @@ fun ListDetailScreen(
     if (showManageColumnsDialog) {
         ManageColumnsDialog(
             fields = stableFields,
-            onDismiss = { showManageColumnsDialog = false },
+            onDismiss = {
+                showManageColumnsDialog = false
+                // Refresh alignments from preferences in case they changed while editing columns
+                val savedAlign = prefs.getColumnAlignments(listId)
+                stableFields.forEach { field ->
+                    val a = savedAlign[field.id]?.lowercase() ?: columnAlignments[field.id] ?: "start"
+                    columnAlignments[field.id] = when (a) {
+                        "center" -> "center"
+                        "end", "right" -> "end"
+                        else -> "start"
+                    }
+                }
+            },
             onAddField = { name, fieldType, fieldOptions ->
                 viewModel.addField(name, fieldType, fieldOptions)
             },
@@ -796,6 +828,8 @@ fun FieldHeader(
     scrollState: androidx.compose.foundation.ScrollState,
     isLast: Boolean,
     onHeaderClick: () -> Unit,
+    alignment: String = "start",
+    onAlignmentChange: (String) -> Unit = {},
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -826,6 +860,11 @@ fun FieldHeader(
                         Modifier
                             .weight(1f)
                             .clickable { onHeaderClick() },
+                    textAlign = when (alignment) {
+                        "center" -> TextAlign.Center
+                        "end" -> TextAlign.End
+                        else -> TextAlign.Start
+                    },
                 )
 
                 // Resize handle
@@ -897,6 +936,21 @@ fun FieldHeader(
                         tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                     )
                 }
+
+                // Alignment segmented control (single-select)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val opts = listOf("start" to "L", "center" to "C", "end" to "R")
+                    opts.forEach { (value, label) ->
+                        FilterChip(
+                            selected = alignment == value,
+                            onClick = { onAlignmentChange(value) },
+                            label = { Text(label) },
+                        )
+                    }
+                }
             }
         }
     }
@@ -907,6 +961,7 @@ fun FieldHeader(
 fun ItemRow(
     fields: List<Field>,
     fieldWidths: Map<String, Dp>,
+    fieldAlignments: Map<String, String>,
     itemWithValues: ItemWithValues,
     onClick: () -> Unit,
 ) {
@@ -928,6 +983,16 @@ fun ItemRow(
             key(field.id) {
                 val value = valuesByFieldId[field.id]
                 val fieldWidth = fieldWidths[field.id] ?: 150.dp
+                val alignment = when (fieldAlignments[field.id]?.lowercase()) {
+                    "center" -> Alignment.Center
+                    "end", "right" -> Alignment.CenterEnd
+                    else -> Alignment.CenterStart
+                }
+                val textAlign = when (fieldAlignments[field.id]?.lowercase()) {
+                    "center" -> TextAlign.Center
+                    "end", "right" -> TextAlign.End
+                    else -> TextAlign.Start
+                }
 
                 Box(
                     modifier =
@@ -945,6 +1010,7 @@ fun ItemRow(
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -956,6 +1022,7 @@ fun ItemRow(
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -967,6 +1034,7 @@ fun ItemRow(
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -983,6 +1051,7 @@ fun ItemRow(
                                         "${field.getCurrency()}${value?.value}"
                                     },
                                 style = MaterialTheme.typography.bodyMedium,
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -994,6 +1063,7 @@ fun ItemRow(
                             Text(
                                 text = if (value?.value.isNullOrBlank()) "" else "${value?.value}%",
                                 style = MaterialTheme.typography.bodyMedium,
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -1005,6 +1075,7 @@ fun ItemRow(
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -1016,6 +1087,7 @@ fun ItemRow(
                             Text(
                                 text = if (value?.value == "true") "✓" else "",
                                 style = MaterialTheme.typography.bodyLarge,
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -1027,36 +1099,35 @@ fun ItemRow(
                             val uriHandler = LocalUriHandler.current
                             val urlValue = value?.value ?: ""
                             if (urlValue.isNotBlank()) {
-                                ClickableText(
-                                    text =
-                                        buildAnnotatedString {
-                                            withStyle(
-                                                style =
-                                                    SpanStyle(
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                        textDecoration = TextDecoration.Underline,
-                                                    ),
-                                            ) {
-                                                append(urlValue)
+                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
+                                    ClickableText(
+                                        text =
+                                            buildAnnotatedString {
+                                                withStyle(
+                                                    style =
+                                                        SpanStyle(
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            textDecoration = TextDecoration.Underline,
+                                                        ),
+                                                ) {
+                                                    append(urlValue)
+                                                }
+                                            },
+                                        onClick = {
+                                            try {
+                                                uriHandler.openUri(urlValue)
+                                            } catch (e: Exception) {
+                                                // Handle invalid URL
                                             }
                                         },
-                                    onClick = {
-                                        try {
-                                            uriHandler.openUri(urlValue)
-                                        } catch (e: Exception) {
-                                            // Handle invalid URL
-                                        }
-                                    },
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
                             } else {
                                 Text(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = textAlign,
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
@@ -1069,36 +1140,35 @@ fun ItemRow(
                             val uriHandler = LocalUriHandler.current
                             val emailValue = value?.value ?: ""
                             if (emailValue.isNotBlank()) {
-                                ClickableText(
-                                    text =
-                                        buildAnnotatedString {
-                                            withStyle(
-                                                style =
-                                                    SpanStyle(
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                        textDecoration = TextDecoration.Underline,
-                                                    ),
-                                            ) {
-                                                append(emailValue)
+                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
+                                    ClickableText(
+                                        text =
+                                            buildAnnotatedString {
+                                                withStyle(
+                                                    style =
+                                                        SpanStyle(
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            textDecoration = TextDecoration.Underline,
+                                                        ),
+                                                ) {
+                                                    append(emailValue)
+                                                }
+                                            },
+                                        onClick = {
+                                            try {
+                                                uriHandler.openUri("mailto:$emailValue")
+                                            } catch (e: Exception) {
+                                                // Handle invalid email
                                             }
                                         },
-                                    onClick = {
-                                        try {
-                                            uriHandler.openUri("mailto:$emailValue")
-                                        } catch (e: Exception) {
-                                            // Handle invalid email
-                                        }
-                                    },
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
                             } else {
                                 Text(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = textAlign,
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
@@ -1111,36 +1181,35 @@ fun ItemRow(
                             val uriHandler = LocalUriHandler.current
                             val phoneValue = value?.value ?: ""
                             if (phoneValue.isNotBlank()) {
-                                ClickableText(
-                                    text =
-                                        buildAnnotatedString {
-                                            withStyle(
-                                                style =
-                                                    SpanStyle(
-                                                        color = MaterialTheme.colorScheme.primary,
-                                                        textDecoration = TextDecoration.Underline,
-                                                    ),
-                                            ) {
-                                                append(phoneValue)
+                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
+                                    ClickableText(
+                                        text =
+                                            buildAnnotatedString {
+                                                withStyle(
+                                                    style =
+                                                        SpanStyle(
+                                                            color = MaterialTheme.colorScheme.primary,
+                                                            textDecoration = TextDecoration.Underline,
+                                                        ),
+                                                ) {
+                                                    append(phoneValue)
+                                                }
+                                            },
+                                        onClick = {
+                                            try {
+                                                uriHandler.openUri("tel:$phoneValue")
+                                            } catch (e: Exception) {
+                                                // Handle invalid phone
                                             }
                                         },
-                                    onClick = {
-                                        try {
-                                            uriHandler.openUri("tel:$phoneValue")
-                                        } catch (e: Exception) {
-                                            // Handle invalid phone
-                                        }
-                                    },
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
                             } else {
                                 Text(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = textAlign,
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
@@ -1153,6 +1222,7 @@ fun ItemRow(
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -1164,6 +1234,7 @@ fun ItemRow(
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -1175,6 +1246,7 @@ fun ItemRow(
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -1225,24 +1297,25 @@ fun ItemRow(
                         com.collabtable.app.data.model.FieldType.RATING -> {
                             val rating = value?.value?.toIntOrNull() ?: 0
                             val maxRating = field.getMaxRating()
-                            Row(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
-                            ) {
-                                repeat(maxRating) { index ->
-                                    Icon(
-                                        imageVector = Icons.Default.Star,
-                                        contentDescription = null,
-                                        tint =
-                                            if (index < rating) {
-                                                MaterialTheme.colorScheme.primary
-                                            } else {
-                                                MaterialTheme.colorScheme.outlineVariant
-                                            },
-                                        modifier = Modifier.size(16.dp),
-                                    )
+                            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .padding(vertical = 8.dp),
+                                ) {
+                                    repeat(maxRating) { index ->
+                                        Icon(
+                                            imageVector = Icons.Default.Star,
+                                            contentDescription = null,
+                                            tint =
+                                                if (index < rating) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.outlineVariant
+                                                },
+                                            modifier = Modifier.size(16.dp),
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1279,22 +1352,25 @@ fun ItemRow(
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
                                 }
-                                Text(
-                                    text = value?.value ?: "",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
+                                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = alignment) {
+                                    Text(
+                                        text = value?.value ?: "",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                    )
+                                }
                             }
                         }
 
                         com.collabtable.app.data.model.FieldType.LOCATION -> {
-                            Text(
-                                text = value?.value ?: "",
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
-                            )
+                                Text(
+                                    text = value?.value ?: "",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = textAlign,
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 8.dp),
+                                )
                         }
 
                         com.collabtable.app.data.model.FieldType.IMAGE -> {
@@ -1302,6 +1378,7 @@ fun ItemRow(
                                 Text(
                                     text = "🖼️ ${value.value}",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = textAlign,
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
@@ -1311,6 +1388,7 @@ fun ItemRow(
                                 Text(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = textAlign,
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
@@ -1324,6 +1402,7 @@ fun ItemRow(
                                 Text(
                                     text = "📎 ${value.value}",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = textAlign,
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
@@ -1333,6 +1412,7 @@ fun ItemRow(
                                 Text(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = textAlign,
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
@@ -1348,6 +1428,7 @@ fun ItemRow(
                                     MaterialTheme.typography.bodyMedium.copy(
                                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                     ),
+                                textAlign = textAlign,
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
@@ -1361,6 +1442,7 @@ fun ItemRow(
                                     text = "✍️ Signed",
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary,
+                                    textAlign = textAlign,
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
@@ -1370,6 +1452,7 @@ fun ItemRow(
                                 Text(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
+                                    textAlign = textAlign,
                                     modifier =
                                         Modifier
                                             .fillMaxWidth()
@@ -1710,6 +1793,14 @@ fun EditFieldDialog(
     var dropdownOptions by remember { mutableStateOf(field.getDropdownOptions().joinToString(", ")) }
     var currency by remember { mutableStateOf(field.getCurrency()) }
     var expanded by remember { mutableStateOf(false) }
+    // Alignment state persisted per list/field in PreferencesManager
+    val context = LocalContext.current
+    val prefs = remember { PreferencesManager.getInstance(context) }
+    var selectedAlignment by remember {
+        mutableStateOf(
+            prefs.getColumnAlignments(field.listId)[field.id]?.lowercase() ?: "start",
+        )
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -1925,6 +2016,23 @@ fun EditFieldDialog(
                     }
                 }
 
+                // Content alignment (single-select) using FilterChips to support current Material3 version
+                Text(
+                    text = "Content Alignment",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val opts = listOf("start" to "Left", "center" to "Center", "end" to "Right")
+                    opts.forEach { (value, label) ->
+                        FilterChip(
+                            selected = selectedAlignment == value,
+                            onClick = { selectedAlignment = value },
+                            label = { Text(label) },
+                            leadingIcon = if (selectedAlignment == value) { { Icon(Icons.Default.Check, contentDescription = null) } } else null,
+                        )
+                    }
+                }
+
                 // Currency-specific options
                 if (selectedFieldType == "CURRENCY" || selectedFieldType == "PRICE") {
                     OutlinedTextField(
@@ -1996,6 +2104,14 @@ fun EditFieldDialog(
                             else -> ""
                         }
                     onUpdate(name.trim(), normalizedType, options)
+                    // Persist alignment selection for this field
+                    val current = prefs.getColumnAlignments(field.listId).toMutableMap()
+                    current[field.id] = when (selectedAlignment.lowercase()) {
+                        "center" -> "center"
+                        "end", "right" -> "end"
+                        else -> "start"
+                    }
+                    prefs.setColumnAlignments(field.listId, current)
                 },
                 enabled = name.isNotBlank() && (selectedFieldType !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()),
             ) {

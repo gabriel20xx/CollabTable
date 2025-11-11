@@ -223,6 +223,45 @@ class PreferencesManager(context: Context) {
         prefs.edit().putString(key, json.toString()).apply()
     }
 
+    // Persist per-list column alignments (fieldId -> alignment: "start" | "center" | "end")
+    // Stored as a JSON object string under key: COLUMN_ALIGN_PREFIX + listId
+    fun getColumnAlignments(listId: String): Map<String, String> {
+        val key = COLUMN_ALIGN_PREFIX + listId
+        val raw = prefs.getString(key, null) ?: return emptyMap()
+        return try {
+            val json = JSONObject(raw)
+            val map = mutableMapOf<String, String>()
+            val it = json.keys()
+            while (it.hasNext()) {
+                val fieldId = it.next()
+                val align = json.optString(fieldId, "start")
+                val normalized = when (align.lowercase()) {
+                    "center" -> "center"
+                    "end", "right" -> "end"
+                    else -> "start"
+                }
+                map[fieldId] = normalized
+            }
+            map
+        } catch (e: Exception) {
+            emptyMap()
+        }
+    }
+
+    fun setColumnAlignments(listId: String, alignments: Map<String, String>) {
+        val key = COLUMN_ALIGN_PREFIX + listId
+        val json = JSONObject()
+        alignments.forEach { (fieldId, alignment) ->
+            val normalized = when (alignment.lowercase()) {
+                "center" -> "center"
+                "end", "right" -> "end"
+                else -> "start"
+            }
+            json.put(fieldId, normalized)
+        }
+        prefs.edit().putString(key, json.toString()).apply()
+    }
+
     companion object {
         private const val KEY_SERVER_URL = "server_url"
         private const val KEY_FIRST_RUN = "first_run"
@@ -238,6 +277,7 @@ class PreferencesManager(context: Context) {
         private const val KEY_NOTIFY_LIST_REMOVED = "notify_list_removed"
         private const val KEY_LAST_LIST_NOTIFY_CHECK_TS = "last_list_notify_check_ts"
         private const val COLUMN_WIDTHS_PREFIX = "column_widths_" // + listId
+    private const val COLUMN_ALIGN_PREFIX = "column_align_" // + listId
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"
         private const val DEFAULT_SYNC_POLL_INTERVAL_MS = 250L
         private const val MIN_SYNC_POLL_INTERVAL_MS = 250L
