@@ -2,6 +2,8 @@
 
 package com.collabtable.app.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,6 +50,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import android.os.Build
 import com.collabtable.app.R
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
@@ -102,7 +108,34 @@ fun ListsScreen(
                 actions = {
                     val context = LocalContext.current
                     val prefsLocal = remember { PreferencesManager.getInstance(context) }
-                    ConnectionStatusAction(prefs = prefsLocal)
+
+                    // Launcher to request Android 13+ notification permission on-the-fly
+                    var notifPrompted by remember { mutableStateOf(false) }
+                    val permissionLauncher =
+                        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                            // Mirror setup behavior: toggle all list notifications to granted state
+                            prefsLocal.setNotifyListAddedEnabled(granted)
+                            prefsLocal.setNotifyListEditedEnabled(granted)
+                            prefsLocal.setNotifyListRemovedEnabled(granted)
+                            try { prefsLocal.setNotifyListContentUpdatedEnabled(granted) } catch (_: Throwable) {}
+                        }
+
+                    ConnectionStatusAction(
+                        prefs = prefsLocal,
+                        onBecameConnected = {
+                            if (Build.VERSION.SDK_INT >= 33 && !notifPrompted) {
+                                val granted =
+                                    ContextCompat.checkSelfPermission(
+                                        context,
+                                        Manifest.permission.POST_NOTIFICATIONS,
+                                    ) == PackageManager.PERMISSION_GRANTED
+                                if (!granted) {
+                                    notifPrompted = true
+                                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                                }
+                            }
+                        },
+                    )
                     IconButton(onClick = { showCreateDialog = true }) {
                         Icon(
                             Icons.Default.Add,

@@ -73,6 +73,7 @@ fun ConnectionStatusAction(
     prefs: PreferencesManager,
     modifier: Modifier = Modifier,
     showLatency: Boolean = true,
+    onBecameConnected: (() -> Unit)? = null,
 ) {
     var ok by remember { mutableStateOf<Boolean?>(null) }
     var latencyMs by remember { mutableStateOf<Long?>(null) }
@@ -113,6 +114,15 @@ fun ConnectionStatusAction(
             false -> MaterialTheme.colorScheme.error
             null -> MaterialTheme.colorScheme.onSurfaceVariant
         }
+
+    // Fire callback once when connection transitions to OK
+    var prevOk by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(ok) {
+        if (prevOk != true && ok == true) {
+            onBecameConnected?.invoke()
+        }
+        prevOk = ok
+    }
 
     Row(
         modifier = modifier,
