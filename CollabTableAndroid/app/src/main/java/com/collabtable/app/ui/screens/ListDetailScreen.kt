@@ -385,41 +385,52 @@ fun ListDetailScreen(
                     )
 
                     // Auto-resize button (chip style)
+                    // Auto-fit cache keyed by fieldId with a compact signature based on timestamps and counts
+                    val autoFitCache = remember { mutableStateMapOf<String, Pair<AutoFitSignature, Float>>() }
                     FilterChip(
                         selected = false,
                         onClick = {
-                            val newWidths = mutableMapOf<String, Float>()
                             stableFields.forEach { field ->
-                                val headerPx =
-                                    textMeasurer.measure(
-                                        AnnotatedString(field.name),
-                                        style = headerTextStyle,
-                                    ).size.width.toFloat()
+                                // Build a compact signature: field name, field.updatedAt, item count, max updatedAt among values
+                                var maxValUpdated = 0L
+                                stableItems.forEach { item ->
+                                    val v = item.values.find { it.fieldId == field.id }
+                                    if (v != null && v.updatedAt > maxValUpdated) maxValUpdated = v.updatedAt
+                                }
+                                val signature = AutoFitSignature(
+                                    name = field.name,
+                                    fieldUpdatedAt = field.updatedAt,
+                                    itemCount = stableItems.size,
+                                    maxValueUpdatedAt = maxValUpdated,
+                                )
 
+                                val cached = autoFitCache[field.id]
+                                if (cached != null && cached.first == signature) {
+                                    // Use cached width
+                                    fieldWidths[field.id] = cached.second.dp
+                                    return@forEach
+                                }
+
+                                // Measure header and max content width
+                                val headerPx = textMeasurer.measure(AnnotatedString(field.name), style = headerTextStyle).size.width.toFloat()
                                 var maxContentPx = 0f
                                 stableItems.forEach { itemWithValues ->
                                     val v = itemWithValues.values.find { it.fieldId == field.id }?.value
                                     val display = getDisplayTextForMeasure(field, v)
                                     if (display.isNotEmpty()) {
-                                        val w =
-                                            textMeasurer.measure(
-                                                AnnotatedString(display),
-                                                style = bodyTextStyle,
-                                            ).size.width.toFloat()
+                                        val w = textMeasurer.measure(AnnotatedString(display), style = bodyTextStyle).size.width.toFloat()
                                         if (w > maxContentPx) maxContentPx = w
                                     }
                                 }
-
-                                val widthDp =
-                                    with(density) {
-                                        val headerDp = headerPx.toDp() + 12.dp + 12.dp + 24.dp + 2.dp
-                                        val contentDp = maxContentPx.toDp() + 8.dp + 8.dp + 2.dp
-                                        val base = maxOf(headerDp, contentDp, 100.dp)
-                                        (base + 6.dp).value
-                                    }
-                                newWidths[field.id] = widthDp
+                                val widthDpValue = with(density) {
+                                    val headerDp = headerPx.toDp() + 12.dp + 12.dp + 24.dp + 2.dp
+                                    val contentDp = maxContentPx.toDp() + 8.dp + 8.dp + 2.dp
+                                    val base = maxOf(headerDp, contentDp, 100.dp)
+                                    (base + 6.dp).value
+                                }
+                                fieldWidths[field.id] = widthDpValue.dp
+                                autoFitCache[field.id] = signature to widthDpValue
                             }
-                            newWidths.forEach { (id, w) -> fieldWidths[id] = w.dp }
                             prefs.setColumnWidths(listId, fieldWidths.mapValues { it.value.value })
                         },
                         label = { Text("Auto-fit") },
@@ -482,14 +493,18 @@ fun ListDetailScreen(
                             pendingScrollToBottom = false
                         }
                     }
-                    Column(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .horizontalScroll(horizontalScrollState),
+                    ) {
                         // Fixed header (does not participate in vertical scroll)
                         Row(
                             modifier =
                                 Modifier
                                     .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surface)
-                                    .horizontalScroll(horizontalScrollState),
+                                    .background(MaterialTheme.colorScheme.surface),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             stableFields.forEach { field ->
@@ -533,7 +548,6 @@ fun ListDetailScreen(
                                         fields = stableFields,
                                         fieldWidths = fieldWidths,
                                         itemWithValues = itemWithValues,
-                                        scrollState = horizontalScrollState,
                                         onClick = { itemToEdit = itemWithValues },
                                     )
                                 }
@@ -735,6 +749,14 @@ private fun getDisplayTextForMeasure(
     }
 }
 
+// Compact signature to detect when a field's content or definition changed without scanning all values deeply
+private data class AutoFitSignature(
+    val name: String,
+    val fieldUpdatedAt: Long,
+    val itemCount: Int,
+    val maxValueUpdatedAt: Long,
+)
+
 // Centralized mapping from canonical/legacy field type strings to user-facing labels
 private fun fieldTypeToLabel(type: String): String {
     return when (type.uppercase()) {
@@ -886,7 +908,6 @@ fun ItemRow(
     fields: List<Field>,
     fieldWidths: Map<String, Dp>,
     itemWithValues: ItemWithValues,
-    scrollState: androidx.compose.foundation.ScrollState,
     onClick: () -> Unit,
 ) {
     // Map values by fieldId to ensure correct value-column alignment regardless of original order
@@ -898,9 +919,8 @@ fun ItemRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Min)
                 .clickable(onClick = onClick)
-                .horizontalScroll(scrollState),
+                ,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         fields.forEach { field ->
