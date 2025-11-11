@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
@@ -69,6 +68,7 @@ import org.burnoutcrew.reorderable.reorderable
 @Composable
 fun ListsScreen(
     onNavigateToList: (String) -> Unit,
+    // Settings now accessed via bottom navigation; keep param for backward compat (unused)
     onNavigateToSettings: () -> Unit,
     onNavigateToLogs: () -> Unit = {},
 ) {
@@ -108,10 +108,10 @@ fun ListsScreen(
                     val context = LocalContext.current
                     val prefsLocal = remember { PreferencesManager.getInstance(context) }
                     ConnectionStatusAction(prefs = prefsLocal)
-                    IconButton(onClick = onNavigateToSettings) {
+                    IconButton(onClick = { showCreateDialog = true }) {
                         Icon(
-                            Icons.Default.Settings,
-                            contentDescription = stringResource(R.string.settings),
+                            Icons.Default.Add,
+                            contentDescription = stringResource(R.string.create_list),
                         )
                     }
                 },
@@ -122,11 +122,7 @@ fun ListsScreen(
                     ),
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showCreateDialog = true }) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.create_list))
-            }
-        },
+        floatingActionButton = {},
     ) { padding ->
         Box(
             modifier =

@@ -10,7 +10,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import com.collabtable.app.data.preferences.PreferencesManager
-import com.collabtable.app.ui.navigation.AppNavigation
+import com.collabtable.app.ui.navigation.MainApp
 import com.collabtable.app.ui.theme.CollabTableTheme
 
 class MainActivity : ComponentActivity() {
@@ -34,7 +34,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
-                    AppNavigation()
+                    MainApp()
                 }
             }
         }

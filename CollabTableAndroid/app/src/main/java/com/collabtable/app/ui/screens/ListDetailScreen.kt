@@ -188,8 +188,8 @@ fun ListDetailScreen(
                     val localCtx = LocalContext.current
                     val localPrefs = remember { PreferencesManager.getInstance(localCtx) }
                     ConnectionStatusAction(prefs = localPrefs)
-                    IconButton(onClick = { showManageColumnsDialog = true }) {
-                        Icon(Icons.Default.Settings, contentDescription = "Manage Columns")
+                    IconButton(onClick = { showAddItemDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_item))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -198,13 +198,7 @@ fun ListDetailScreen(
                 ),
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = { showAddItemDialog = true },
-            ) {
-                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_item))
-            }
-        },
+        floatingActionButton = {},
     ) { padding ->
         // Apply filtering, sorting, and grouping to items
         fun valueFor(item: ItemWithValues, field: Field?): String {
@@ -527,6 +521,7 @@ fun ListDetailScreen(
                                         },
                                         scrollState = horizontalScrollState,
                                         isLast = (field.id == stableFields.lastOrNull()?.id),
+                                        onHeaderClick = { showManageColumnsDialog = true },
                                     )
                                 }
                             }
@@ -741,6 +736,7 @@ fun FieldHeader(
     onWidthChange: (Float) -> Unit,
     scrollState: androidx.compose.foundation.ScrollState,
     isLast: Boolean,
+    onHeaderClick: () -> Unit,
 ) {
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
@@ -767,7 +763,9 @@ fun FieldHeader(
                 Text(
                     text = field.name,
                     style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onHeaderClick() },
                 )
 
                 // Resize handle
