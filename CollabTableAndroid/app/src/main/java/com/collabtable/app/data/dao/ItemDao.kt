@@ -11,11 +11,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ItemDao {
-    @Query("SELECT * FROM items WHERE listId = :listId AND isDeleted = 0 ORDER BY updatedAt DESC")
+    // Use stable creation order instead of updatedAt-based ordering to avoid resorting the entire list
+    // on every cell edit (which bumps updatedAt). This dramatically reduces scroll jank and recomposition
+    // churn for large tables while still presenting rows in a predictable order.
+    @Query("SELECT * FROM items WHERE listId = :listId AND isDeleted = 0 ORDER BY createdAt ASC")
     fun getItemsForList(listId: String): Flow<List<Item>>
 
     @Transaction
-    @Query("SELECT * FROM items WHERE listId = :listId AND isDeleted = 0 ORDER BY updatedAt DESC")
+    @Query("SELECT * FROM items WHERE listId = :listId AND isDeleted = 0 ORDER BY createdAt ASC")
     fun getItemsWithValuesForList(listId: String): Flow<List<ItemWithValues>>
 
     @Query("SELECT * FROM items WHERE id = :itemId")

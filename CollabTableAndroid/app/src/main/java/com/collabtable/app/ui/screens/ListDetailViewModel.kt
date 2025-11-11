@@ -51,9 +51,12 @@ class ListDetailViewModel(
         }
 
         viewModelScope.launch {
-            database.itemDao().getItemsWithValuesForList(listId).collect { itemsData ->
-                _items.value = itemsData
-            }
+            database.itemDao()
+                .getItemsWithValuesForList(listId)
+                .debounce(75)
+                .collect { itemsData ->
+                    _items.value = itemsData
+                }
         }
 
         viewModelScope.launch {

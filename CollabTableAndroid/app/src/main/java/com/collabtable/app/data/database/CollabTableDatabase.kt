@@ -38,7 +38,7 @@ val migration2To3 =
         Item::class,
         ItemValue::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = false,
 )
 abstract class CollabTableDatabase : RoomDatabase() {
@@ -62,7 +62,7 @@ abstract class CollabTableDatabase : RoomDatabase() {
                             context.applicationContext,
                             CollabTableDatabase::class.java,
                             "collab_table_database",
-                        ).addMigrations(migration1To2, migration2To3)
+                        ).addMigrations(migration1To2, migration2To3, migration3To4)
                         .build()
                 dbInstance = instance
                 instance
@@ -77,3 +77,11 @@ abstract class CollabTableDatabase : RoomDatabase() {
         }
     }
 }
+
+// Add index to accelerate item listing by listId ordered by creation time
+val migration3To4 =
+    object : Migration(3, 4) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("CREATE INDEX IF NOT EXISTS index_items_listId_createdAt ON items(listId, createdAt)")
+        }
+    }

@@ -11,6 +11,7 @@ A collaborative table management Android application built with Jetpack Compose 
 - Local Room database for offline support
 - Automatic synchronization with server (WebSocket-first with HTTP fallback)
 - Soft delete support (items can be recovered on server)
+- Optimized large table scrolling (stable row ordering + debounced updates)
 
 ## Architecture
 
@@ -91,6 +92,15 @@ app/src/main/java/com/collabtable/app/
 1. After adding fields, tap the floating + button
 2. Fill in values for each field
 3. Values are saved automatically as you type
+
+### Performance Notes (Large Tables)
+For very large tables the app applies several optimizations:
+- Rows are kept in their original creation order rather than sorting by last update timestamp. This prevents the entire list from resorting after each edit and reduces scroll jank.
+- Rapid successive database emissions are coalesced (debounced ~75ms) before updating the UI state, lowering unnecessary recompositions during bulk edits or sync bursts.
+Further planned improvements:
+- Incremental paging for extremely large datasets
+- Horizontal virtualization for very wide column sets
+If you encounter sluggishness with tens of thousands of rows, enable server-side filtering/sorting to reduce client load.
 
 ### Column Content Alignment
 In the Edit Column dialog you can choose how each column's cell content is aligned (Left, Center, Right) via a single connected Material 3 segmented button group. The selection persists per list/field and updates immediately when you save changes. To adjust later, open the Manage Columns dialog or edit the field again.

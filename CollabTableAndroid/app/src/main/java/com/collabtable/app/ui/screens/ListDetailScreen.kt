@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -81,6 +82,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.Constraints
 import com.collabtable.app.R
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.Field
@@ -956,19 +959,19 @@ fun ItemRow(
         remember(itemWithValues.values) {
             itemWithValues.values.associateBy { it.fieldId }
         }
-    Row(
+    val widths = remember(fields, fieldWidths) { fields.map { fieldWidths[it.id] ?: 150.dp } }
+
+    EqualHeightRow(
+        widths = widths,
         modifier =
             Modifier
                 .fillMaxWidth()
-                .height(androidx.compose.foundation.layout.IntrinsicSize.Min)
-                .clickable(onClick = onClick)
-                ,
-        verticalAlignment = Alignment.CenterVertically,
+                .heightIn(min = 48.dp)
+                .clickable(onClick = onClick),
     ) {
         fields.forEach { field ->
             key(field.id) {
                 val value = valuesByFieldId[field.id]
-                val fieldWidth = fieldWidths[field.id] ?: 150.dp
                 val alignment = when (fieldAlignments[field.id]?.lowercase()) {
                     "center" -> Alignment.Center
                     "end", "right" -> Alignment.CenterEnd
@@ -983,8 +986,6 @@ fun ItemRow(
                 Box(
                     modifier =
                         Modifier
-                            .width(fieldWidth)
-                            .fillMaxHeight()
                             .border(
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.outline,
@@ -1448,6 +1449,53 @@ fun ItemRow(
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EqualHeightRow(
+    widths: List<Dp>,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val density = LocalDensity.current
+    val widthsPx = remember(widths, density) { widths.map { with(density) { it.roundToPx() } } }
+    Layout(
+        modifier = modifier,
+        content = content,
+    ) { measurables, outerConstraints ->
+        val count = measurables.size
+        val n = widthsPx.size.coerceAtMost(count)
+
+        // First pass: measure children with fixed widths and unconstrained height to find max height
+        var maxHeight = 0
+        val placeablesFirst = Array(n) { i ->
+            val w = widthsPx[i].coerceAtLeast(0)
+            val c = Constraints.fixedWidth(w)
+            val p = measurables[i].measure(c)
+            if (p.height > maxHeight) maxHeight = p.height
+            p
+        }
+
+        // Second pass: remeasure with fixed width and fixed row height so cells share same height
+        val placeables = Array(n) { i ->
+            val w = widthsPx[i].coerceAtLeast(0)
+            val c = Constraints.fixed(width = w, height = maxHeight)
+            measurables[i].measure(c)
+        }
+
+    val totalWidth = widthsPx.take(n).sum()
+    val layoutWidth = totalWidth.coerceIn(outerConstraints.minWidth, outerConstraints.maxWidth)
+    val layoutHeight = maxHeight.coerceIn(outerConstraints.minHeight, outerConstraints.maxHeight)
+
+        layout(layoutWidth, layoutHeight) {
+            var x = 0
+            for (i in 0 until n) {
+                val p = placeables[i]
+                p.placeRelative(x, 0)
+                x += p.width
             }
         }
     }

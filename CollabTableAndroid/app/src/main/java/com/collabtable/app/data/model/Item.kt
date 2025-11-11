@@ -15,7 +15,10 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("listId")],
+    indices = [
+        Index("listId"),
+        Index(value = ["listId", "createdAt"]),
+    ],
 )
 data class Item(
     @PrimaryKey val id: String,
