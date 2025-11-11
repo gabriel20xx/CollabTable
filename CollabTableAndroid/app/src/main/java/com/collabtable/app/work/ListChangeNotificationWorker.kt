@@ -33,7 +33,10 @@ class ListChangeNotificationWorker(
         }
     }
 
-    private fun emitNotificationsFor(list: CollabList, prefs: PreferencesManager) {
+    private fun emitNotificationsFor(
+        list: CollabList,
+        prefs: PreferencesManager,
+    ) {
         // Determine event type
         when {
             list.isDeleted -> {

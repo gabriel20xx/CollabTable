@@ -17,12 +17,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import androidx.navigation.NavType
 import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.ui.screens.ListDetailScreen
 import com.collabtable.app.ui.screens.ListsScreen
@@ -31,12 +31,12 @@ import com.collabtable.app.ui.screens.ServerSetupScreen
 import com.collabtable.app.ui.screens.SettingsScreen
 
 private object Routes {
-    const val Setup = "server_setup"
-    const val MainRoot = "main_root"
-    const val Tables = "tables"
-    const val Settings = "settings"
-    const val ListDetail = "list/{listId}"
-    const val Logs = "logs"
+    const val SETUP = "server_setup"
+    const val MAIN_ROOT = "main_root"
+    const val TABLES = "tables"
+    const val SETTINGS = "settings"
+    const val LIST_DETAIL = "list/{listId}"
+    const val LOGS = "logs"
 }
 
 @Composable
@@ -47,8 +47,8 @@ fun MainApp() {
     // Show setup flow until completed; then show main app with bottom nav
     if (prefs.isFirstRun()) {
         val navController = rememberNavController()
-        NavHost(navController, startDestination = Routes.Setup) {
-            composable(Routes.Setup) {
+        NavHost(navController, startDestination = Routes.SETUP) {
+            composable(Routes.SETUP) {
                 ServerSetupScreen(
                     onSetupComplete = {
                         // Mark not first run and trigger recomposition to show main UI
@@ -68,9 +68,9 @@ fun MainApp() {
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
-                    selected = currentRoute == Routes.Tables || currentRoute?.startsWith("list/") == true,
+                    selected = currentRoute == Routes.TABLES || currentRoute?.startsWith("list/") == true,
                     onClick = {
-                        navController.navigate(Routes.Tables) {
+                        navController.navigate(Routes.TABLES) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
@@ -80,9 +80,9 @@ fun MainApp() {
                     label = { Text("Tables") },
                 )
                 NavigationBarItem(
-                    selected = currentRoute == Routes.Settings,
+                    selected = currentRoute == Routes.SETTINGS,
                     onClick = {
-                        navController.navigate(Routes.Settings) {
+                        navController.navigate(Routes.SETTINGS) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
@@ -96,37 +96,38 @@ fun MainApp() {
     ) { innerPadding ->
         // Apply the innerPadding from the Scaffold so content is not obscured by the bottom navigation bar.
         Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
             color = MaterialTheme.colorScheme.background,
         ) {
             NavHost(
                 navController = navController,
-                startDestination = Routes.Tables,
+                startDestination = Routes.TABLES,
             ) {
-                composable(Routes.Tables) {
+                composable(Routes.TABLES) {
                     ListsScreen(
                         onNavigateToList = { listId -> navController.navigate("list/$listId") },
-                        onNavigateToSettings = { navController.navigate(Routes.Settings) },
-                        onNavigateToLogs = { navController.navigate(Routes.Logs) },
+                        onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
+                        onNavigateToLogs = { navController.navigate(Routes.LOGS) },
                     )
                 }
-                composable(Routes.Settings) {
+                composable(Routes.SETTINGS) {
                     SettingsScreen(
                         onNavigateBack = { navController.popBackStack() },
-                        onNavigateToLogs = { navController.navigate(Routes.Logs) },
+                        onNavigateToLogs = { navController.navigate(Routes.LOGS) },
                         onLeaveServer = {
                             // Reset to setup flow by toggling the flag and rebuilding graph via recomposition
                             prefs.setIsFirstRun(true)
                         },
                     )
                 }
-                composable(Routes.Logs) {
+                composable(Routes.LOGS) {
                     LogsScreen(onNavigateBack = { navController.popBackStack() })
                 }
                 composable(
-                    route = Routes.ListDetail,
+                    route = Routes.LIST_DETAIL,
                     arguments = listOf(navArgument("listId") { type = NavType.StringType }),
                 ) { backStackEntry ->
                     val listId = backStackEntry.arguments?.getString("listId") ?: return@composable

@@ -8,14 +8,11 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.gestures.scrollable
-import androidx.compose.foundation.gestures.rememberScrollableState
-import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -27,29 +24,28 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountBox
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.FitScreen
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -66,20 +62,17 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.zIndex
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
@@ -87,11 +80,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.collabtable.app.R
-import com.collabtable.app.data.preferences.PreferencesManager
-import com.collabtable.app.ui.components.ConnectionStatusAction
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.Field
 import com.collabtable.app.data.model.ItemWithValues
+import com.collabtable.app.data.preferences.PreferencesManager
+import com.collabtable.app.ui.components.ConnectionStatusAction
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import org.burnoutcrew.reorderable.ReorderableItem
 import org.burnoutcrew.reorderable.detectReorder
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
@@ -99,10 +96,6 @@ import org.burnoutcrew.reorderable.reorderable
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -192,16 +185,20 @@ fun ListDetailScreen(
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_item))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                ),
+                colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
             )
         },
         floatingActionButton = {},
     ) { padding ->
         // Apply filtering, sorting, and grouping to items
-        fun valueFor(item: ItemWithValues, field: Field?): String {
+        fun valueFor(
+            item: ItemWithValues,
+            field: Field?,
+        ): String {
             if (field == null) return ""
             return item.values.find { it.fieldId == field.id }?.value ?: ""
         }
@@ -406,30 +403,33 @@ fun ListDetailScreen(
                         onClick = {
                             val newWidths = mutableMapOf<String, Float>()
                             stableFields.forEach { field ->
-                                val headerPx = textMeasurer.measure(
-                                    AnnotatedString(field.name),
-                                    style = headerTextStyle,
-                                ).size.width.toFloat()
+                                val headerPx =
+                                    textMeasurer.measure(
+                                        AnnotatedString(field.name),
+                                        style = headerTextStyle,
+                                    ).size.width.toFloat()
 
                                 var maxContentPx = 0f
                                 stableItems.forEach { itemWithValues ->
                                     val v = itemWithValues.values.find { it.fieldId == field.id }?.value
                                     val display = getDisplayTextForMeasure(field, v)
                                     if (display.isNotEmpty()) {
-                                        val w = textMeasurer.measure(
-                                            AnnotatedString(display),
-                                            style = bodyTextStyle,
-                                        ).size.width.toFloat()
+                                        val w =
+                                            textMeasurer.measure(
+                                                AnnotatedString(display),
+                                                style = bodyTextStyle,
+                                            ).size.width.toFloat()
                                         if (w > maxContentPx) maxContentPx = w
                                     }
                                 }
 
-                                val widthDp = with(density) {
-                                    val headerDp = headerPx.toDp() + 12.dp + 12.dp + 24.dp + 2.dp
-                                    val contentDp = maxContentPx.toDp() + 8.dp + 8.dp + 2.dp
-                                    val base = maxOf(headerDp, contentDp, 100.dp)
-                                    (base + 6.dp).value
-                                }
+                                val widthDp =
+                                    with(density) {
+                                        val headerDp = headerPx.toDp() + 12.dp + 12.dp + 24.dp + 2.dp
+                                        val contentDp = maxContentPx.toDp() + 8.dp + 8.dp + 2.dp
+                                        val base = maxOf(headerDp, contentDp, 100.dp)
+                                        (base + 6.dp).value
+                                    }
                                 newWidths[field.id] = widthDp
                             }
                             newWidths.forEach { (id, w) -> fieldWidths[id] = w.dp }
@@ -665,7 +665,10 @@ fun ListDetailScreen(
 }
 
 // Produce the display text used in cells for measurement purposes (single-line content baseline)
-private fun getDisplayTextForMeasure(field: Field, raw: String?): String {
+private fun getDisplayTextForMeasure(
+    field: Field,
+    raw: String?,
+): String {
     val value = raw ?: ""
     return when (field.getType()) {
         com.collabtable.app.data.model.FieldType.TEXT,
@@ -677,7 +680,8 @@ private fun getDisplayTextForMeasure(field: Field, raw: String?): String {
         com.collabtable.app.data.model.FieldType.LOCATION,
         com.collabtable.app.data.model.FieldType.DATE,
         com.collabtable.app.data.model.FieldType.TIME,
-        com.collabtable.app.data.model.FieldType.DATETIME -> value
+        com.collabtable.app.data.model.FieldType.DATETIME,
+        -> value
 
         com.collabtable.app.data.model.FieldType.CURRENCY -> if (value.isBlank()) "" else field.getCurrency() + value
         com.collabtable.app.data.model.FieldType.PERCENTAGE -> if (value.isBlank()) "" else "$value%"
@@ -763,9 +767,10 @@ fun FieldHeader(
                 Text(
                     text = field.name,
                     style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { onHeaderClick() },
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .clickable { onHeaderClick() },
                 )
 
                 // Resize handle
@@ -797,14 +802,15 @@ fun FieldHeader(
                                         // Start or maintain continuous expand+scroll when at/right of the handle
                                         if (dragAmount.x >= 0f || autoScrollJob != null) {
                                             if (autoScrollJob == null) {
-                                                autoScrollJob = scope.launch {
-                                                    while (isActive) {
-                                                        // Keep expanding a bit and reveal the end as space grows
-                                                        onWidthChange(autoStepDp)
-                                                        scrollState.scrollTo(scrollState.maxValue)
-                                                        delay(16)
+                                                autoScrollJob =
+                                                    scope.launch {
+                                                        while (isActive) {
+                                                            // Keep expanding a bit and reveal the end as space grows
+                                                            onWidthChange(autoStepDp)
+                                                            scrollState.scrollTo(scrollState.maxValue)
+                                                            delay(16)
+                                                        }
                                                     }
-                                                }
                                             }
                                         }
                                         // Cancel only on a clear leftward move to avoid jitter stopping expansion

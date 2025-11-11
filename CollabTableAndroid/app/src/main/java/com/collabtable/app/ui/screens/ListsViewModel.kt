@@ -1,14 +1,14 @@
 package com.collabtable.app.ui.screens
 
 import android.content.Context
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
 import com.collabtable.app.data.repository.SyncRepository
 import com.collabtable.app.notifications.NotificationHelper
-import androidx.lifecycle.ProcessLifecycleOwner
-import androidx.lifecycle.Lifecycle
 import com.collabtable.app.utils.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

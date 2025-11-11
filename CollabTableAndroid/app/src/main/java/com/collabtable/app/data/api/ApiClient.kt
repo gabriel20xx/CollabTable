@@ -1,9 +1,9 @@
 package com.collabtable.app.data.api
 
 import android.content.Context
-import com.collabtable.app.data.preferences.PreferencesManager
-import android.os.Build
 import android.net.Uri
+import android.os.Build
+import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.utils.Logger
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -32,7 +32,8 @@ object ApiClient {
 
             val newRequest =
                 if (!password.isNullOrBlank() && password != "\$password") {
-                    request.newBuilder()
+                    request
+                        .newBuilder()
                         .header("Authorization", "Bearer $password")
                         .build()
                 } else {
@@ -43,7 +44,8 @@ object ApiClient {
         }
 
     private val okHttpClient =
-        OkHttpClient.Builder()
+        OkHttpClient
+            .Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
@@ -51,13 +53,13 @@ object ApiClient {
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
 
-    private fun buildRetrofit(): Retrofit {
-        return Retrofit.Builder()
+    private fun buildRetrofit(): Retrofit =
+        Retrofit
+            .Builder()
             .baseUrl(baseUrl)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-    }
 
     private fun isEmulator(): Boolean {
         val fingerprint = Build.FINGERPRINT.lowercase()
@@ -65,9 +67,14 @@ object ApiClient {
         val brand = Build.BRAND.lowercase()
         val device = Build.DEVICE.lowercase()
         val product = Build.PRODUCT.lowercase()
-        return fingerprint.contains("generic") || fingerprint.contains("emulator") ||
-            model.contains("google_sdk") || model.contains("emulator") || model.contains("android sdk built for") ||
-            brand.startsWith("generic") || device.startsWith("generic") || product.contains("sdk")
+        return fingerprint.contains("generic") ||
+            fingerprint.contains("emulator") ||
+            model.contains("google_sdk") ||
+            model.contains("emulator") ||
+            model.contains("android sdk built for") ||
+            brand.startsWith("generic") ||
+            device.startsWith("generic") ||
+            product.contains("sdk")
     }
 
     private fun ensureTrailingSlash(url: String): String = if (url.endsWith("/")) url else "$url/"
@@ -104,7 +111,8 @@ object ApiClient {
         baseUrl = normalizeForAndroidEmulator(prefs.getServerUrl())
         try {
             Logger.i("HTTP", "API base URL initialized to $baseUrl")
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+        }
         retrofit = buildRetrofit()
     }
 
@@ -112,7 +120,8 @@ object ApiClient {
         baseUrl = normalizeForAndroidEmulator(url)
         try {
             Logger.i("HTTP", "API base URL set to $baseUrl")
-        } catch (_: Exception) { }
+        } catch (_: Exception) {
+        }
         retrofit = buildRetrofit()
     }
 

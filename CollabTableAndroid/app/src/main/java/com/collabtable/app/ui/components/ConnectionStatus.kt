@@ -29,7 +29,8 @@ import okhttp3.Request
 import java.util.concurrent.TimeUnit
 
 private val statusClient: OkHttpClient =
-    OkHttpClient.Builder()
+    OkHttpClient
+        .Builder()
         .connectTimeout(5, TimeUnit.SECONDS)
         .readTimeout(5, TimeUnit.SECONDS)
         .build()
@@ -40,9 +41,14 @@ private fun isEmulator(): Boolean {
     val brand = Build.BRAND.lowercase()
     val device = Build.DEVICE.lowercase()
     val product = Build.PRODUCT.lowercase()
-    return fp.contains("generic") || fp.contains("emulator") ||
-        model.contains("google_sdk") || model.contains("emulator") || model.contains("android sdk built for") ||
-        brand.startsWith("generic") || device.startsWith("generic") || product.contains("sdk")
+    return fp.contains("generic") ||
+        fp.contains("emulator") ||
+        model.contains("google_sdk") ||
+        model.contains("emulator") ||
+        model.contains("android sdk built for") ||
+        brand.startsWith("generic") ||
+        device.startsWith("generic") ||
+        product.contains("sdk")
 }
 
 private fun toHealthUrl(rawApiUrl: String): String {
@@ -78,7 +84,12 @@ fun ConnectionStatusAction(
         while (true) {
             try {
                 val healthUrl = toHealthUrl(prefs.getServerUrl())
-                val req = Request.Builder().url(healthUrl).get().build()
+                val req =
+                    Request
+                        .Builder()
+                        .url(healthUrl)
+                        .get()
+                        .build()
                 val start = System.nanoTime()
                 val resp = withContext(Dispatchers.IO) { statusClient.newCall(req).execute() }
                 val tookMs = (System.nanoTime() - start) / 1_000_000
@@ -96,11 +107,12 @@ fun ConnectionStatusAction(
         }
     }
 
-    val dotColor: Color = when (ok) {
-        true -> Color(0xFF2E7D32) // green
-        false -> MaterialTheme.colorScheme.error
-        null -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
+    val dotColor: Color =
+        when (ok) {
+            true -> Color(0xFF2E7D32) // green
+            false -> MaterialTheme.colorScheme.error
+            null -> MaterialTheme.colorScheme.onSurfaceVariant
+        }
 
     Row(
         modifier = modifier,
@@ -109,7 +121,7 @@ fun ConnectionStatusAction(
     ) {
         if (showLatency && ok == true && latencyMs != null) {
             Text(
-                text = "${latencyMs} ms",
+                text = "$latencyMs ms",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onPrimaryContainer,
             )

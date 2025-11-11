@@ -1,5 +1,7 @@
 package com.collabtable.app.ui.screens
 
+import android.net.Uri
+import android.os.Build
 import android.os.NetworkOnMainThreadException
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -18,8 +20,6 @@ import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
-import android.os.Build
-import android.net.Uri
 
 class ServerSetupViewModel(
     private val preferencesManager: PreferencesManager,
@@ -34,14 +34,15 @@ class ServerSetupViewModel(
     val validationError: StateFlow<String?> = _validationError.asStateFlow()
 
     private val okHttpClient =
-        OkHttpClient.Builder()
+        OkHttpClient
+            .Builder()
             .connectTimeout(10, TimeUnit.SECONDS)
             .readTimeout(10, TimeUnit.SECONDS)
             .build()
 
     fun validateAndSaveServerUrl(
         url: String,
-    password: String,
+        password: String,
     ) {
         viewModelScope.launch {
             _isValidating.value = true
@@ -99,17 +100,28 @@ class ServerSetupViewModel(
                 }
 
                 // On physical devices, block local-only hosts that won't resolve
-                val isEmulator = run {
-                    val fp = Build.FINGERPRINT.lowercase()
-                    val model = Build.MODEL.lowercase()
-                    val brand = Build.BRAND.lowercase()
-                    val device = Build.DEVICE.lowercase()
-                    val product = Build.PRODUCT.lowercase()
-                    fp.contains("generic") || fp.contains("emulator") ||
-                        model.contains("google_sdk") || model.contains("emulator") || model.contains("android sdk built for") ||
-                        brand.startsWith("generic") || device.startsWith("generic") || product.contains("sdk")
-                }
-                val host = try { Uri.parse(normalizedUrl).host?.lowercase() } catch (_: Exception) { null }
+                val isEmulator =
+                    run {
+                        val fp = Build.FINGERPRINT.lowercase()
+                        val model = Build.MODEL.lowercase()
+                        val brand = Build.BRAND.lowercase()
+                        val device = Build.DEVICE.lowercase()
+                        val product = Build.PRODUCT.lowercase()
+                        fp.contains("generic") ||
+                            fp.contains("emulator") ||
+                            model.contains("google_sdk") ||
+                            model.contains("emulator") ||
+                            model.contains("android sdk built for") ||
+                            brand.startsWith("generic") ||
+                            device.startsWith("generic") ||
+                            product.contains("sdk")
+                    }
+                val host =
+                    try {
+                        Uri.parse(normalizedUrl).host?.lowercase()
+                    } catch (_: Exception) {
+                        null
+                    }
                 val localOnlyHosts = setOf("localhost", "127.0.0.1", "host.docker.internal", "10.0.2.2")
                 if (!isEmulator && host != null && host in localOnlyHosts) {
                     _validationError.value = "On a physical device, use your computer's LAN IP (e.g., 192.168.x.x:3000) instead of '$host'."
@@ -120,7 +132,8 @@ class ServerSetupViewModel(
                 // Try to reach the health endpoint (no auth required)
                 val healthUrl = normalizedUrl.replace("/api/", "/health")
                 val healthRequest =
-                    Request.Builder()
+                    Request
+                        .Builder()
                         .url(healthUrl)
                         .get()
                         .build()
@@ -158,7 +171,8 @@ class ServerSetupViewModel(
 
                         val httpsHealthUrl = httpsUrl.replace("/api/", "/health")
                         val httpsHealthRequest =
-                            Request.Builder()
+                            Request
+                                .Builder()
                                 .url(httpsHealthUrl)
                                 .get()
                                 .build()
@@ -182,7 +196,8 @@ class ServerSetupViewModel(
                     // Now validate the password by making an authenticated request
                     val testUrl = "${finalUrl}lists"
                     val authRequest =
-                        Request.Builder()
+                        Request
+                            .Builder()
                             .url(testUrl)
                             .header("Authorization", "Bearer $trimmedPassword")
                             .get()

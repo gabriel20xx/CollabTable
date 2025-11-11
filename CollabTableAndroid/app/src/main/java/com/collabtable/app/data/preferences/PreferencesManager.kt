@@ -2,10 +2,10 @@ package com.collabtable.app.data.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
-import org.json.JSONObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import org.json.JSONObject
 
 class PreferencesManager(context: Context) {
     private val prefs: SharedPreferences =
@@ -210,7 +210,10 @@ class PreferencesManager(context: Context) {
         }
     }
 
-    fun setColumnWidths(listId: String, widthsDp: Map<String, Float>) {
+    fun setColumnWidths(
+        listId: String,
+        widthsDp: Map<String, Float>,
+    ) {
         val key = COLUMN_WIDTHS_PREFIX + listId
         val json = JSONObject()
         widthsDp.forEach { (fieldId, width) ->
@@ -229,11 +232,11 @@ class PreferencesManager(context: Context) {
         private const val KEY_DYNAMIC_COLOR = "dynamic_color"
         private const val KEY_AMOLED_DARK = "amoled_dark"
         private const val KEY_SORT_ORDER = "sort_order"
-    private const val KEY_SYNC_POLL_INTERVAL_MS = "sync_poll_interval_ms"
-    private const val KEY_NOTIFY_LIST_ADDED = "notify_list_added"
-    private const val KEY_NOTIFY_LIST_EDITED = "notify_list_edited"
-    private const val KEY_NOTIFY_LIST_REMOVED = "notify_list_removed"
-    private const val KEY_LAST_LIST_NOTIFY_CHECK_TS = "last_list_notify_check_ts"
+        private const val KEY_SYNC_POLL_INTERVAL_MS = "sync_poll_interval_ms"
+        private const val KEY_NOTIFY_LIST_ADDED = "notify_list_added"
+        private const val KEY_NOTIFY_LIST_EDITED = "notify_list_edited"
+        private const val KEY_NOTIFY_LIST_REMOVED = "notify_list_removed"
+        private const val KEY_LAST_LIST_NOTIFY_CHECK_TS = "last_list_notify_check_ts"
         private const val COLUMN_WIDTHS_PREFIX = "column_widths_" // + listId
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"
         private const val DEFAULT_SYNC_POLL_INTERVAL_MS = 250L

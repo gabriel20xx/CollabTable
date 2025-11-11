@@ -22,17 +22,14 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -45,7 +42,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,7 +54,6 @@ import com.collabtable.app.data.model.CollabList
 import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.ui.components.ConnectionStatusAction
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import org.burnoutcrew.reorderable.ReorderableItem
 import org.burnoutcrew.reorderable.detectReorder
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
@@ -215,9 +210,10 @@ fun ListsScreen(
                 Column(modifier = Modifier.fillMaxSize()) {
                     // Controls above the list (align with table view UX)
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.Start,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -318,16 +314,22 @@ fun ListItem(
     // We wrap the original row in a full-width Box with the same outer padding, then add a clickable
     // modifier that uses additional vertical padding but negative padding inside to keep visual spacing.
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp) // keep original horizontal spacing
-            .clickable(onClick = onListClick) // entire row (including margins) is tappable
-            .padding(vertical = 4.dp) // expand touch area (original visual was 8.dp inside Row)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                // keep original horizontal spacing
+                .padding(horizontal = 12.dp)
+                // entire row (including margins) is tappable
+                .clickable(onClick = onListClick)
+                // expand touch area (original visual was 8.dp inside Row)
+                .padding(vertical = 4.dp),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp), // actual visual spacing remains ~8dp total (4 + 4)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+            // actual visual spacing remains ~8dp total (4 + 4)
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -446,13 +448,14 @@ private fun SortMenu(prefs: PreferencesManager) {
     val currentOrder by prefs.sortOrder.collectAsState(initial = prefs.getSortOrder())
     var expanded by remember { mutableStateOf(false) }
 
-    val label = when (currentOrder) {
-        PreferencesManager.SORT_UPDATED_DESC -> "Updated ↓"
-        PreferencesManager.SORT_UPDATED_ASC -> "Updated ↑"
-        PreferencesManager.SORT_NAME_ASC -> "Name A–Z"
-        PreferencesManager.SORT_NAME_DESC -> "Name Z–A"
-        else -> "Sort"
-    }
+    val label =
+        when (currentOrder) {
+            PreferencesManager.SORT_UPDATED_DESC -> "Updated ↓"
+            PreferencesManager.SORT_UPDATED_ASC -> "Updated ↑"
+            PreferencesManager.SORT_NAME_ASC -> "Name A–Z"
+            PreferencesManager.SORT_NAME_DESC -> "Name Z–A"
+            else -> "Sort"
+        }
 
     Box {
         TextButton(onClick = { expanded = true }) {
@@ -461,26 +464,41 @@ private fun SortMenu(prefs: PreferencesManager) {
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             DropdownMenuItem(
                 text = { Text("Updated (newest first)") },
-                onClick = { prefs.setSortOrder(PreferencesManager.SORT_UPDATED_DESC); expanded = false },
+                onClick = {
+                    prefs.setSortOrder(PreferencesManager.SORT_UPDATED_DESC)
+                    expanded = false
+                },
             )
             DropdownMenuItem(
                 text = { Text("Updated (oldest first)") },
-                onClick = { prefs.setSortOrder(PreferencesManager.SORT_UPDATED_ASC); expanded = false },
+                onClick = {
+                    prefs.setSortOrder(PreferencesManager.SORT_UPDATED_ASC)
+                    expanded = false
+                },
             )
             DropdownMenuItem(
                 text = { Text("Name (A–Z)") },
-                onClick = { prefs.setSortOrder(PreferencesManager.SORT_NAME_ASC); expanded = false },
+                onClick = {
+                    prefs.setSortOrder(PreferencesManager.SORT_NAME_ASC)
+                    expanded = false
+                },
             )
             DropdownMenuItem(
                 text = { Text("Name (Z–A)") },
-                onClick = { prefs.setSortOrder(PreferencesManager.SORT_NAME_DESC); expanded = false },
+                onClick = {
+                    prefs.setSortOrder(PreferencesManager.SORT_NAME_DESC)
+                    expanded = false
+                },
             )
         }
     }
 }
 
 // Format updatedAt relative to now: "Updated 5 sec/min/hour(s) ago" (days included when applicable)
-private fun formatUpdatedAgo(updatedAt: Long, nowMs: Long): String {
+private fun formatUpdatedAgo(
+    updatedAt: Long,
+    nowMs: Long,
+): String {
     val delta = (nowMs - updatedAt).coerceAtLeast(0L)
     val seconds = delta / 1000
     return when {
@@ -492,12 +510,12 @@ private fun formatUpdatedAgo(updatedAt: Long, nowMs: Long): String {
         seconds < 86_400 -> {
             val hours = seconds / 3600
             val unit = if (hours == 1L) "hour" else "hours"
-            "Updated ${hours} $unit ago"
+            "Updated $hours $unit ago"
         }
         else -> {
             val days = seconds / 86_400
             val unit = if (days == 1L) "day" else "days"
-            "Updated ${days} $unit ago"
+            "Updated $days $unit ago"
         }
     }
 }

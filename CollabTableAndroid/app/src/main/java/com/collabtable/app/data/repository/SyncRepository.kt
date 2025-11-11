@@ -10,10 +10,10 @@ import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.utils.Logger
 import kotlinx.coroutines.Dispatchers
-import java.net.UnknownHostException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import java.net.UnknownHostException
 
 class SyncRepository(context: Context) {
     private val appContext = context.applicationContext
@@ -22,18 +22,23 @@ class SyncRepository(context: Context) {
     private val prefs = appContext.getSharedPreferences("collab_table_prefs", Context.MODE_PRIVATE)
 
     @Volatile private var authBackoffUntil: Long = 0L
+
     @Volatile private var authBackoffMs: Long = 0L
+
     @Volatile private var networkBackoffUntil: Long = 0L
+
     @Volatile private var networkBackoffMs: Long = 0L
 
-        fun resetAuthBackoff() {
-            authBackoffMs = 0L
-            authBackoffUntil = 0L
-        }
-        private fun resetNetworkBackoff() {
-            networkBackoffMs = 0L
-            networkBackoffUntil = 0L
-        }
+    fun resetAuthBackoff() {
+        authBackoffMs = 0L
+        authBackoffUntil = 0L
+    }
+
+    private fun resetNetworkBackoff() {
+        networkBackoffMs = 0L
+        networkBackoffUntil = 0L
+    }
+
     // We keep separate watermarks to avoid clock-skew issues:
     // - server watermark: server-assigned timestamp for fetching server changes
     // - local watermark: device local time for selecting local changes to upload
@@ -69,219 +74,225 @@ class SyncRepository(context: Context) {
         withContext(Dispatchers.IO) {
             // Prevent overlapping syncs across screens/viewmodels
             syncMutex.withLock {
-            try {
-                // Only attempt network sync when app is in foreground to avoid background DNS issues
-                // Foreground check removed (lifecycle owner not available in this module); rely solely on network availability.
-                // Skip sync when there's no validated network available
-                if (!isNetworkAvailable()) {
-                    return@withContext Result.success(Unit)
-                }
-                // If not authenticated, skip making network calls (e.g., after leaving server)
-                val prefMgr = PreferencesManager.getInstance(appContext)
-                val currentPassword = prefMgr.getServerPassword()?.trim()
-                if (currentPassword.isNullOrBlank() || currentPassword == "\$password") {
-                    // Quietly skip to avoid spamming server with missing Authorization
-                    return@withContext Result.success(Unit)
-                }
-                // Respect auth backoff window to avoid spamming the server on repeated 401s
-                val now = System.currentTimeMillis()
-                if (authBackoffUntil > now) {
-                    return@withContext Result.success(Unit)
-                }
-                // Respect network backoff for transient DNS failures / unreachable host
-                if (networkBackoffUntil > now) {
-                    return@withContext Result.success(Unit)
-                }
-                val lastServerTs = getLastServerSyncTs()
-                val lastLocalTs = getLastLocalSyncTs()
-                // Capture a snapshot timestamp BEFORE reading local changes to avoid missing
-                // updates that happen during an in-flight sync. We'll advance the local watermark
-                // to this snapshot once the sync completes successfully.
-                val localSnapshotTs = System.currentTimeMillis()
-                val isInitialSync = lastServerTs == 0L
-                if (isInitialSync) {
-                    Logger.i("Sync", "[SYNC] Starting initial sync with server")
-                }
-
-                // If our local DB appears empty but we have a nonzero server watermark (e.g., after reinstall
-                // or clearing local data), request a one-time full down-sync by resetting the effective
-                // lastSyncTimestamp to 0 for this request. This avoids permanently missing historical rows.
-                val hasAnyLists = database.listDao().getAllListIds().isNotEmpty()
-                val hasAnyItems = database.itemDao().getAllItemIds().isNotEmpty()
-                val effectiveLastServerTs = when {
-                    // App start can request a full down-sync regardless of local contents
-                    forceFullDown && lastServerTs > 0L -> 0L
-                    // Fallback: if local looks empty but we have a watermark, do a one-time full down-sync
-                    lastServerTs > 0L && (!hasAnyLists || !hasAnyItems) -> 0L
-                    else -> lastServerTs
-                }
-                if (effectiveLastServerTs == 0L && lastServerTs > 0L) {
-                    val reason = if (forceFullDown) "startup forced" else "local empty"
-                    Logger.w("Sync", "$reason full down-sync requested")
-                }
-
-                // Gather local changes since last sync
-                val localLists = database.listDao().getListsUpdatedSince(lastLocalTs)
-                    .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
-                val localFields = database.fieldDao().getFieldsUpdatedSince(lastLocalTs)
-                    .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
-                val localItems = database.itemDao().getItemsUpdatedSince(lastLocalTs)
-                    .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
-                val localValues = database.itemValueDao().getValuesUpdatedSince(lastLocalTs)
-                    .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
-
-                // Only log send when there are actual local changes
-                val localTotal = localLists.size + localFields.size + localItems.size + localValues.size
-                if (localTotal > 0) {
-                    Logger.i(
-                        "Sync",
-                        "[OUT] Sending changes " +
-                            "(lists=${localLists.size}, fields=${localFields.size}, " +
-                            "items=${localItems.size}, values=${localValues.size})",
-                    )
-                }
-
-                // Send to server and get updates
-                val syncRequest =
-                    SyncRequest(
-                        lastSyncTimestamp = effectiveLastServerTs,
-                        lists = localLists,
-                        fields = localFields,
-                        items = localItems,
-                        itemValues = localValues,
-                    )
-
-                // HTTP-only sync
-                val response = try {
-                    api.sync(syncRequest)
-                } catch (e: UnknownHostException) {
-                    // Host could not be resolved; apply exponential backoff and surface a warning once.
-                    networkBackoffMs = if (networkBackoffMs == 0L) 5_000L else (networkBackoffMs * 2).coerceAtMost(180_000L)
-                    networkBackoffUntil = System.currentTimeMillis() + networkBackoffMs
-                    Logger.w("Sync", "Network host unresolved (DNS). Backing off for ${networkBackoffMs/1000}s: ${e.message}")
-                    return@withContext Result.failure(Exception("Network unreachable: unable to resolve host"))
-                } catch (e: Exception) {
-                    if (e.message?.contains("Unable to resolve host", ignoreCase = true) == true) {
-                        networkBackoffMs = if (networkBackoffMs == 0L) 5_000L else (networkBackoffMs * 2).coerceAtMost(180_000L)
-                        networkBackoffUntil = System.currentTimeMillis() + networkBackoffMs
-                        Logger.w("Sync", "DNS failure. Backing off for ${networkBackoffMs/1000}s: ${e.message}")
-                        return@withContext Result.failure(Exception("Network unreachable: unable to resolve host"))
+                try {
+                    // Only attempt network sync when app is in foreground to avoid background DNS issues
+                    // Foreground check removed (lifecycle owner not available in this module); rely solely on network availability.
+                    // Skip sync when there's no validated network available
+                    if (!isNetworkAvailable()) {
+                        return@withContext Result.success(Unit)
                     }
-                    throw e
-                }
-                if (!response.isSuccessful) {
-                    if (response.code() == 401) {
-                        // Unauthorized: likely bad/missing password. Reset sync baseline and surface a clear error.
+                    // If not authenticated, skip making network calls (e.g., after leaving server)
+                    val prefMgr = PreferencesManager.getInstance(appContext)
+                    val currentPassword = prefMgr.getServerPassword()?.trim()
+                    if (currentPassword.isNullOrBlank() || currentPassword == "\$password") {
+                        // Quietly skip to avoid spamming server with missing Authorization
+                        return@withContext Result.success(Unit)
+                    }
+                    // Respect auth backoff window to avoid spamming the server on repeated 401s
+                    val now = System.currentTimeMillis()
+                    if (authBackoffUntil > now) {
+                        return@withContext Result.success(Unit)
+                    }
+                    // Respect network backoff for transient DNS failures / unreachable host
+                    if (networkBackoffUntil > now) {
+                        return@withContext Result.success(Unit)
+                    }
+                    val lastServerTs = getLastServerSyncTs()
+                    val lastLocalTs = getLastLocalSyncTs()
+                    // Capture a snapshot timestamp BEFORE reading local changes to avoid missing
+                    // updates that happen during an in-flight sync. We'll advance the local watermark
+                    // to this snapshot once the sync completes successfully.
+                    val localSnapshotTs = System.currentTimeMillis()
+                    val isInitialSync = lastServerTs == 0L
+                    if (isInitialSync) {
+                        Logger.i("Sync", "[SYNC] Starting initial sync with server")
+                    }
+
+                    // If our local DB appears empty but we have a nonzero server watermark (e.g., after reinstall
+                    // or clearing local data), request a one-time full down-sync by resetting the effective
+                    // lastSyncTimestamp to 0 for this request. This avoids permanently missing historical rows.
+                    val hasAnyLists = database.listDao().getAllListIds().isNotEmpty()
+                    val hasAnyItems = database.itemDao().getAllItemIds().isNotEmpty()
+                    val effectiveLastServerTs =
+                        when {
+                            // App start can request a full down-sync regardless of local contents
+                            forceFullDown && lastServerTs > 0L -> 0L
+                            // Fallback: if local looks empty but we have a watermark, do a one-time full down-sync
+                            lastServerTs > 0L && (!hasAnyLists || !hasAnyItems) -> 0L
+                            else -> lastServerTs
+                        }
+                    if (effectiveLastServerTs == 0L && lastServerTs > 0L) {
+                        val reason = if (forceFullDown) "startup forced" else "local empty"
+                        Logger.w("Sync", "$reason full down-sync requested")
+                    }
+
+                    // Gather local changes since last sync
+                    val localLists =
+                        database.listDao().getListsUpdatedSince(lastLocalTs)
+                            .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
+                    val localFields =
+                        database.fieldDao().getFieldsUpdatedSince(lastLocalTs)
+                            .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
+                    val localItems =
+                        database.itemDao().getItemsUpdatedSince(lastLocalTs)
+                            .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
+                    val localValues =
+                        database.itemValueDao().getValuesUpdatedSince(lastLocalTs)
+                            .filter { it.updatedAt in (lastLocalTs + 1)..localSnapshotTs }
+
+                    // Only log send when there are actual local changes
+                    val localTotal = localLists.size + localFields.size + localItems.size + localValues.size
+                    if (localTotal > 0) {
+                        Logger.i(
+                            "Sync",
+                            "[OUT] Sending changes " +
+                                "(lists=${localLists.size}, fields=${localFields.size}, " +
+                                "items=${localItems.size}, values=${localValues.size})",
+                        )
+                    }
+
+                    // Send to server and get updates
+                    val syncRequest =
+                        SyncRequest(
+                            lastSyncTimestamp = effectiveLastServerTs,
+                            lists = localLists,
+                            fields = localFields,
+                            items = localItems,
+                            itemValues = localValues,
+                        )
+
+                    // HTTP-only sync
+                    val response =
+                        try {
+                            api.sync(syncRequest)
+                        } catch (e: UnknownHostException) {
+                            // Host could not be resolved; apply exponential backoff and surface a warning once.
+                            networkBackoffMs = if (networkBackoffMs == 0L) 5_000L else (networkBackoffMs * 2).coerceAtMost(180_000L)
+                            networkBackoffUntil = System.currentTimeMillis() + networkBackoffMs
+                            Logger.w("Sync", "Network host unresolved (DNS). Backing off for ${networkBackoffMs / 1000}s: ${e.message}")
+                            return@withContext Result.failure(Exception("Network unreachable: unable to resolve host"))
+                        } catch (e: Exception) {
+                            if (e.message?.contains("Unable to resolve host", ignoreCase = true) == true) {
+                                networkBackoffMs = if (networkBackoffMs == 0L) 5_000L else (networkBackoffMs * 2).coerceAtMost(180_000L)
+                                networkBackoffUntil = System.currentTimeMillis() + networkBackoffMs
+                                Logger.w("Sync", "DNS failure. Backing off for ${networkBackoffMs / 1000}s: ${e.message}")
+                                return@withContext Result.failure(Exception("Network unreachable: unable to resolve host"))
+                            }
+                            throw e
+                        }
+                    if (!response.isSuccessful) {
+                        if (response.code() == 401) {
+                            // Unauthorized: likely bad/missing password. Reset sync baseline and surface a clear error.
+                            setLastServerSyncTs(0)
+                            setLastLocalSyncTs(0)
+                            // Apply exponential backoff on repeated auth failures
+                            authBackoffMs = if (authBackoffMs == 0L) 2_000L else (authBackoffMs * 2).coerceAtMost(300_000L)
+                            authBackoffUntil = System.currentTimeMillis() + authBackoffMs
+                            return@withContext Result.failure(Exception("Unauthorized (401). Please verify server password."))
+                        }
+                        return@withContext Result.failure(Exception("Sync failed: ${response.code()}"))
+                    }
+                    val syncResponse = response.body()!!
+                    // Only log receive when there are actual server changes
+                    val inTotal =
+                        syncResponse.lists.size +
+                            syncResponse.fields.size +
+                            syncResponse.items.size +
+                            syncResponse.itemValues.size
+                    if (inTotal > 0) {
+                        Logger.i(
+                            "Sync",
+                            "[IN] Received changes " +
+                                "(lists=${syncResponse.lists.size}, fields=${syncResponse.fields.size}, " +
+                                "items=${syncResponse.items.size}, values=${syncResponse.itemValues.size})",
+                        )
+                    }
+
+                    // Apply server changes to local database atomically in correct order
+                    database.withTransaction {
+                        // 1) Upsert lists first, preserving local orderIndex when present
+                        val localIdToOrder = database.listDao().getListIdsAndOrder().associate { it.id to it.orderIndex }
+                        // Build a map of local updatedAt to avoid overwriting newer local changes with older server data
+                        val localUpdatedMap = database.listDao().getListsUpdatedSince(0).associateBy({ it.id }, { it.updatedAt })
+
+                        val listsPreservingOrder =
+                            syncResponse.lists
+                                .filter { incoming ->
+                                    val localUpdated = localUpdatedMap[incoming.id]
+                                    localUpdated == null || incoming.updatedAt >= localUpdated
+                                }
+                                .map { incoming ->
+                                    val localOrder = localIdToOrder[incoming.id]
+                                    if (localOrder != null) incoming.copy(orderIndex = localOrder) else incoming
+                                }
+
+                        if (listsPreservingOrder.isNotEmpty()) {
+                            database.listDao().insertLists(listsPreservingOrder)
+                        }
+
+                        // Build set of existing list ids to guard child inserts
+                        val existingListIds = database.listDao().getAllListIds().toSet()
+
+                        // 2) Filter and upsert fields whose parent list exists
+                        val filteredFields = syncResponse.fields.filter { f -> f.listId in existingListIds }
+                        if (filteredFields.size != syncResponse.fields.size) {
+                            val dropped = syncResponse.fields.size - filteredFields.size
+                            Logger.w("Sync", "Dropping $dropped field(s) with missing parent list to avoid FK errors")
+                        }
+                        if (filteredFields.isNotEmpty()) {
+                            database.fieldDao().insertFields(filteredFields)
+                        }
+
+                        // 3) Filter and upsert items whose parent list exists
+                        val filteredItems = syncResponse.items.filter { i -> i.listId in existingListIds }
+                        if (filteredItems.size != syncResponse.items.size) {
+                            val dropped = syncResponse.items.size - filteredItems.size
+                            Logger.w("Sync", "Dropping $dropped item(s) with missing parent list to avoid FK errors")
+                        }
+                        if (filteredItems.isNotEmpty()) {
+                            database.itemDao().insertItems(filteredItems)
+                        }
+
+                        // 4) Filter item values to only those whose parents (item and field) exist locally
+                        val existingItemIds = database.itemDao().getAllItemIds().toSet()
+                        val existingFieldIds = database.fieldDao().getAllFieldIds().toSet()
+                        val filteredValues =
+                            syncResponse.itemValues.filter { v ->
+                                v.itemId in existingItemIds && v.fieldId in existingFieldIds
+                            }
+                        if (filteredValues.size != syncResponse.itemValues.size) {
+                            val dropped = syncResponse.itemValues.size - filteredValues.size
+                            Logger.w("Sync", "Dropping $dropped item value(s) with missing parents to avoid FK errors")
+                        }
+                        if (filteredValues.isNotEmpty()) {
+                            database.itemValueDao().insertValues(filteredValues)
+                        }
+                    }
+
+                    // Update watermarks: server ts from response, local ts from device clock now
+                    setLastServerSyncTs(syncResponse.serverTimestamp)
+                    // Advance local watermark to the snapshot taken before reading local changes.
+                    // This avoids missing updates that occurred while the sync was in-flight.
+                    setLastLocalSyncTs(localSnapshotTs)
+
+                    if (isInitialSync) {
+                        Logger.i("Sync", "[SYNC] Initial sync completed")
+                    }
+
+                    // Successful sync clears any previous auth backoff
+                    resetAuthBackoff()
+                    resetNetworkBackoff()
+
+                    return@withContext Result.success(Unit)
+                } catch (e: Exception) {
+                    // If WS indicated unauthorized, align behavior with HTTP path
+                    if (e.message?.contains("Unauthorized") == true) {
                         setLastServerSyncTs(0)
                         setLastLocalSyncTs(0)
-                        // Apply exponential backoff on repeated auth failures
-                        authBackoffMs = if (authBackoffMs == 0L) 2_000L else (authBackoffMs * 2).coerceAtMost(300_000L)
-                        authBackoffUntil = System.currentTimeMillis() + authBackoffMs
-                        return@withContext Result.failure(Exception("Unauthorized (401). Please verify server password."))
                     }
-                    return@withContext Result.failure(Exception("Sync failed: ${response.code()}"))
+                    // Do not reset network backoff here; it's managed where thrown.
+                    return@withContext Result.failure(e)
                 }
-                val syncResponse = response.body()!!
-                // Only log receive when there are actual server changes
-                val inTotal =
-                    syncResponse.lists.size +
-                        syncResponse.fields.size +
-                        syncResponse.items.size +
-                        syncResponse.itemValues.size
-                if (inTotal > 0) {
-                    Logger.i(
-                        "Sync",
-                        "[IN] Received changes " +
-                            "(lists=${syncResponse.lists.size}, fields=${syncResponse.fields.size}, " +
-                            "items=${syncResponse.items.size}, values=${syncResponse.itemValues.size})",
-                    )
-                }
-
-                // Apply server changes to local database atomically in correct order
-                database.withTransaction {
-                    // 1) Upsert lists first, preserving local orderIndex when present
-                    val localIdToOrder = database.listDao().getListIdsAndOrder().associate { it.id to it.orderIndex }
-                    // Build a map of local updatedAt to avoid overwriting newer local changes with older server data
-                    val localUpdatedMap = database.listDao().getListsUpdatedSince(0).associateBy({ it.id }, { it.updatedAt })
-
-                    val listsPreservingOrder =
-                        syncResponse.lists
-                            .filter { incoming ->
-                                val localUpdated = localUpdatedMap[incoming.id]
-                                localUpdated == null || incoming.updatedAt >= localUpdated
-                            }
-                            .map { incoming ->
-                                val localOrder = localIdToOrder[incoming.id]
-                                if (localOrder != null) incoming.copy(orderIndex = localOrder) else incoming
-                            }
-
-                    if (listsPreservingOrder.isNotEmpty()) {
-                        database.listDao().insertLists(listsPreservingOrder)
-                    }
-
-                    // Build set of existing list ids to guard child inserts
-                    val existingListIds = database.listDao().getAllListIds().toSet()
-
-                    // 2) Filter and upsert fields whose parent list exists
-                    val filteredFields = syncResponse.fields.filter { f -> f.listId in existingListIds }
-                    if (filteredFields.size != syncResponse.fields.size) {
-                        val dropped = syncResponse.fields.size - filteredFields.size
-                        Logger.w("Sync", "Dropping $dropped field(s) with missing parent list to avoid FK errors")
-                    }
-                    if (filteredFields.isNotEmpty()) {
-                        database.fieldDao().insertFields(filteredFields)
-                    }
-
-                    // 3) Filter and upsert items whose parent list exists
-                    val filteredItems = syncResponse.items.filter { i -> i.listId in existingListIds }
-                    if (filteredItems.size != syncResponse.items.size) {
-                        val dropped = syncResponse.items.size - filteredItems.size
-                        Logger.w("Sync", "Dropping $dropped item(s) with missing parent list to avoid FK errors")
-                    }
-                    if (filteredItems.isNotEmpty()) {
-                        database.itemDao().insertItems(filteredItems)
-                    }
-
-                    // 4) Filter item values to only those whose parents (item and field) exist locally
-                    val existingItemIds = database.itemDao().getAllItemIds().toSet()
-                    val existingFieldIds = database.fieldDao().getAllFieldIds().toSet()
-                    val filteredValues =
-                        syncResponse.itemValues.filter { v ->
-                            v.itemId in existingItemIds && v.fieldId in existingFieldIds
-                        }
-                    if (filteredValues.size != syncResponse.itemValues.size) {
-                        val dropped = syncResponse.itemValues.size - filteredValues.size
-                        Logger.w("Sync", "Dropping $dropped item value(s) with missing parents to avoid FK errors")
-                    }
-                    if (filteredValues.isNotEmpty()) {
-                        database.itemValueDao().insertValues(filteredValues)
-                    }
-                }
-
-                // Update watermarks: server ts from response, local ts from device clock now
-                setLastServerSyncTs(syncResponse.serverTimestamp)
-                // Advance local watermark to the snapshot taken before reading local changes.
-                // This avoids missing updates that occurred while the sync was in-flight.
-                setLastLocalSyncTs(localSnapshotTs)
-
-                if (isInitialSync) {
-                    Logger.i("Sync", "[SYNC] Initial sync completed")
-                }
-
-                // Successful sync clears any previous auth backoff
-                resetAuthBackoff()
-                resetNetworkBackoff()
-
-                return@withContext Result.success(Unit)
-            } catch (e: Exception) {
-                // If WS indicated unauthorized, align behavior with HTTP path
-                if (e.message?.contains("Unauthorized") == true) {
-                    setLastServerSyncTs(0)
-                    setLastLocalSyncTs(0)
-                }
-                // Do not reset network backoff here; it's managed where thrown.
-                return@withContext Result.failure(e)
-            }
             }
         }
 
@@ -295,9 +306,10 @@ class SyncRepository(context: Context) {
         val caps = cm.getNetworkCapabilities(network) ?: return false
         val hasInternet = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
         val isValidated = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
-        val hasTransport = caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
-            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+        val hasTransport =
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
         return hasInternet && isValidated && hasTransport
     }
 }

@@ -84,35 +84,31 @@ data class Field(
         }
     }
 
-    fun getDropdownOptions(): List<String> {
-        return if (getType() == FieldType.DROPDOWN && fieldOptions.isNotBlank()) {
+    fun getDropdownOptions(): List<String> =
+        if (getType() == FieldType.DROPDOWN && fieldOptions.isNotBlank()) {
             fieldOptions.split("|")
         } else {
             emptyList()
         }
-    }
 
-    fun getCurrency(): String {
-        return if ((getType() == FieldType.CURRENCY) && fieldOptions.isNotBlank()) {
+    fun getCurrency(): String =
+        if ((getType() == FieldType.CURRENCY) && fieldOptions.isNotBlank()) {
             fieldOptions
         } else {
             "CHF"
         }
-    }
 
-    fun getMaxRating(): Int {
-        return if (getType() == FieldType.RATING && fieldOptions.isNotBlank()) {
+    fun getMaxRating(): Int =
+        if (getType() == FieldType.RATING && fieldOptions.isNotBlank()) {
             fieldOptions.toIntOrNull() ?: 5
         } else {
             5
         }
-    }
 
-    fun getAutocompleteOptions(): List<String> {
-        return if (getType() == FieldType.AUTOCOMPLETE && fieldOptions.isNotBlank()) {
+    fun getAutocompleteOptions(): List<String> =
+        if (getType() == FieldType.AUTOCOMPLETE && fieldOptions.isNotBlank()) {
             fieldOptions.split("|")
         } else {
             emptyList()
         }
-    }
 }

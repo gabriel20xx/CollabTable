@@ -2,7 +2,8 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'org.jetbrains.kotlin.plugin.compose'
-    id 'com.google.devtools.ksp'
+    // KSP not available for Kotlin 2.2.21 yet; switch to kapt for Room annotation processing
+    id 'org.jetbrains.kotlin.kapt'
     id 'org.jlleitschuh.gradle.ktlint'
     id 'io.gitlab.arturbosch.detekt'
 }
@@ -40,9 +41,6 @@ android {
     buildFeatures {
         compose = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = '1.6.8'
-    }
     packaging {
         resources {
             excludes += '/META-INF/{AL2.0,LGPL2.1}'
@@ -69,10 +67,10 @@ dependencies {
     // ViewModel
     implementation 'androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2'
     
-    // Room
-    implementation 'androidx.room:room-runtime:2.6.1'
-    implementation 'androidx.room:room-ktx:2.6.1'
-    ksp 'androidx.room:room-compiler:2.6.1'
+    // Room (use kapt for annotation processing). Bump to version compatible with Kotlin 2.2 metadata
+    implementation 'androidx.room:room-runtime:2.7.0'
+    implementation 'androidx.room:room-ktx:2.7.0'
+    kapt 'androidx.room:room-compiler:2.7.0'
     
     // Retrofit
     implementation 'com.squareup.retrofit2:retrofit:2.9.0'

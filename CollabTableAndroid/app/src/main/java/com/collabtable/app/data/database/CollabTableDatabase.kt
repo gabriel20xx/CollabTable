@@ -54,20 +54,19 @@ abstract class CollabTableDatabase : RoomDatabase() {
         @Volatile
         private var dbInstance: CollabTableDatabase? = null
 
-        fun getDatabase(context: Context): CollabTableDatabase {
-            return dbInstance ?: synchronized(this) {
+        fun getDatabase(context: Context): CollabTableDatabase =
+            dbInstance ?: synchronized(this) {
                 val instance =
-                    Room.databaseBuilder(
-                        context.applicationContext,
-                        CollabTableDatabase::class.java,
-                        "collab_table_database",
-                    )
-                        .addMigrations(migration1To2, migration2To3)
+                    Room
+                        .databaseBuilder(
+                            context.applicationContext,
+                            CollabTableDatabase::class.java,
+                            "collab_table_database",
+                        ).addMigrations(migration1To2, migration2To3)
                         .build()
                 dbInstance = instance
                 instance
             }
-        }
 
         fun clearDatabase(context: Context) {
             synchronized(this) {

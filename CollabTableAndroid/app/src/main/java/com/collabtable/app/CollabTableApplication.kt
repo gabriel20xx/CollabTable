@@ -4,21 +4,21 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import com.collabtable.app.data.api.ApiClient
-import com.collabtable.app.data.repository.SyncRepository
-import com.collabtable.app.notifications.NotificationHelper
-import com.collabtable.app.work.ListChangeNotificationWorker
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import java.util.concurrent.TimeUnit
+import com.collabtable.app.data.api.ApiClient
+import com.collabtable.app.data.repository.SyncRepository
+import com.collabtable.app.notifications.NotificationHelper
+import com.collabtable.app.work.ListChangeNotificationWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 class CollabTableApplication : Application() {
     override fun onCreate() {
@@ -43,28 +43,32 @@ class CollabTableApplication : Application() {
         scheduleListChangeWorker()
 
         // Auto-clear notifications when app comes to foreground
-        ProcessLifecycleOwner.get().lifecycle.addObserver(object : DefaultLifecycleObserver {
-            override fun onStart(owner: LifecycleOwner) {
-                NotificationHelper.clearListEventNotifications(this@CollabTableApplication)
-            }
-        })
+        ProcessLifecycleOwner.get().lifecycle.addObserver(
+            object : DefaultLifecycleObserver {
+                override fun onStart(owner: LifecycleOwner) {
+                    NotificationHelper.clearListEventNotifications(this@CollabTableApplication)
+                }
+            },
+        )
     }
 
     private fun createNotificationChannels() {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val listEventsChannel = NotificationChannel(
-            NotificationHelper.CHANNEL_LIST_EVENTS,
-            "List Events",
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply {
-            description = "Notifications for list add, edit, and remove events"
-        }
+        val listEventsChannel =
+            NotificationChannel(
+                NotificationHelper.CHANNEL_LIST_EVENTS,
+                "List Events",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply {
+                description = "Notifications for list add, edit, and remove events"
+            }
         manager.createNotificationChannel(listEventsChannel)
     }
 
     private fun scheduleListChangeWorker() {
-        val work = PeriodicWorkRequestBuilder<ListChangeNotificationWorker>(15, TimeUnit.MINUTES)
-            .build()
+        val work =
+            PeriodicWorkRequestBuilder<ListChangeNotificationWorker>(15, TimeUnit.MINUTES)
+                .build()
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "list_change_notifier",
             ExistingPeriodicWorkPolicy.UPDATE,
