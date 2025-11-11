@@ -17,11 +17,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -158,23 +157,63 @@ fun MainApp() {
                         },
                     )
                 }
-                // Horizontal slide for Logs screen
+                // Horizontal slide for Logs screen (container-aware for predictive back)
                 composable(
                     route = Routes.LOGS,
-                    enterTransition = { slideInHorizontally(animationSpec = tween(220), initialOffsetX = { it }) + fadeIn(tween(220)) },
-                    exitTransition = { slideOutHorizontally(animationSpec = tween(200), targetOffsetX = { -it / 3 }) + fadeOut(tween(180)) },
-                    popEnterTransition = { slideInHorizontally(animationSpec = tween(220), initialOffsetX = { -it }) + fadeIn(tween(220)) },
-                    popExitTransition = { slideOutHorizontally(animationSpec = tween(200), targetOffsetX = { it / 3 }) + fadeOut(tween(180)) },
+                    enterTransition = {
+                        slideIntoContainer(
+                            AnimatedContentTransitionScope.SlideDirection.Left,
+                            animationSpec = tween(240),
+                        ) + fadeIn(tween(200))
+                    },
+                    exitTransition = {
+                        slideOutOfContainer(
+                            AnimatedContentTransitionScope.SlideDirection.Left,
+                            animationSpec = tween(200),
+                        ) + fadeOut(tween(180))
+                    },
+                    popEnterTransition = {
+                        slideIntoContainer(
+                            AnimatedContentTransitionScope.SlideDirection.Right,
+                            animationSpec = tween(240),
+                        ) + fadeIn(tween(200))
+                    },
+                    popExitTransition = {
+                        slideOutOfContainer(
+                            AnimatedContentTransitionScope.SlideDirection.Right,
+                            animationSpec = tween(200),
+                        ) + fadeOut(tween(180))
+                    },
                 ) {
                     LogsScreen(onNavigateBack = { navController.popBackStack() })
                 }
                 composable(
                     route = Routes.LIST_DETAIL,
                     arguments = listOf(navArgument("listId") { type = NavType.StringType }),
-                    enterTransition = { slideInHorizontally(animationSpec = tween(240), initialOffsetX = { it }) + fadeIn(tween(240)) },
-                    exitTransition = { slideOutHorizontally(animationSpec = tween(200), targetOffsetX = { -it / 2 }) + fadeOut(tween(180)) },
-                    popEnterTransition = { slideInHorizontally(animationSpec = tween(240), initialOffsetX = { -it }) + fadeIn(tween(240)) },
-                    popExitTransition = { slideOutHorizontally(animationSpec = tween(200), targetOffsetX = { it / 2 }) + fadeOut(tween(180)) },
+                    enterTransition = {
+                        slideIntoContainer(
+                            AnimatedContentTransitionScope.SlideDirection.Left,
+                            animationSpec = tween(260),
+                        ) + fadeIn(tween(220))
+                    },
+                    exitTransition = {
+                        slideOutOfContainer(
+                            AnimatedContentTransitionScope.SlideDirection.Left,
+                            animationSpec = tween(200),
+                        ) + fadeOut(tween(180))
+                    },
+                    popEnterTransition = {
+                        slideIntoContainer(
+                            AnimatedContentTransitionScope.SlideDirection.Right,
+                            animationSpec = tween(260),
+                        ) + fadeIn(tween(220))
+                    },
+                    popExitTransition = {
+                        slideOutOfContainer(
+                            AnimatedContentTransitionScope.SlideDirection.Right,
+                            animationSpec = tween(200),
+                        ) + fadeOut(tween(180))
+                    },
                 ) { backStackEntry ->
                     val listId = backStackEntry.arguments?.getString("listId") ?: return@composable
                     ListDetailScreen(listId = listId, onNavigateBack = { navController.popBackStack() })
