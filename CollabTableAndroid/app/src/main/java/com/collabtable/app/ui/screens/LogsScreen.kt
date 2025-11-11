@@ -19,6 +19,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material3.Badge
 import androidx.compose.material3.Button
@@ -116,6 +117,7 @@ fun LogsScreen(onNavigateBack: () -> Unit) {
         }
     }
 
+    val context = androidx.compose.ui.platform.LocalContext.current
     Scaffold(
         topBar = {
             TopAppBar(
@@ -140,6 +142,31 @@ fun LogsScreen(onNavigateBack: () -> Unit) {
                     }
                     IconButton(onClick = { Logger.clear() }) {
                         Icon(Icons.Default.Delete, contentDescription = "Clear logs")
+                    }
+                    // Export / Share current (filtered) logs
+                    IconButton(onClick = {
+                        if (filteredLogs.isEmpty()) return@IconButton
+                        val exportText = buildString {
+                            append("CollabTable Logs Export\n")
+                            append("Total: ").append(filteredLogs.size).append('\n')
+                            append("Generated: ").append(java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())).append("\n\n")
+                            filteredLogs.forEach { log ->
+                                append(log.toFormattedString()).append('\n')
+                            }
+                        }
+                        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(android.content.Intent.EXTRA_TEXT, exportText)
+                            putExtra(android.content.Intent.EXTRA_TITLE, "CollabTable Logs")
+                        }
+                        val chooser = android.content.Intent.createChooser(intent, "Share Logs")
+                        try {
+                            context.startActivity(chooser)
+                        } catch (_: Exception) {
+                            // Silently ignore if no activity can handle
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Export / Share logs")
                     }
                 },
                 colors =
@@ -244,7 +271,7 @@ fun LogsScreen(onNavigateBack: () -> Unit) {
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .background(Color(0xFF1E1E1E)),
+                            .background(MaterialTheme.colorScheme.background),
                     contentPadding = PaddingValues(8.dp),
                 ) {
                     items(filteredLogs) { log ->
