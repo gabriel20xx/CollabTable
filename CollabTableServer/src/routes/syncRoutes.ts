@@ -151,12 +151,25 @@ router.post('/sync', async (req: Request, res: Response) => {
             field.updatedAt,
             field.isDeleted ? 1 : 0
           ]);
-          // If a field was deleted, remove any item_values referencing it so clients converge
           if (field.isDeleted) {
+            // Remove item_values for this field
             try {
               await tx.execute('DELETE FROM item_values WHERE fieldId = ?', [field.id]);
             } catch (err) {
               console.warn('[SYNC] Cascade delete for field failed:', String(err));
+            }
+            // Check if this was the last remaining non-deleted field for the list
+            try {
+              const remaining = await tx.queryOne('SELECT COUNT(*) as cnt FROM fields WHERE listId = ? AND isDeleted = 0', [field.listId]);
+              const remainingCount = remaining ? (remaining.cnt ?? remaining.CNT ?? remaining.count ?? 0) : 0;
+              if (remainingCount === 0) {
+                // Soft delete items in this list and purge their values
+                await tx.execute('UPDATE items SET isDeleted = 1, updatedAt = ? WHERE listId = ?', [field.updatedAt, field.listId]);
+                await tx.execute('DELETE FROM item_values WHERE itemId IN (SELECT id FROM items WHERE listId = ?)', [field.listId]);
+                console.log('[SYNC] Last field deleted; cascaded item+value cleanup for list', field.listId);
+              }
+            } catch (cascadeErr) {
+              console.warn('[SYNC] Cascade last-field cleanup failed:', cascadeErr);
             }
           }
         }

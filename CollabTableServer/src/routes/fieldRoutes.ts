@@ -54,16 +54,38 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const updatedAt = Date.now();
-    const result = await dbAdapter.execute(
+    // Soft delete the field first
+    const field = await dbAdapter.queryOne('SELECT * FROM fields WHERE id = ?', [req.params.id]);
+    if (!field) {
+      return res.status(404).json({ error: 'Field not found' });
+    }
+    await dbAdapter.execute(
       'UPDATE fields SET isDeleted = 1, updatedAt = ? WHERE id = ?',
       [updatedAt, req.params.id]
     );
-    
-    if (result.changes === 0) {
-      return res.status(404).json({ error: 'Field not found' });
+
+    // Remove any item_values referencing this field (already handled in sync route, but ensure consistency for direct REST usage)
+    await dbAdapter.execute('DELETE FROM item_values WHERE fieldId = ?', [req.params.id]);
+
+    // Determine if this was the last remaining (non-deleted) field in its list.
+    const listId = field.listId;
+    const remaining = await dbAdapter.queryOne(
+      'SELECT COUNT(*) as cnt FROM fields WHERE listId = ? AND isDeleted = 0',
+      [listId]
+    );
+    const remainingCount = remaining ? (remaining.cnt ?? remaining.CNT ?? remaining.count ?? 0) : 0;
+
+    if (remainingCount === 0) {
+      // Last field deleted -> soft delete all items and purge their values for this list
+      try {
+        await dbAdapter.execute('UPDATE items SET isDeleted = 1, updatedAt = ? WHERE listId = ?', [updatedAt, listId]);
+        await dbAdapter.execute('DELETE FROM item_values WHERE itemId IN (SELECT id FROM items WHERE listId = ?)', [listId]);
+      } catch (cascadeErr) {
+        console.warn('[FIELD DELETE] Cascade item cleanup failed:', cascadeErr);
+      }
     }
-    
-    res.json({ message: 'Field deleted successfully' });
+
+    res.json({ message: 'Field deleted successfully', cascadeItemsDeleted: remainingCount === 0 });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete field' });
   }
