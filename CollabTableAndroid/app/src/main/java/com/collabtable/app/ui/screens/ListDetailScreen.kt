@@ -986,7 +986,8 @@ fun ItemRow(
         remember(itemWithValues.values) {
             itemWithValues.values.associateBy { it.fieldId }
         }
-    val widths = remember(fields, fieldWidths) { fields.map { fieldWidths[it.id] ?: 150.dp } }
+    // Build widths list directly from the SnapshotStateMap so per-column changes recompose rows immediately
+    val widths = fields.map { fieldWidths[it.id] ?: 150.dp }
 
     EqualHeightRow(
         widths = widths,
