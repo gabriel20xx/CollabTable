@@ -10,9 +10,6 @@ type Param = any;
 
 type ExecResult = { changes: number };
 
-type TxClient = {
-  query: (text: string, params?: any[]) => Promise<QueryResult<any>>;
-};
 
 interface DBAdapter {
   queryAll(sql: string, params?: Param[]): Promise<any[]>;
@@ -65,7 +62,6 @@ class SqliteAdapter implements DBAdapter {
         name TEXT NOT NULL,
         fieldType TEXT NOT NULL,
         fieldOptions TEXT,
-        alignment TEXT NOT NULL DEFAULT 'start',
         alignment TEXT NOT NULL DEFAULT 'start',
         listId TEXT NOT NULL,
         "order" INTEGER NOT NULL,
@@ -222,8 +218,7 @@ class PostgresAdapter implements DBAdapter {
   private async runQuery(sql: string, params: Param[] = [], client?: PoolClient): Promise<QueryResult<any>> {
     // Replace backticks and convert ? to $1..$n
     const text = convertQMarksToPg(replaceQuotedIdentifiers(sql));
-    const runner = client || this.pool;
-    // @ts-ignore - Pool and PoolClient share query signature
+    const runner: Pool | PoolClient = client || this.pool;
     return runner.query(text, params);
   }
 

@@ -1,10 +1,10 @@
 package com.collabtable.app.ui.screens
 
 import android.content.Context
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
@@ -51,6 +51,7 @@ class ListDetailViewModel(
         var hasList = false
         var hasFields = false
         var hasItems = false
+
         fun maybeLoaded() {
             if (hasFields && hasItems) {
                 _isLoading.value = false
@@ -128,10 +129,13 @@ class ListDetailViewModel(
     }
 
     private fun maybeNotifyListContentUpdated() {
-        val prefs = com.collabtable.app.data.preferences.PreferencesManager.getInstance(context)
+        val prefs =
+            com.collabtable.app.data.preferences.PreferencesManager
+                .getInstance(context)
         if (prefs.notifyListContentUpdated.value && !isInForeground()) {
             val name = _list.value?.name ?: "Table"
-            com.collabtable.app.notifications.NotificationHelper.showListContentUpdated(context, listId, name)
+            com.collabtable.app.notifications.NotificationHelper
+                .showListContentUpdated(context, listId, name)
         }
     }
 
@@ -254,16 +258,20 @@ class ListDetailViewModel(
         }
     }
 
-    fun updateFieldAlignment(fieldId: String, alignment: String) {
+    fun updateFieldAlignment(
+        fieldId: String,
+        alignment: String,
+    ) {
         viewModelScope.launch {
             val field = database.fieldDao().getFieldById(fieldId)
             if (field != null) {
                 val ts = System.currentTimeMillis()
-                val normalized = when (alignment.lowercase()) {
-                    "center" -> "center"
-                    "end", "right" -> "end"
-                    else -> "start"
-                }
+                val normalized =
+                    when (alignment.lowercase()) {
+                        "center" -> "center"
+                        "end", "right" -> "end"
+                        else -> "start"
+                    }
                 database.withTransaction {
                     database.fieldDao().updateField(
                         field.copy(

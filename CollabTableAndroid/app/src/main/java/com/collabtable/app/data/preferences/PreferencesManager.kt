@@ -271,7 +271,7 @@ class PreferencesManager(
         private const val KEY_NOTIFY_LIST_ADDED = "notify_list_added"
         private const val KEY_NOTIFY_LIST_EDITED = "notify_list_edited"
         private const val KEY_NOTIFY_LIST_REMOVED = "notify_list_removed"
-    private const val KEY_NOTIFY_LIST_CONTENT_UPDATED = "notify_list_content_updated"
+        private const val KEY_NOTIFY_LIST_CONTENT_UPDATED = "notify_list_content_updated"
         private const val KEY_LAST_LIST_NOTIFY_CHECK_TS = "last_list_notify_check_ts"
         private const val COLUMN_WIDTHS_PREFIX = "column_widths_" // + listId
         private const val COLUMN_ALIGN_PREFIX = "column_align_" // + listId

@@ -166,11 +166,12 @@ fun ListDetailScreen(
         val savedAlign = prefs.getColumnAlignments(listId)
         stableFields.forEach { field ->
             val raw = (field.alignment.ifBlank { savedAlign[field.id] ?: "start" }).lowercase()
-            columnAlignments[field.id] = when (raw) {
-                "center" -> "center"
-                "end", "right" -> "end"
-                else -> "start"
-            }
+            columnAlignments[field.id] =
+                when (raw) {
+                    "center" -> "center"
+                    "end", "right" -> "end"
+                    else -> "start"
+                }
         }
     }
 
@@ -269,333 +270,335 @@ fun ListDetailScreen(
                         Modifier
                             .fillMaxSize(),
                 ) {
-                // Filter/Sort/Group Controls - Always visible above table
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
-                            .padding(horizontal = 8.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    // Sort button
-                    FilterChip(
-                        selected = sortField != null,
-                        onClick = { showSortDialog = true },
-                        label = {
-                            Text(
-                                if (sortField != null) {
-                                    "Sort: ${sortField!!.name} ${if (sortAscending) "↑" else "↓"}"
-                                } else {
-                                    "Sort"
-                                },
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Search,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                        trailingIcon =
-                            if (sortField != null) {
-                                {
-                                    IconButton(
-                                        onClick = {
-                                            sortField = null
-                                            sortAscending = true
-                                        },
-                                        modifier = Modifier.size(18.dp),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Clear",
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    }
-                                }
-                            } else {
-                                null
-                            },
-                    )
-
-                    // Group button
-                    FilterChip(
-                        selected = groupByField != null,
-                        onClick = { showGroupDialog = true },
-                        label = {
-                            Text(
-                                if (groupByField != null) {
-                                    "Group: ${groupByField!!.name}"
-                                } else {
-                                    "Group"
-                                },
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.AutoMirrored.Filled.List,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                        trailingIcon =
-                            if (groupByField != null) {
-                                {
-                                    IconButton(
-                                        onClick = { groupByField = null },
-                                        modifier = Modifier.size(18.dp),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Clear",
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    }
-                                }
-                            } else {
-                                null
-                            },
-                    )
-
-                    // Filter button
-                    FilterChip(
-                        selected = filterField != null,
-                        onClick = { showFilterDialog = true },
-                        label = {
-                            Text(
-                                if (filterField != null) {
-                                    "Filter: ${filterField!!.name}"
-                                } else {
-                                    "Filter"
-                                },
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                        trailingIcon =
-                            if (filterField != null) {
-                                {
-                                    IconButton(
-                                        onClick = {
-                                            filterField = null
-                                            filterValue = ""
-                                        },
-                                        modifier = Modifier.size(18.dp),
-                                    ) {
-                                        Icon(
-                                            Icons.Default.Close,
-                                            contentDescription = "Clear",
-                                            modifier = Modifier.size(16.dp),
-                                        )
-                                    }
-                                }
-                            } else {
-                                null
-                            },
-                    )
-
-                    // Auto-resize button (chip style)
-                    // Auto-fit cache keyed by fieldId with a compact signature based on timestamps and counts
-                    val autoFitCache = remember { mutableStateMapOf<String, Pair<AutoFitSignature, Float>>() }
-                    FilterChip(
-                        selected = false,
-                        onClick = {
-                            stableFields.forEach { field ->
-                                // Build a compact signature: field name, field.updatedAt, item count, max updatedAt among values
-                                var maxValUpdated = 0L
-                                stableItems.forEach { item ->
-                                    val v = item.values.find { it.fieldId == field.id }
-                                    if (v != null && v.updatedAt > maxValUpdated) maxValUpdated = v.updatedAt
-                                }
-                                val signature =
-                                    AutoFitSignature(
-                                        name = field.name,
-                                        fieldUpdatedAt = field.updatedAt,
-                                        itemCount = stableItems.size,
-                                        maxValueUpdatedAt = maxValUpdated,
-                                    )
-
-                                val cached = autoFitCache[field.id]
-                                if (cached != null && cached.first == signature) {
-                                    // Use cached width
-                                    fieldWidths[field.id] = cached.second.dp
-                                    return@forEach
-                                }
-
-                                // Measure header and max content width
-                                val headerPx =
-                                    textMeasurer
-                                        .measure(AnnotatedString(field.name), style = headerTextStyle)
-                                        .size.width
-                                        .toFloat()
-                                var maxContentPx = 0f
-                                stableItems.forEach { itemWithValues ->
-                                    val v = itemWithValues.values.find { it.fieldId == field.id }?.value
-                                    val display = getDisplayTextForMeasure(field, v)
-                                    if (display.isNotEmpty()) {
-                                        val w =
-                                            textMeasurer
-                                                .measure(AnnotatedString(display), style = bodyTextStyle)
-                                                .size.width
-                                                .toFloat()
-                                        if (w > maxContentPx) maxContentPx = w
-                                    }
-                                }
-                                val widthDpValue =
-                                    with(density) {
-                                        val headerDp = headerPx.toDp() + 12.dp + 12.dp + 24.dp + 2.dp
-                                        val contentDp = maxContentPx.toDp() + 8.dp + 8.dp + 2.dp
-                                        val base = maxOf(headerDp, contentDp, 100.dp)
-                                        (base + 6.dp).value
-                                    }
-                                fieldWidths[field.id] = widthDpValue.dp
-                                autoFitCache[field.id] = signature to widthDpValue
-                            }
-                            prefs.setColumnWidths(listId, fieldWidths.mapValues { it.value.value })
-                        },
-                        label = { Text("Auto-fit") },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.FitScreen,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                    )
-                }
-
-                // Header will be rendered as a stickyHeader inside the LazyColumn below
-
-                // Items list with synchronized scrolling
-                if (stableItems.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
+                    // Filter/Sort/Group Controls - Always visible above table
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState())
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            text = stringResource(R.string.no_items),
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        // Sort button
+                        FilterChip(
+                            selected = sortField != null,
+                            onClick = { showSortDialog = true },
+                            label = {
+                                Text(
+                                    if (sortField != null) {
+                                        "Sort: ${sortField!!.name} ${if (sortAscending) "↑" else "↓"}"
+                                    } else {
+                                        "Sort"
+                                    },
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Search,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
+                            trailingIcon =
+                                if (sortField != null) {
+                                    {
+                                        IconButton(
+                                            onClick = {
+                                                sortField = null
+                                                sortAscending = true
+                                            },
+                                            modifier = Modifier.size(18.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Clear",
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
+                        )
+
+                        // Group button
+                        FilterChip(
+                            selected = groupByField != null,
+                            onClick = { showGroupDialog = true },
+                            label = {
+                                Text(
+                                    if (groupByField != null) {
+                                        "Group: ${groupByField!!.name}"
+                                    } else {
+                                        "Group"
+                                    },
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.List,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
+                            trailingIcon =
+                                if (groupByField != null) {
+                                    {
+                                        IconButton(
+                                            onClick = { groupByField = null },
+                                            modifier = Modifier.size(18.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Clear",
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
+                        )
+
+                        // Filter button
+                        FilterChip(
+                            selected = filterField != null,
+                            onClick = { showFilterDialog = true },
+                            label = {
+                                Text(
+                                    if (filterField != null) {
+                                        "Filter: ${filterField!!.name}"
+                                    } else {
+                                        "Filter"
+                                    },
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Add,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
+                            trailingIcon =
+                                if (filterField != null) {
+                                    {
+                                        IconButton(
+                                            onClick = {
+                                                filterField = null
+                                                filterValue = ""
+                                            },
+                                            modifier = Modifier.size(18.dp),
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Close,
+                                                contentDescription = "Clear",
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    null
+                                },
+                        )
+
+                        // Auto-resize button (chip style)
+                        // Auto-fit cache keyed by fieldId with a compact signature based on timestamps and counts
+                        val autoFitCache = remember { mutableStateMapOf<String, Pair<AutoFitSignature, Float>>() }
+                        FilterChip(
+                            selected = false,
+                            onClick = {
+                                stableFields.forEach { field ->
+                                    // Build a compact signature: field name, field.updatedAt, item count, max updatedAt among values
+                                    var maxValUpdated = 0L
+                                    stableItems.forEach { item ->
+                                        val v = item.values.find { it.fieldId == field.id }
+                                        if (v != null && v.updatedAt > maxValUpdated) maxValUpdated = v.updatedAt
+                                    }
+                                    val signature =
+                                        AutoFitSignature(
+                                            name = field.name,
+                                            fieldUpdatedAt = field.updatedAt,
+                                            itemCount = stableItems.size,
+                                            maxValueUpdatedAt = maxValUpdated,
+                                        )
+
+                                    val cached = autoFitCache[field.id]
+                                    if (cached != null && cached.first == signature) {
+                                        // Use cached width
+                                        fieldWidths[field.id] = cached.second.dp
+                                        return@forEach
+                                    }
+
+                                    // Measure header and max content width
+                                    val headerPx =
+                                        textMeasurer
+                                            .measure(AnnotatedString(field.name), style = headerTextStyle)
+                                            .size.width
+                                            .toFloat()
+                                    var maxContentPx = 0f
+                                    stableItems.forEach { itemWithValues ->
+                                        val v = itemWithValues.values.find { it.fieldId == field.id }?.value
+                                        val display = getDisplayTextForMeasure(field, v)
+                                        if (display.isNotEmpty()) {
+                                            val w =
+                                                textMeasurer
+                                                    .measure(AnnotatedString(display), style = bodyTextStyle)
+                                                    .size.width
+                                                    .toFloat()
+                                            if (w > maxContentPx) maxContentPx = w
+                                        }
+                                    }
+                                    val widthDpValue =
+                                        with(density) {
+                                            val headerDp = headerPx.toDp() + 12.dp + 12.dp + 24.dp + 2.dp
+                                            val contentDp = maxContentPx.toDp() + 8.dp + 8.dp + 2.dp
+                                            val base = maxOf(headerDp, contentDp, 100.dp)
+                                            (base + 6.dp).value
+                                        }
+                                    fieldWidths[field.id] = widthDpValue.dp
+                                    autoFitCache[field.id] = signature to widthDpValue
+                                }
+                                prefs.setColumnWidths(listId, fieldWidths.mapValues { it.value.value })
+                            },
+                            label = { Text("Auto-fit") },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.FitScreen,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
                         )
                     }
-                } else if (processedItems.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+
+                    // Header will be rendered as a stickyHeader inside the LazyColumn below
+
+                    // Items list with synchronized scrolling
+                    if (stableItems.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
                             Text(
-                                text = "No items match the current filter",
+                                text = stringResource(R.string.no_items),
                                 style = MaterialTheme.typography.bodyLarge,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            TextButton(onClick = {
-                                filterField = null
-                                filterValue = ""
-                            }) {
-                                Text("Clear Filter")
+                        }
+                    } else if (processedItems.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(
+                                    text = "No items match the current filter",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                TextButton(onClick = {
+                                    filterField = null
+                                    filterValue = ""
+                                }) {
+                                    Text("Clear Filter")
+                                }
                             }
                         }
-                    }
-                } else {
-                    val listState = rememberLazyListState()
-                    // If a new item was just added, scroll to bottom after composition
-                    LaunchedEffect(processedItems.size, pendingScrollToBottom) {
-                        if (pendingScrollToBottom) {
-                            // Scroll to the last real item index
-                            val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-                            try {
-                                listState.animateScrollToItem(lastIndex)
-                            } catch (_: Exception) {
-                                listState.scrollToItem(lastIndex)
+                    } else {
+                        val listState = rememberLazyListState()
+                        // If a new item was just added, scroll to bottom after composition
+                        LaunchedEffect(processedItems.size, pendingScrollToBottom) {
+                            if (pendingScrollToBottom) {
+                                // Scroll to the last real item index
+                                val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                                try {
+                                    listState.animateScrollToItem(lastIndex)
+                                } catch (_: Exception) {
+                                    listState.scrollToItem(lastIndex)
+                                }
+                                pendingScrollToBottom = false
                             }
-                            pendingScrollToBottom = false
                         }
-                    }
-                    Column(
-                        modifier =
-                            Modifier
-                                .fillMaxSize()
-                                .horizontalScroll(horizontalScrollState),
-                    ) {
-                        // Fixed header (does not participate in vertical scroll)
-                        Row(
+                        Column(
                             modifier =
                                 Modifier
-                                    .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surface),
-                            verticalAlignment = Alignment.CenterVertically,
+                                    .fillMaxSize()
+                                    .horizontalScroll(horizontalScrollState),
                         ) {
-                            stableFields.forEach { field ->
-                                key(field.id) {
-                                    FieldHeader(
-                                        field = field,
-                                        width = fieldWidths[field.id] ?: 150.dp,
-                                        onWidthChange = { delta ->
-                                            val currentWidth = fieldWidths[field.id] ?: 150.dp
-                                            val newWidth = (currentWidth.value + delta).coerceAtLeast(100f)
-                                            fieldWidths[field.id] = newWidth.dp
-                                            prefs.setColumnWidths(
-                                                listId,
-                                                fieldWidths.mapValues { it.value.value },
-                                            )
-                                        },
-                                        scrollState = horizontalScrollState,
-                                        isLast = (field.id == stableFields.lastOrNull()?.id),
-                                        onHeaderClick = { showManageColumnsDialog = true },
-                                        alignment = columnAlignments[field.id] ?: "start",
-                                        onAlignmentChange = { newAlign ->
-                                            // Update local state and persist via ViewModel + cache to prefs for backward-compat
-                                            columnAlignments[field.id] = newAlign
-                                            viewModel.updateFieldAlignment(field.id, newAlign)
-                                            prefs.setColumnAlignments(listId, columnAlignments.toMap())
-                                        },
-                                    )
+                            // Fixed header (does not participate in vertical scroll)
+                            Row(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .background(MaterialTheme.colorScheme.surface),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                stableFields.forEach { field ->
+                                    key(field.id) {
+                                        FieldHeader(
+                                            field = field,
+                                            width = fieldWidths[field.id] ?: 150.dp,
+                                            onWidthChange = { delta ->
+                                                val currentWidth = fieldWidths[field.id] ?: 150.dp
+                                                val newWidth = (currentWidth.value + delta).coerceAtLeast(100f)
+                                                fieldWidths[field.id] = newWidth.dp
+                                                prefs.setColumnWidths(
+                                                    listId,
+                                                    fieldWidths.mapValues { it.value.value },
+                                                )
+                                            },
+                                            scrollState = horizontalScrollState,
+                                            isLast = (field.id == stableFields.lastOrNull()?.id),
+                                            onHeaderClick = { showManageColumnsDialog = true },
+                                            alignment = columnAlignments[field.id] ?: "start",
+                                            onAlignmentChange = { newAlign ->
+                                                // Update local state and persist via ViewModel + cache to prefs for backward-compat
+                                                columnAlignments[field.id] = newAlign
+                                                viewModel.updateFieldAlignment(field.id, newAlign)
+                                                prefs.setColumnAlignments(listId, columnAlignments.toMap())
+                                            },
+                                        )
+                                    }
+                                }
+
+                                // Loading overlay only while nothing is available to render yet
+                                if (isLoading && stableFields.isEmpty() && stableItems.isEmpty()) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        androidx.compose.material3.CircularProgressIndicator()
+                                    }
                                 }
                             }
 
-                            // Loading overlay only while nothing is available to render yet
-                            if (isLoading && stableFields.isEmpty() && stableItems.isEmpty()) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    androidx.compose.material3.CircularProgressIndicator()
-                                }
-                            }
-                        }
-
-                        // Items list below the fixed header
-                        LazyColumn(
-                            modifier = Modifier
-                                .fillMaxSize(),
-                            state = listState,
-                            contentPadding = PaddingValues(0.dp),
-                        ) {
-                            groupedItems.entries.forEach { (_, groupItems) ->
-                                // Show items in the group
-                                items(
-                                    items = groupItems,
-                                    key = { it.item.id },
-                                    contentType = { "row" },
-                                ) { itemWithValues ->
-                                    ItemRow(
-                                        fields = stableFields,
-                                        fieldWidths = fieldWidths,
-                                        fieldAlignments = columnAlignments,
-                                        itemWithValues = itemWithValues,
-                                        onClick = { itemToEdit = itemWithValues },
-                                    )
+                            // Items list below the fixed header
+                            LazyColumn(
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize(),
+                                state = listState,
+                                contentPadding = PaddingValues(0.dp),
+                            ) {
+                                groupedItems.entries.forEach { (_, groupItems) ->
+                                    // Show items in the group
+                                    items(
+                                        items = groupItems,
+                                        key = { it.item.id },
+                                        contentType = { "row" },
+                                    ) { itemWithValues ->
+                                        ItemRow(
+                                            fields = stableFields,
+                                            fieldWidths = fieldWidths,
+                                            fieldAlignments = columnAlignments,
+                                            itemWithValues = itemWithValues,
+                                            onClick = { itemToEdit = itemWithValues },
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -603,129 +606,129 @@ fun ListDetailScreen(
                 }
             }
         }
-    }
 
-    if (showManageColumnsDialog) {
-        ManageColumnsDialog(
-            fields = stableFields,
-            onDismiss = {
-                showManageColumnsDialog = false
-                // Refresh alignments from current fields (DB-backed)
-                stableFields.forEach { field ->
-                    val a = field.alignment.lowercase().ifBlank { columnAlignments[field.id] ?: "start" }
-                    columnAlignments[field.id] = when (a) {
-                        "center" -> "center"
-                        "end", "right" -> "end"
-                        else -> "start"
+        if (showManageColumnsDialog) {
+            ManageColumnsDialog(
+                fields = stableFields,
+                onDismiss = {
+                    showManageColumnsDialog = false
+                    // Refresh alignments from current fields (DB-backed)
+                    stableFields.forEach { field ->
+                        val a = field.alignment.lowercase().ifBlank { columnAlignments[field.id] ?: "start" }
+                        columnAlignments[field.id] =
+                            when (a) {
+                                "center" -> "center"
+                                "end", "right" -> "end"
+                                else -> "start"
+                            }
                     }
-                }
-            },
-            onAddField = { name, fieldType, fieldOptions ->
-                viewModel.addField(name, fieldType, fieldOptions)
-            },
-            onUpdateField = { fieldId, name, fieldType, fieldOptions ->
-                viewModel.updateField(fieldId, name, fieldType, fieldOptions)
-            },
-            onUpdateAlignment = { fieldId, alignment ->
-                viewModel.updateFieldAlignment(fieldId, alignment)
-            },
-            onDeleteField = { fieldId ->
-                viewModel.deleteField(fieldId)
-            },
-            onReorderFields = { reorderedFields ->
-                viewModel.reorderFields(reorderedFields)
-            },
-        )
-    }
-
-    if (showAddItemDialog) {
-        AddItemDialog(
-            fields = stableFields,
-            onDismiss = { showAddItemDialog = false },
-            onAdd = { fieldValues ->
-                viewModel.addItemWithValues(fieldValues)
-                showAddItemDialog = false
-                pendingScrollToBottom = true
-            },
-        )
-    }
-
-    // Sort Dialog
-    if (showSortDialog) {
-        SortDialog(
-            fields = stableFields,
-            currentSortField = sortField,
-            currentSortAscending = sortAscending,
-            onDismiss = { showSortDialog = false },
-            onApply = { newSortField, newSortAscending ->
-                sortField = newSortField
-                sortAscending = newSortAscending
-                showSortDialog = false
-            },
-        )
-    }
-
-    // Group Dialog
-    if (showGroupDialog) {
-        GroupDialog(
-            fields = stableFields,
-            currentGroupByField = groupByField,
-            onDismiss = { showGroupDialog = false },
-            onApply = { newGroupByField ->
-                groupByField = newGroupByField
-                showGroupDialog = false
-            },
-        )
-    }
-
-    // Filter Dialog
-    if (showFilterDialog) {
-        FilterDialog(
-            fields = stableFields,
-            currentFilterField = filterField,
-            currentFilterValue = filterValue,
-            onDismiss = { showFilterDialog = false },
-            onApply = { newFilterField, newFilterValue ->
-                filterField = newFilterField
-                filterValue = newFilterValue
-                showFilterDialog = false
-            },
-        )
-    }
-
-    // Rename List Dialog
-    if (showRenameListDialog) {
-        list?.let { currentList ->
-            RenameListDialog(
-                currentName = currentList.name,
-                onDismiss = { showRenameListDialog = false },
-                onRename = { newName ->
-                    viewModel.renameList(newName)
-                    showRenameListDialog = false
+                },
+                onAddField = { name, fieldType, fieldOptions ->
+                    viewModel.addField(name, fieldType, fieldOptions)
+                },
+                onUpdateField = { fieldId, name, fieldType, fieldOptions ->
+                    viewModel.updateField(fieldId, name, fieldType, fieldOptions)
+                },
+                onUpdateAlignment = { fieldId, alignment ->
+                    viewModel.updateFieldAlignment(fieldId, alignment)
+                },
+                onDeleteField = { fieldId ->
+                    viewModel.deleteField(fieldId)
+                },
+                onReorderFields = { reorderedFields ->
+                    viewModel.reorderFields(reorderedFields)
                 },
             )
         }
-    }
 
-    itemToEdit?.let { itemWithValues ->
-        EditItemDialog(
-            fields = stableFields,
-            itemWithValues = itemWithValues,
-            onDismiss = { itemToEdit = null },
-            onUpdate = { fieldValues ->
-                fieldValues.forEach { (valueId, newValue) ->
-                    viewModel.updateItemValue(valueId, newValue)
-                }
-                itemToEdit = null
-            },
-            onDelete = {
-                viewModel.deleteItem(itemWithValues.item.id)
-                itemToEdit = null
-            },
-        )
+        if (showAddItemDialog) {
+            AddItemDialog(
+                fields = stableFields,
+                onDismiss = { showAddItemDialog = false },
+                onAdd = { fieldValues ->
+                    viewModel.addItemWithValues(fieldValues)
+                    showAddItemDialog = false
+                    pendingScrollToBottom = true
+                },
+            )
+        }
+
+        // Sort Dialog
+        if (showSortDialog) {
+            SortDialog(
+                fields = stableFields,
+                currentSortField = sortField,
+                currentSortAscending = sortAscending,
+                onDismiss = { showSortDialog = false },
+                onApply = { newSortField, newSortAscending ->
+                    sortField = newSortField
+                    sortAscending = newSortAscending
+                    showSortDialog = false
+                },
+            )
+        }
+
+        // Group Dialog
+        if (showGroupDialog) {
+            GroupDialog(
+                fields = stableFields,
+                currentGroupByField = groupByField,
+                onDismiss = { showGroupDialog = false },
+                onApply = { newGroupByField ->
+                    groupByField = newGroupByField
+                    showGroupDialog = false
+                },
+            )
+        }
+
+        // Filter Dialog
+        if (showFilterDialog) {
+            FilterDialog(
+                fields = stableFields,
+                currentFilterField = filterField,
+                currentFilterValue = filterValue,
+                onDismiss = { showFilterDialog = false },
+                onApply = { newFilterField, newFilterValue ->
+                    filterField = newFilterField
+                    filterValue = newFilterValue
+                    showFilterDialog = false
+                },
+            )
+        }
+
+        // Rename List Dialog
+        if (showRenameListDialog) {
+            list?.let { currentList ->
+                RenameListDialog(
+                    currentName = currentList.name,
+                    onDismiss = { showRenameListDialog = false },
+                    onRename = { newName ->
+                        viewModel.renameList(newName)
+                        showRenameListDialog = false
+                    },
+                )
+            }
+        }
+
+        itemToEdit?.let { itemWithValues ->
+            EditItemDialog(
+                fields = stableFields,
+                itemWithValues = itemWithValues,
+                onDismiss = { itemToEdit = null },
+                onUpdate = { fieldValues ->
+                    fieldValues.forEach { (valueId, newValue) ->
+                        viewModel.updateItemValue(valueId, newValue)
+                    }
+                    itemToEdit = null
+                },
+                onDelete = {
+                    viewModel.deleteItem(itemWithValues.item.id)
+                    itemToEdit = null
+                },
+            )
+        }
+        // END ListDetailScreen composable
     }
-    // END ListDetailScreen composable
-}
 
 // Extra closing brace to properly terminate ListDetailScreen; previous edits removed one
 }

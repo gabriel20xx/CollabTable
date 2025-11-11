@@ -1,8 +1,8 @@
 package com.collabtable.app.ui.screens
 
-import android.os.Build
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -46,8 +46,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.collabtable.app.data.preferences.PreferencesManager
 import androidx.core.content.ContextCompat
+import com.collabtable.app.data.preferences.PreferencesManager
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,6 +64,7 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
     val validationError by viewModel.validationError.collectAsState()
 
     var completed by remember { mutableStateOf(false) }
+
     fun finishOnce() {
         if (!completed) {
             completed = true
@@ -99,7 +100,10 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
                     preferencesManager.setNotifyListAddedEnabled(true)
                     preferencesManager.setNotifyListEditedEnabled(true)
                     preferencesManager.setNotifyListRemovedEnabled(true)
-                    try { preferencesManager.setNotifyListContentUpdatedEnabled(true) } catch (_: Throwable) {}
+                    try {
+                        preferencesManager.setNotifyListContentUpdatedEnabled(true)
+                    } catch (_: Throwable) {
+                    }
                     finishOnce()
                 } else {
                     // Request permission; callback will complete
@@ -109,7 +113,10 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
                 preferencesManager.setNotifyListAddedEnabled(true)
                 preferencesManager.setNotifyListEditedEnabled(true)
                 preferencesManager.setNotifyListRemovedEnabled(true)
-                try { preferencesManager.setNotifyListContentUpdatedEnabled(true) } catch (_: Throwable) {}
+                try {
+                    preferencesManager.setNotifyListContentUpdatedEnabled(true)
+                } catch (_: Throwable) {
+                }
                 finishOnce()
             }
         }

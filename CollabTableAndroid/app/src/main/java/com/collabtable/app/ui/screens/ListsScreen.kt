@@ -4,6 +4,9 @@ package com.collabtable.app.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,10 +53,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
-import android.os.Build
 import com.collabtable.app.R
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
@@ -117,7 +117,10 @@ fun ListsScreen(
                             prefsLocal.setNotifyListAddedEnabled(granted)
                             prefsLocal.setNotifyListEditedEnabled(granted)
                             prefsLocal.setNotifyListRemovedEnabled(granted)
-                            try { prefsLocal.setNotifyListContentUpdatedEnabled(granted) } catch (_: Throwable) {}
+                            try {
+                                prefsLocal.setNotifyListContentUpdatedEnabled(granted)
+                            } catch (_: Throwable) {
+                            }
                         }
 
                     ConnectionStatusAction(
