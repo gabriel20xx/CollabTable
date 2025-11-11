@@ -57,6 +57,12 @@ object NotificationHelper {
         name: String,
     ) = showEvent(context, listId, "remove", "List removed", "\"$name\" was deleted")
 
+    fun showListContentUpdated(
+        context: Context,
+        listId: String,
+        name: String,
+    ) = showEvent(context, listId, "content", "List updated", "\"$name\" content changed")
+
     private fun showEvent(
         context: Context,
         listId: String,
@@ -102,6 +108,7 @@ object NotificationHelper {
                 "add" -> "Added • $text"
                 "edit" -> "Edited • $text"
                 "remove" -> "Removed • $text"
+                "content" -> "Updated • $text"
                 else -> text
             }
         synchronized(recentEventLines) {

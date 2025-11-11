@@ -50,8 +50,9 @@ class ListChangeNotificationWorker(
                 }
             }
             else -> {
-                if (prefs.notifyListEdited.value) {
-                    NotificationHelper.showListEdited(applicationContext, list.id, list.name)
+                // Background diff cannot distinguish rename vs content. Treat as content update here.
+                if (prefs.notifyListContentUpdated.value) {
+                    NotificationHelper.showListContentUpdated(applicationContext, list.id, list.name)
                 }
             }
         }

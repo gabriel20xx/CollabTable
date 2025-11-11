@@ -3,6 +3,8 @@ package com.collabtable.app.ui.screens
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.room.withTransaction
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
@@ -120,6 +122,19 @@ class ListDetailViewModel(
         syncRepository.performSync()
     }
 
+    private fun isInForeground(): Boolean {
+        val state = ProcessLifecycleOwner.get().lifecycle.currentState
+        return state.isAtLeast(Lifecycle.State.STARTED)
+    }
+
+    private fun maybeNotifyListContentUpdated() {
+        val prefs = com.collabtable.app.data.preferences.PreferencesManager.getInstance(context)
+        if (prefs.notifyListContentUpdated.value && !isInForeground()) {
+            val name = _list.value?.name ?: "Table"
+            com.collabtable.app.notifications.NotificationHelper.showListContentUpdated(context, listId, name)
+        }
+    }
+
     fun renameList(newName: String) {
         viewModelScope.launch {
             val currentList = _list.value
@@ -184,6 +199,7 @@ class ListDetailViewModel(
             }
 
             performSync()
+            maybeNotifyListContentUpdated()
         }
     }
 
@@ -197,6 +213,7 @@ class ListDetailViewModel(
                 }
             }
             performSync()
+            maybeNotifyListContentUpdated()
         }
     }
 
@@ -224,6 +241,7 @@ class ListDetailViewModel(
                     }
                 }
                 performSync()
+                maybeNotifyListContentUpdated()
             }
         }
     }
@@ -260,6 +278,7 @@ class ListDetailViewModel(
                 }
             }
             performSync()
+            maybeNotifyListContentUpdated()
         }
     }
 
@@ -295,6 +314,7 @@ class ListDetailViewModel(
                 }
             }
             performSync()
+            maybeNotifyListContentUpdated()
         }
     }
 
@@ -332,6 +352,7 @@ class ListDetailViewModel(
                 }
             }
             performSync()
+            maybeNotifyListContentUpdated()
         }
     }
 

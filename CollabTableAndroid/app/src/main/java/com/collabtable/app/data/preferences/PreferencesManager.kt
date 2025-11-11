@@ -42,6 +42,9 @@ class PreferencesManager(
     private val _notifyListRemoved = MutableStateFlow(isNotifyListRemovedEnabled())
     val notifyListRemoved: StateFlow<Boolean> = _notifyListRemoved.asStateFlow()
 
+    private val _notifyListContentUpdated = MutableStateFlow(isNotifyListContentUpdatedEnabled())
+    val notifyListContentUpdated: StateFlow<Boolean> = _notifyListContentUpdated.asStateFlow()
+
     fun getServerUrl(): String = prefs.getString(KEY_SERVER_URL, DEFAULT_SERVER_URL) ?: DEFAULT_SERVER_URL
 
     fun setServerUrl(url: String) {
@@ -169,6 +172,13 @@ class PreferencesManager(
         _notifyListRemoved.value = enabled
     }
 
+    private fun isNotifyListContentUpdatedEnabled(): Boolean = prefs.getBoolean(KEY_NOTIFY_LIST_CONTENT_UPDATED, true)
+
+    fun setNotifyListContentUpdatedEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_NOTIFY_LIST_CONTENT_UPDATED, enabled).apply()
+        _notifyListContentUpdated.value = enabled
+    }
+
     // Persist per-list column widths (fieldId -> widthDp)
     // Stored as a JSON object string in SharedPreferences under key: COLUMN_WIDTHS_PREFIX + listId
     fun getColumnWidths(listId: String): Map<String, Float> {
@@ -261,6 +271,7 @@ class PreferencesManager(
         private const val KEY_NOTIFY_LIST_ADDED = "notify_list_added"
         private const val KEY_NOTIFY_LIST_EDITED = "notify_list_edited"
         private const val KEY_NOTIFY_LIST_REMOVED = "notify_list_removed"
+    private const val KEY_NOTIFY_LIST_CONTENT_UPDATED = "notify_list_content_updated"
         private const val KEY_LAST_LIST_NOTIFY_CHECK_TS = "last_list_notify_check_ts"
         private const val COLUMN_WIDTHS_PREFIX = "column_widths_" // + listId
         private const val COLUMN_ALIGN_PREFIX = "column_align_" // + listId

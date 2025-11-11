@@ -563,8 +563,8 @@ fun ListDetailScreen(
                                 }
                             }
 
-                            // Loading overlay during initial content load
-                            if (isLoading) {
+                            // Loading overlay only while nothing is available to render yet
+                            if (isLoading && stableFields.isEmpty() && stableItems.isEmpty()) {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center,

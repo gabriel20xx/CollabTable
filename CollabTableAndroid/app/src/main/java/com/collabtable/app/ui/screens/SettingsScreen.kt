@@ -84,6 +84,7 @@ fun SettingsScreen(
     val notifyListAdded by preferencesManager.notifyListAdded.collectAsState()
     val notifyListEdited by preferencesManager.notifyListEdited.collectAsState()
     val notifyListRemoved by preferencesManager.notifyListRemoved.collectAsState()
+    val notifyListContentUpdated by preferencesManager.notifyListContentUpdated.collectAsState()
     val displayUrl = remember(serverUrl) { formatServerUrlForDisplay(serverUrl) }
     var showLeaveDialog by remember { mutableStateOf(false) }
     var isLeaving by remember { mutableStateOf(false) }
@@ -375,6 +376,32 @@ fun SettingsScreen(
                                     }
                                 } else {
                                     preferencesManager.setNotifyListEditedEnabled(false)
+                                }
+                            },
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("List content updated")
+                            Text(
+                                text = "Notify when fields or items change (add/edit/delete)",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        Switch(
+                            checked = notifyListContentUpdated,
+                            onCheckedChange = { checked ->
+                                if (checked) {
+                                    ensureNotificationPermission {
+                                        preferencesManager.setNotifyListContentUpdatedEnabled(true)
+                                    }
+                                } else {
+                                    preferencesManager.setNotifyListContentUpdatedEnabled(false)
                                 }
                             },
                         )
