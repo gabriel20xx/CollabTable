@@ -53,6 +53,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateMapOf
@@ -89,6 +90,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.burnoutcrew.reorderable.ReorderableItem
 import org.burnoutcrew.reorderable.detectReorder
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
@@ -194,46 +197,30 @@ fun ListDetailScreen(
         },
         floatingActionButton = {},
     ) { padding ->
-        // Apply filtering, sorting, and grouping to items
-        fun valueFor(
-            item: ItemWithValues,
-            field: Field?,
-        ): String {
-            if (field == null) return ""
-            return item.values.find { it.fieldId == field.id }?.value ?: ""
+        // Apply filtering, sorting and grouping off the main thread and memoize the result
+        val transformed by produceState(
+            initialValue = TransformedItems(emptyList(), mapOf("_all" to emptyList())),
+            stableItems,
+            sortField,
+            sortAscending,
+            groupByField,
+            filterField,
+            filterValue,
+        ) {
+            value = withContext(Dispatchers.Default) {
+                transformItems(
+                    items = stableItems,
+                    sortField = sortField,
+                    sortAscending = sortAscending,
+                    groupByField = groupByField,
+                    filterField = filterField,
+                    filterValue = filterValue,
+                )
+            }
         }
 
-        val filteredItems: List<ItemWithValues> =
-            if (filterField != null && filterValue.isNotBlank()) {
-                val needle = filterValue.lowercase(Locale.getDefault())
-                stableItems.filter { item ->
-                    valueFor(item, filterField).lowercase(Locale.getDefault()).contains(needle)
-                }
-            } else {
-                stableItems
-            }
-
-        // Default ordering: append new items at bottom by createdAt ascending.
-        // If an explicit sortField is chosen, use that instead.
-        val sortedItems: List<ItemWithValues> =
-            if (sortField != null) {
-                val base = filteredItems.sortedWith(compareBy { item -> valueFor(item, sortField) })
-                if (sortAscending) base else base.asReversed()
-            } else {
-                // Items from DB may not be ordered; enforce createdAt ascending
-                filteredItems.sortedBy { it.item.createdAt }
-            }
-
-        val processedItems: List<ItemWithValues> = sortedItems
-
-        val groupedItems: Map<String, List<ItemWithValues>> =
-            if (groupByField != null) {
-                processedItems.groupBy { item ->
-                    valueFor(item, groupByField).ifBlank { "(Empty)" }
-                }
-            } else {
-                mapOf(" all" to processedItems)
-            }
+        val processedItems = transformed.processed
+        val groupedItems = transformed.grouped
         if (stableFields.isEmpty()) {
             Box(
                 modifier =
@@ -540,6 +527,7 @@ fun ListDetailScreen(
                                 items(
                                     items = groupItems,
                                     key = { it.item.id },
+                                    contentType = { "row" },
                                 ) { itemWithValues ->
                                     ItemRow(
                                         fields = stableFields,
@@ -662,6 +650,51 @@ fun ListDetailScreen(
             },
         )
     }
+}
+
+// Pure helpers used for transforming and grouping items
+private data class TransformedItems(
+    val processed: List<ItemWithValues>,
+    val grouped: Map<String, List<ItemWithValues>>,
+)
+
+private fun valueFor(item: ItemWithValues, field: Field?): String {
+    if (field == null) return ""
+    return item.values.find { it.fieldId == field.id }?.value ?: ""
+}
+
+private fun transformItems(
+    items: List<ItemWithValues>,
+    sortField: Field?,
+    sortAscending: Boolean,
+    groupByField: Field?,
+    filterField: Field?,
+    filterValue: String,
+): TransformedItems {
+    val filtered: List<ItemWithValues> =
+        if (filterField != null && filterValue.isNotBlank()) {
+            val needle = filterValue.lowercase(Locale.getDefault())
+            items.filter { item -> valueFor(item, filterField).lowercase(Locale.getDefault()).contains(needle) }
+        } else {
+            items
+        }
+
+    val sorted: List<ItemWithValues> =
+        if (sortField != null) {
+            val base = filtered.sortedWith(compareBy { item -> valueFor(item, sortField) })
+            if (sortAscending) base else base.asReversed()
+        } else {
+            filtered.sortedBy { it.item.createdAt }
+        }
+
+    val grouped: Map<String, List<ItemWithValues>> =
+        if (groupByField != null) {
+            sorted.groupBy { item -> valueFor(item, groupByField).ifBlank { "(Empty)" } }
+        } else {
+            mapOf("_all" to sorted)
+        }
+
+    return TransformedItems(processed = sorted, grouped = grouped)
 }
 
 // Produce the display text used in cells for measurement purposes (single-line content baseline)
