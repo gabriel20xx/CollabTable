@@ -17,6 +17,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -102,18 +107,48 @@ fun MainApp() {
                     .padding(innerPadding),
             color = MaterialTheme.colorScheme.background,
         ) {
+            val tabRoutes = setOf(Routes.TABLES, Routes.SETTINGS)
             NavHost(
                 navController = navController,
                 startDestination = Routes.TABLES,
             ) {
-                composable(Routes.TABLES) {
+                // Fade between bottom navigation tabs
+                composable(
+                    route = Routes.TABLES,
+                    enterTransition = {
+                        if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes) {
+                            fadeIn(tween(200))
+                        } else {
+                            fadeIn(tween(150))
+                        }
+                    },
+                    exitTransition = {
+                        if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes) {
+                            fadeOut(tween(200))
+                        } else {
+                            fadeOut(tween(150))
+                        }
+                    },
+                    popEnterTransition = { fadeIn(tween(180)) },
+                    popExitTransition = { fadeOut(tween(180)) },
+                ) {
                     ListsScreen(
                         onNavigateToList = { listId -> navController.navigate("list/$listId") },
                         onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                         onNavigateToLogs = { navController.navigate(Routes.LOGS) },
                     )
                 }
-                composable(Routes.SETTINGS) {
+                composable(
+                    route = Routes.SETTINGS,
+                    enterTransition = {
+                        if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes) fadeIn(tween(200)) else fadeIn(tween(150))
+                    },
+                    exitTransition = {
+                        if (initialState.destination.route in tabRoutes && targetState.destination.route in tabRoutes) fadeOut(tween(200)) else fadeOut(tween(150))
+                    },
+                    popEnterTransition = { fadeIn(tween(180)) },
+                    popExitTransition = { fadeOut(tween(180)) },
+                ) {
                     SettingsScreen(
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToLogs = { navController.navigate(Routes.LOGS) },
@@ -123,12 +158,23 @@ fun MainApp() {
                         },
                     )
                 }
-                composable(Routes.LOGS) {
+                // Horizontal slide for Logs screen
+                composable(
+                    route = Routes.LOGS,
+                    enterTransition = { slideInHorizontally(animationSpec = tween(220), initialOffsetX = { it }) + fadeIn(tween(220)) },
+                    exitTransition = { slideOutHorizontally(animationSpec = tween(200), targetOffsetX = { -it / 3 }) + fadeOut(tween(180)) },
+                    popEnterTransition = { slideInHorizontally(animationSpec = tween(220), initialOffsetX = { -it }) + fadeIn(tween(220)) },
+                    popExitTransition = { slideOutHorizontally(animationSpec = tween(200), targetOffsetX = { it / 3 }) + fadeOut(tween(180)) },
+                ) {
                     LogsScreen(onNavigateBack = { navController.popBackStack() })
                 }
                 composable(
                     route = Routes.LIST_DETAIL,
                     arguments = listOf(navArgument("listId") { type = NavType.StringType }),
+                    enterTransition = { slideInHorizontally(animationSpec = tween(240), initialOffsetX = { it }) + fadeIn(tween(240)) },
+                    exitTransition = { slideOutHorizontally(animationSpec = tween(200), targetOffsetX = { -it / 2 }) + fadeOut(tween(180)) },
+                    popEnterTransition = { slideInHorizontally(animationSpec = tween(240), initialOffsetX = { -it }) + fadeIn(tween(240)) },
+                    popExitTransition = { slideOutHorizontally(animationSpec = tween(200), targetOffsetX = { it / 2 }) + fadeOut(tween(180)) },
                 ) { backStackEntry ->
                     val listId = backStackEntry.arguments?.getString("listId") ?: return@composable
                     ListDetailScreen(listId = listId, onNavigateBack = { navController.popBackStack() })
