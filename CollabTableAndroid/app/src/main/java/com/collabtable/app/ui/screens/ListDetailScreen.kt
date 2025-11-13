@@ -891,19 +891,20 @@ fun FieldHeader(
                 .width(width)
                 .border(1.dp, MaterialTheme.colorScheme.outline),
     ) {
+        // Fill the available height provided by EqualHeightRow so content can be centered
         Surface(
             modifier =
                 Modifier
-                    .fillMaxWidth()
+                    .fillMaxSize()
                     .heightIn(min = HeaderMinHeight),
             color = MaterialTheme.colorScheme.primaryContainer,
         ) {
             Row(
                 modifier =
                     Modifier
-                        .fillMaxWidth()
+                        .fillMaxSize()
                         .heightIn(min = HeaderMinHeight)
-                        .padding(12.dp),
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1043,7 +1044,12 @@ fun ItemRow(
                             .border(
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.outline,
-                            ).padding(8.dp),
+                            )
+                            .fillMaxHeight()
+                            // Consistent minimum top/bottom padding regardless of row height
+                            .padding(horizontal = 8.dp, vertical = 8.dp),
+                    // Center horizontally based on alignment while always vertically centering
+                    contentAlignment = alignment,
                 ) {
                     when (field.getType()) {
                         com.collabtable.app.data.model.FieldType.TEXT -> {
@@ -1051,10 +1057,7 @@ fun ItemRow(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1063,10 +1066,7 @@ fun ItemRow(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1075,10 +1075,7 @@ fun ItemRow(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1092,10 +1089,7 @@ fun ItemRow(
                                     },
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1104,10 +1098,7 @@ fun ItemRow(
                                 text = if (value?.value.isNullOrBlank()) "" else "${value?.value}%",
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1116,10 +1107,7 @@ fun ItemRow(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1128,10 +1116,7 @@ fun ItemRow(
                                 text = if (value?.value == "true") "✓" else "",
                                 style = MaterialTheme.typography.bodyLarge,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1168,10 +1153,7 @@ fun ItemRow(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = textAlign,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }
@@ -1209,10 +1191,7 @@ fun ItemRow(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = textAlign,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }
@@ -1250,10 +1229,7 @@ fun ItemRow(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = textAlign,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }
@@ -1263,10 +1239,7 @@ fun ItemRow(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1275,10 +1248,7 @@ fun ItemRow(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1287,10 +1257,7 @@ fun ItemRow(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1305,10 +1272,7 @@ fun ItemRow(
                                     } else {
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                     },
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1316,10 +1280,7 @@ fun ItemRow(
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1327,10 +1288,7 @@ fun ItemRow(
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1341,7 +1299,7 @@ fun ItemRow(
                                 Row(
                                     modifier =
                                         Modifier
-                                            .padding(vertical = 8.dp),
+                                            .padding(vertical = 0.dp),
                                 ) {
                                     repeat(maxRating) { index ->
                                         Icon(
@@ -1405,10 +1363,7 @@ fun ItemRow(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1418,20 +1373,14 @@ fun ItemRow(
                                     text = "🖼️ ${value.value}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = textAlign,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             } else {
                                 Text(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = textAlign,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }
@@ -1442,20 +1391,14 @@ fun ItemRow(
                                     text = "📎 ${value.value}",
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = textAlign,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             } else {
                                 Text(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = textAlign,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }
@@ -1468,10 +1411,7 @@ fun ItemRow(
                                         fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                                     ),
                                 textAlign = textAlign,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(vertical = 8.dp),
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
 
@@ -1482,20 +1422,14 @@ fun ItemRow(
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.primary,
                                     textAlign = textAlign,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             } else {
                                 Text(
                                     text = "",
                                     style = MaterialTheme.typography.bodyMedium,
                                     textAlign = textAlign,
-                                    modifier =
-                                        Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
+                                    modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                         }
