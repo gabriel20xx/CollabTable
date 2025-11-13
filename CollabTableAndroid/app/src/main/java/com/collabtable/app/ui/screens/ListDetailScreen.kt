@@ -103,6 +103,10 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
+// Independent minimum heights for header and rows
+private val HeaderMinHeight = 44.dp
+private val RowMinHeight = 48.dp
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ListDetailScreen(
@@ -123,9 +127,9 @@ fun ListDetailScreen(
     val items by viewModel.items.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
-    // Use derivedStateOf to create stable references
-    val stableFields by remember { derivedStateOf { fields } }
-    val stableItems by remember { derivedStateOf { items } }
+    // Use direct state values; avoid derivedStateOf without state reads (caused staleness)
+    val stableFields = fields
+    val stableItems = items
     var itemToEdit by remember { mutableStateOf<ItemWithValues?>(null) }
     var showSortDialog by remember { mutableStateOf(false) }
     var showGroupDialog by remember { mutableStateOf(false) }
@@ -495,38 +499,43 @@ fun ListDetailScreen(
                             pendingScrollToBottom = false
                         }
                     }
-                    // Header: horizontally scrollable across the table width
-                    Row(
+                    // Header: horizontally scrollable across the table width with equal-height header cells
+                    val headerWidths = stableFields.map { field -> fieldWidths[field.id] ?: 150.dp }
+                    Box(
                         modifier =
                             Modifier
                                 .horizontalScroll(horizontalScrollState)
                                 .background(MaterialTheme.colorScheme.surface),
-                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        stableFields.forEach { field ->
-                            key(field.id) {
-                                FieldHeader(
-                                    field = field,
-                                    width = fieldWidths[field.id] ?: 150.dp,
-                                    onWidthChange = { delta ->
-                                        val currentWidth = fieldWidths[field.id] ?: 150.dp
-                                        val newWidth = (currentWidth.value + delta).coerceAtLeast(100f)
-                                        fieldWidths[field.id] = newWidth.dp
-                                        prefs.setColumnWidths(
-                                            listId,
-                                            fieldWidths.mapValues { it.value.value },
-                                        )
-                                    },
-                                    scrollState = horizontalScrollState,
-                                    isLast = (field.id == stableFields.lastOrNull()?.id),
-                                    onHeaderClick = { showManageColumnsDialog = true },
-                                    alignment = columnAlignments[field.id] ?: "start",
-                                    onAlignmentChange = { newAlign ->
-                                        columnAlignments[field.id] = newAlign
-                                        viewModel.updateFieldAlignment(field.id, newAlign)
-                                        prefs.setColumnAlignments(listId, columnAlignments.toMap())
-                                    },
-                                )
+                        EqualHeightRow(
+                            widths = headerWidths,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            stableFields.forEach { field ->
+                                key(field.id) {
+                                    FieldHeader(
+                                        field = field,
+                                        width = fieldWidths[field.id] ?: 150.dp,
+                                        onWidthChange = { delta ->
+                                            val currentWidth = fieldWidths[field.id] ?: 150.dp
+                                            val newWidth = (currentWidth.value + delta).coerceAtLeast(100f)
+                                            fieldWidths[field.id] = newWidth.dp
+                                            prefs.setColumnWidths(
+                                                listId,
+                                                fieldWidths.mapValues { it.value.value },
+                                            )
+                                        },
+                                        scrollState = horizontalScrollState,
+                                        isLast = (field.id == stableFields.lastOrNull()?.id),
+                                        onHeaderClick = { showManageColumnsDialog = true },
+                                        alignment = columnAlignments[field.id] ?: "start",
+                                        onAlignmentChange = { newAlign ->
+                                            columnAlignments[field.id] = newAlign
+                                            viewModel.updateFieldAlignment(field.id, newAlign)
+                                            prefs.setColumnAlignments(listId, columnAlignments.toMap())
+                                        },
+                                    )
+                                }
                             }
                         }
                     }
@@ -883,13 +892,17 @@ fun FieldHeader(
                 .border(1.dp, MaterialTheme.colorScheme.outline),
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = HeaderMinHeight),
             color = MaterialTheme.colorScheme.primaryContainer,
         ) {
             Row(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .heightIn(min = HeaderMinHeight)
                         .padding(12.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
@@ -1005,7 +1018,7 @@ fun ItemRow(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = RowMinHeight)
                 .clickable(onClick = onClick),
     ) {
         fields.forEach { field ->
