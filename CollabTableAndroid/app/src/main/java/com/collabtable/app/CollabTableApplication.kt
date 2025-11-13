@@ -13,6 +13,7 @@ import androidx.work.WorkManager
 import com.collabtable.app.data.api.ApiClient
 import com.collabtable.app.data.repository.SyncRepository
 import com.collabtable.app.notifications.NotificationHelper
+import com.collabtable.app.notifications.NotificationPoller
 import com.collabtable.app.work.ListChangeNotificationWorker
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -42,11 +43,18 @@ class CollabTableApplication : Application() {
         // Schedule periodic background check for list changes to surface notifications
         scheduleListChangeWorker()
 
+        // Start foreground notification polling loop (respects user interval)
+        NotificationPoller.start(this)
+
         // Auto-clear notifications when app comes to foreground
         ProcessLifecycleOwner.get().lifecycle.addObserver(
             object : DefaultLifecycleObserver {
                 override fun onStart(owner: LifecycleOwner) {
                     NotificationHelper.clearListEventNotifications(this@CollabTableApplication)
+                    NotificationPoller.start(this@CollabTableApplication)
+                }
+                override fun onStop(owner: LifecycleOwner) {
+                    NotificationPoller.stop()
                 }
             },
         )

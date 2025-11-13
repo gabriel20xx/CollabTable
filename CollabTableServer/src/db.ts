@@ -94,6 +94,19 @@ class SqliteAdapter implements DBAdapter {
       CREATE INDEX IF NOT EXISTS idx_items_listId ON items(listId);
       CREATE INDEX IF NOT EXISTS idx_item_values_itemId ON item_values(itemId);
       CREATE INDEX IF NOT EXISTS idx_item_values_fieldId ON item_values(fieldId);
+
+      -- Notification events table (for remote-change notifications)
+      CREATE TABLE IF NOT EXISTS notifications (
+        id TEXT PRIMARY KEY,
+        deviceIdOrigin TEXT,
+        eventType TEXT NOT NULL,
+        entityType TEXT NOT NULL,
+        entityId TEXT,
+        listId TEXT,
+        createdAt INTEGER NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_notifications_createdAt ON notifications(createdAt);
+      CREATE INDEX IF NOT EXISTS idx_notifications_listId ON notifications(listId);
     `);
     // Attempt to add alignment column if upgrading an existing DB (ignore error if exists)
     try {
@@ -204,6 +217,20 @@ class PostgresAdapter implements DBAdapter {
       await client.query(`CREATE INDEX IF NOT EXISTS idx_items_listId ON items(listId);`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_item_values_itemId ON item_values(itemId);`);
       await client.query(`CREATE INDEX IF NOT EXISTS idx_item_values_fieldId ON item_values(fieldId);`);
+      // Notifications table
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id TEXT PRIMARY KEY,
+          deviceIdOrigin TEXT,
+          eventType TEXT NOT NULL,
+          entityType TEXT NOT NULL,
+          entityId TEXT,
+          listId TEXT,
+          createdAt BIGINT NOT NULL
+        );
+      `);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_notifications_createdAt ON notifications(createdAt);`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_notifications_listId ON notifications(listId);`);
       // Migrate existing DBs: ensure alignment column exists
       await client.query(`ALTER TABLE fields ADD COLUMN IF NOT EXISTS alignment TEXT NOT NULL DEFAULT 'start';`);
       await client.query('COMMIT');

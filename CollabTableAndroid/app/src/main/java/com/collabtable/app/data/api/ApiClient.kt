@@ -43,10 +43,20 @@ object ApiClient {
             chain.proceed(newRequest)
         }
 
+    private val deviceIdInterceptor =
+        Interceptor { chain ->
+            val request = chain.request()
+            val devId = context?.let { PreferencesManager.getInstance(it).getDeviceId() }
+            val newReq =
+                if (!devId.isNullOrBlank()) request.newBuilder().header("x-device-id", devId).build() else request
+            chain.proceed(newReq)
+        }
+
     private val okHttpClient =
         OkHttpClient
             .Builder()
             .addInterceptor(authInterceptor)
+            .addInterceptor(deviceIdInterceptor)
             .addInterceptor(loggingInterceptor)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

@@ -3,11 +3,14 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { initializeDatabase } from './db';
 import { authenticatePassword } from './middleware/auth';
+import { deviceIdMiddleware } from './middleware/device';
 import listRoutes from './routes/listRoutes';
 import fieldRoutes from './routes/fieldRoutes';
 import itemRoutes from './routes/itemRoutes';
 import syncRoutes from './routes/syncRoutes';
 import webRoutes from './routes/webRoutes';
+import notificationRoutes from './routes/notificationRoutes';
+import { startNotificationCleanup } from './notifications';
 
 dotenv.config();
 
@@ -25,12 +28,15 @@ app.get('/health', (req, res) => {
 
 // Apply authentication middleware to all API routes
 app.use('/api', authenticatePassword);
+// Attach device id for downstream routes
+app.use('/api', deviceIdMiddleware);
 
 // Routes (protected by auth)
 app.use('/api/lists', listRoutes);
 app.use('/api/fields', fieldRoutes);
 app.use('/api/items', itemRoutes);
 app.use('/api', syncRoutes);
+app.use('/api', notificationRoutes);
 
 // Web UI (no auth required, must be last to not interfere with API routes)
 app.use('/', webRoutes);
@@ -45,6 +51,9 @@ app.use('/', webRoutes);
     console.log('- Fields');
     console.log('- Items');
     console.log('- ItemValues');
+
+    // Start retention cleanup for notifications
+    startNotificationCleanup();
 
     // Start HTTP server (WebSocket removed)
     app.listen(PORT, () => {

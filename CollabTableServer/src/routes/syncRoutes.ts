@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { dbAdapter } from '../db';
+import { enqueueNotification } from '../notifications';
 
 const router = Router();
 
@@ -66,6 +67,7 @@ const UPSERT_ITEM_VALUE = 'INSERT INTO item_values (id, itemId, fieldId, value, 
 router.post('/sync', async (req: Request, res: Response) => {
   try {
     const { lastSyncTimestamp, lists, fields, items, itemValues }: SyncRequest = req.body;
+    const deviceId = (req as any).deviceId as string | undefined;
     
     // Track stats
     syncStats.totalSyncs++;
@@ -122,6 +124,11 @@ router.post('/sync', async (req: Request, res: Response) => {
             list.updatedAt,
             list.isDeleted ? 1 : 0
           ]);
+          // enqueue list-level notifications
+          try {
+            const ev = list.isDeleted ? 'deleted' : (lastSyncTimestamp === 0 ? 'created' : 'updated');
+            await enqueueNotification(tx, deviceId, ev, 'list', list.id, list.id, list.updatedAt);
+          } catch {}
           // If a list was deleted, cascade the deletion to child records on server
           // - mark fields and items as deleted (tombstones) so other clients learn about them
           // - remove item_values belonging to items under this list (no tombstone support for values)
@@ -151,6 +158,10 @@ router.post('/sync', async (req: Request, res: Response) => {
             field.updatedAt,
             field.isDeleted ? 1 : 0
           ]);
+          try {
+            const ev = field.isDeleted ? 'deleted' : (lastSyncTimestamp === 0 ? 'created' : 'updated');
+            await enqueueNotification(tx, deviceId, ev, 'field', field.id, field.listId, field.updatedAt);
+          } catch {}
           if (field.isDeleted) {
             // Remove item_values for this field
             try {
@@ -184,6 +195,10 @@ router.post('/sync', async (req: Request, res: Response) => {
             item.updatedAt,
             item.isDeleted ? 1 : 0
           ]);
+          try {
+            const ev = item.isDeleted ? 'deleted' : (lastSyncTimestamp === 0 ? 'created' : 'updated');
+            await enqueueNotification(tx, deviceId, ev, 'item', item.id, item.listId, item.updatedAt);
+          } catch {}
           // If an item was deleted, remove its values (no tombstone support for values)
           if (item.isDeleted) {
             try {
@@ -261,6 +276,13 @@ router.post('/sync', async (req: Request, res: Response) => {
               value.value,
               value.updatedAt
             ]);
+            // Coarse list content update notification
+            try {
+              const lId = fieldToList[value.fieldId];
+              if (lId) {
+                await enqueueNotification(tx, deviceId, 'listContentUpdated', 'value', value.id, lId, value.updatedAt);
+              }
+            } catch {}
           } catch (err: any) {
             // Catch FK violation just in case race or deletion happened inside same sync
             if (err && err.code === '23503') {

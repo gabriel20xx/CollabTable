@@ -537,6 +537,7 @@ fun ListDetailScreen(
                             }
                         }
 
+                        // Render content states outside the horizontalScroll so empty state centers relative to viewport
                         when {
                             isLoading && stableItems.isEmpty() -> {
                                 Box(
@@ -545,6 +546,7 @@ fun ListDetailScreen(
                                 ) { androidx.compose.material3.CircularProgressIndicator() }
                             }
                             stableItems.isEmpty() -> {
+                                // Use full-width Box + centered text (header remains above inside scroll container)
                                 Box(
                                     modifier = Modifier.fillMaxSize(),
                                     contentAlignment = Alignment.Center,
@@ -553,7 +555,9 @@ fun ListDetailScreen(
                                         text = stringResource(R.string.no_items),
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 24.dp),
                                         textAlign = TextAlign.Center,
                                     )
                                 }

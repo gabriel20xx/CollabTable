@@ -128,16 +128,8 @@ class ListDetailViewModel(
         return state.isAtLeast(Lifecycle.State.STARTED)
     }
 
-    private fun maybeNotifyListContentUpdated() {
-        val prefs =
-            com.collabtable.app.data.preferences.PreferencesManager
-                .getInstance(context)
-        if (prefs.notifyListContentUpdated.value && !isInForeground()) {
-            val name = _list.value?.name ?: "Table"
-            com.collabtable.app.notifications.NotificationHelper
-                .showListContentUpdated(context, listId, name)
-        }
-    }
+    // Local changes should not notify this same device; remote-change notification (future) will be triggered elsewhere.
+    private fun maybeNotifyListContentUpdated() { /* intentionally disabled for local-origin changes */ }
 
     fun renameList(newName: String) {
         viewModelScope.launch {
@@ -202,8 +194,7 @@ class ListDetailViewModel(
                 }
             }
 
-            performSync()
-            maybeNotifyListContentUpdated()
+            performSync() // no local notification
         }
     }
 
@@ -224,8 +215,7 @@ class ListDetailViewModel(
                     database.listDao().updateList(l.copy(updatedAt = ts))
                 }
             }
-            performSync()
-            maybeNotifyListContentUpdated()
+            performSync() // no local notification
         }
     }
 
@@ -252,8 +242,7 @@ class ListDetailViewModel(
                         database.listDao().updateList(l.copy(updatedAt = ts))
                     }
                 }
-                performSync()
-                maybeNotifyListContentUpdated()
+                performSync() // no local notification
             }
         }
     }
@@ -319,8 +308,7 @@ class ListDetailViewModel(
                     database.listDao().updateList(l.copy(updatedAt = timestamp))
                 }
             }
-            performSync()
-            maybeNotifyListContentUpdated()
+            performSync() // no local notification
         }
     }
 
@@ -355,8 +343,7 @@ class ListDetailViewModel(
                     database.listDao().updateList(l.copy(updatedAt = timestamp))
                 }
             }
-            performSync()
-            maybeNotifyListContentUpdated()
+            performSync() // no local notification
         }
     }
 

@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { dbAdapter } from '../db';
+import { enqueueNotification } from '../notifications';
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.post('/', async (req: Request, res: Response) => {
       [id, name, fieldType, fieldOptions, alignment ?? 'start', listId, order, createdAt, updatedAt, isDeleted ? 1 : 0]
     );
     const field = await dbAdapter.queryOne('SELECT * FROM fields WHERE id = ?', [id]);
+    await enqueueNotification(dbAdapter, (req as any).deviceId, 'created', 'field', id, listId, Date.now());
     res.status(201).json({ ...(field as any), isDeleted: !!(field as any).isDeleted });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create field' });
@@ -44,6 +46,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
   const field = await dbAdapter.queryOne('SELECT * FROM fields WHERE id = ?', [req.params.id]);
+    await enqueueNotification(dbAdapter, (req as any).deviceId, 'updated', 'field', req.params.id, (field as any)?.listId ?? (field as any)?.listid, updatedAt);
     res.json({ ...(field as any), isDeleted: !!(field as any).isDeleted });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update field' });
@@ -85,6 +88,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
       }
     }
 
+    await enqueueNotification(dbAdapter, (req as any).deviceId, 'deleted', 'field', req.params.id, (field as any).listId ?? (field as any).listid, updatedAt);
     res.json({ message: 'Field deleted successfully', cascadeItemsDeleted: remainingCount === 0 });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete field' });

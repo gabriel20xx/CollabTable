@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { dbAdapter } from '../db';
+import { enqueueNotification } from '../notifications';
 
 const router = Router();
 
@@ -33,6 +34,7 @@ router.post('/', async (req: Request, res: Response) => {
       [id, listId, createdAt, updatedAt, isDeleted ? 1 : 0]
     );
     const item = await dbAdapter.queryOne('SELECT * FROM items WHERE id = ?', [id]);
+    await enqueueNotification(dbAdapter, (req as any).deviceId, 'created', 'item', id, listId, Date.now());
     res.status(201).json({ ...(item as any), isDeleted: !!(item as any).isDeleted });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create item' });
@@ -48,6 +50,14 @@ router.post('/values', async (req: Request, res: Response) => {
       [id, itemId, fieldId, value, updatedAt, value, updatedAt]
     );
     const itemValue = await dbAdapter.queryOne('SELECT * FROM item_values WHERE id = ?', [id]);
+    // Notify list content updated (coarse event) using field's listId
+    try {
+      const field = await dbAdapter.queryOne('SELECT listId FROM fields WHERE id = ?', [fieldId]);
+      const listId = field ? ((field as any).listId ?? (field as any).listid) : undefined;
+      if (listId) {
+        await enqueueNotification(dbAdapter, (req as any).deviceId, 'listContentUpdated', 'value', id, listId, Date.now());
+      }
+    } catch {}
     res.json(itemValue);
   } catch (error) {
     res.status(500).json({ error: 'Failed to save item value' });
@@ -68,6 +78,7 @@ router.put('/:id', async (req: Request, res: Response) => {
     }
     
   const item = await dbAdapter.queryOne('SELECT * FROM items WHERE id = ?', [req.params.id]);
+    await enqueueNotification(dbAdapter, (req as any).deviceId, 'updated', 'item', req.params.id, (item as any)?.listId ?? (item as any)?.listid, updatedAt);
     res.json({ ...(item as any), isDeleted: !!(item as any).isDeleted });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update item' });
@@ -86,7 +97,11 @@ router.delete('/:id', async (req: Request, res: Response) => {
     if (result.changes === 0) {
       return res.status(404).json({ error: 'Item not found' });
     }
-    
+    try {
+      const item = await dbAdapter.queryOne('SELECT * FROM items WHERE id = ?', [req.params.id]);
+      const listId = item ? ((item as any).listId ?? (item as any).listid) : undefined;
+      await enqueueNotification(dbAdapter, (req as any).deviceId, 'deleted', 'item', req.params.id, listId, updatedAt);
+    } catch {}
     res.json({ message: 'Item deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete item' });

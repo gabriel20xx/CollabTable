@@ -7,6 +7,8 @@ import com.collabtable.app.data.model.ItemValue
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.POST
+import retrofit2.http.GET
+import retrofit2.http.Query
 
 data class SyncRequest(
     val lastSyncTimestamp: Long,
@@ -29,4 +31,9 @@ interface CollabTableApi {
     suspend fun sync(
         @Body request: SyncRequest,
     ): Response<SyncResponse>
+
+    @GET("notifications/poll")
+    suspend fun pollNotifications(
+        @Query("since") since: Long,
+    ): Response<PollResponse>
 }

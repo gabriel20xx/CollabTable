@@ -258,8 +258,18 @@ class PreferencesManager(
         prefs.edit().putString(key, json.toString()).apply()
     }
 
+    // Generate and cache a stable device id (UUID) for this install
+    fun getDeviceId(): String {
+        val existing = prefs.getString(KEY_DEVICE_ID, null)
+        if (!existing.isNullOrBlank()) return existing
+        val id = java.util.UUID.randomUUID().toString()
+        prefs.edit().putString(KEY_DEVICE_ID, id).apply()
+        return id
+    }
+
     companion object {
         private const val KEY_SERVER_URL = "server_url"
+        private const val KEY_DEVICE_ID = "device_id"
         private const val KEY_FIRST_RUN = "first_run"
         private const val KEY_SERVER_PASSWORD = "server_password"
         private const val KEY_LAST_SYNC_TIMESTAMP = "last_sync_timestamp"

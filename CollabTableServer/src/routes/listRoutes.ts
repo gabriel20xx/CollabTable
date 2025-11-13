@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { dbAdapter } from '../db';
+import { enqueueNotification } from '../notifications';
 
 const router = Router();
 
@@ -37,6 +38,8 @@ router.post('/', async (req: Request, res: Response) => {
       [id, name, createdAt, updatedAt, isDeleted ? 1 : 0]
     );
     const list = await dbAdapter.queryOne('SELECT * FROM lists WHERE id = ?', [id]);
+    // Notify others
+    await enqueueNotification(dbAdapter, (req as any).deviceId, 'created', 'list', id, id, Date.now());
     res.status(201).json({ ...(list as any), isDeleted: !!(list as any).isDeleted });
   } catch (error) {
     res.status(500).json({ error: 'Failed to create list' });
@@ -56,6 +59,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'List not found' });
     }
     const list = await dbAdapter.queryOne('SELECT * FROM lists WHERE id = ?', [req.params.id]);
+    await enqueueNotification(dbAdapter, (req as any).deviceId, 'updated', 'list', req.params.id, req.params.id, updatedAt);
     res.json({ ...(list as any), isDeleted: !!(list as any).isDeleted });
   } catch (error) {
     res.status(500).json({ error: 'Failed to update list' });
@@ -74,7 +78,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
     if (result.changes === 0) {
       return res.status(404).json({ error: 'List not found' });
     }
-    
+    await enqueueNotification(dbAdapter, (req as any).deviceId, 'deleted', 'list', req.params.id, req.params.id, updatedAt);
     res.json({ message: 'List deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete list' });
