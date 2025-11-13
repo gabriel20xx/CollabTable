@@ -153,7 +153,7 @@ fun SettingsScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
-                text = "Server Connection",
+                text = stringResource(R.string.server_connection),
                 style = MaterialTheme.typography.titleMedium,
             )
 
@@ -169,7 +169,7 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
-                        text = "Connected to",
+                        text = stringResource(R.string.connected_to),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -186,7 +186,7 @@ fun SettingsScreen(
             // Authentication section removed
 
             Text(
-                text = "Appearance",
+                text = stringResource(R.string.appearance),
                 style = MaterialTheme.typography.titleMedium,
             )
 
@@ -198,19 +198,19 @@ fun SettingsScreen(
                 FilterChip(
                     selected = themeMode == PreferencesManager.THEME_MODE_SYSTEM,
                     onClick = { preferencesManager.setThemeMode(PreferencesManager.THEME_MODE_SYSTEM) },
-                    label = { Text("System") },
+                    label = { Text(stringResource(R.string.theme_system)) },
                     leadingIcon = { Icon(Icons.Filled.SettingsBrightness, contentDescription = null) },
                 )
                 FilterChip(
                     selected = themeMode == PreferencesManager.THEME_MODE_LIGHT,
                     onClick = { preferencesManager.setThemeMode(PreferencesManager.THEME_MODE_LIGHT) },
-                    label = { Text("Light") },
+                    label = { Text(stringResource(R.string.theme_light)) },
                     leadingIcon = { Icon(Icons.Filled.Brightness7, contentDescription = null) },
                 )
                 FilterChip(
                     selected = themeMode == PreferencesManager.THEME_MODE_DARK,
                     onClick = { preferencesManager.setThemeMode(PreferencesManager.THEME_MODE_DARK) },
-                    label = { Text("Dark") },
+                    label = { Text(stringResource(R.string.theme_dark)) },
                     leadingIcon = { Icon(Icons.Filled.Brightness4, contentDescription = null) },
                 )
             }
@@ -222,9 +222,9 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Use Material 3 colors")
+                    Text(stringResource(R.string.use_material3_colors))
                     Text(
-                        text = "Dynamic colors on supported devices",
+                        text = stringResource(R.string.dynamic_colors_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -239,9 +239,9 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("AMOLED dark")
+                    Text(stringResource(R.string.amoled_dark))
                     Text(
-                        text = "Pure black background in dark mode",
+                        text = stringResource(R.string.amoled_dark_desc),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -251,7 +251,7 @@ fun SettingsScreen(
 
             // Sync settings
             Text(
-                text = "Sync",
+                text = stringResource(R.string.sync),
                 style = MaterialTheme.typography.titleMedium,
             )
 
@@ -267,7 +267,7 @@ fun SettingsScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
-                        text = "HTTP polling interval (ms)",
+                        text = stringResource(R.string.http_polling_interval_ms),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -296,7 +296,7 @@ fun SettingsScreen(
                                 syncIntervalError = null
                             }
                         }) {
-                            Text("Apply")
+                            Text(stringResource(R.string.apply))
                         }
                     }
                     if (syncIntervalError != null) {
@@ -307,7 +307,7 @@ fun SettingsScreen(
                         )
                     } else {
                         Text(
-                            text = "Current: $syncIntervalMs ms (min 250, max 600000)",
+                            text = stringResource(R.string.current_interval, syncIntervalMs),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -317,7 +317,7 @@ fun SettingsScreen(
 
             // Notifications section (moved inside the main scroll column so it doesn't overlay other content)
             Text(
-                text = "Notifications",
+                text = stringResource(R.string.notifications),
                 style = MaterialTheme.typography.titleMedium,
             )
             Card(
@@ -334,9 +334,9 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("List added")
+                            Text(stringResource(R.string.notify_list_added_title))
                             Text(
-                                text = "Notify when a new list/table is created",
+                                text = stringResource(R.string.notify_list_added_desc),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -360,9 +360,9 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("List edited")
+                            Text(stringResource(R.string.notify_list_edited_title))
                             Text(
-                                text = "Notify when a list/table name changes",
+                                text = stringResource(R.string.notify_list_edited_desc),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -386,9 +386,9 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("List content updated")
+                            Text(stringResource(R.string.notify_list_content_title))
                             Text(
-                                text = "Notify when fields or items change (add/edit/delete)",
+                                text = stringResource(R.string.notify_list_content_desc),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -412,9 +412,9 @@ fun SettingsScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("List removed")
+                            Text(stringResource(R.string.notify_list_removed_title))
                             Text(
-                                text = "Notify when a list/table is deleted",
+                                text = stringResource(R.string.notify_list_removed_desc),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -433,7 +433,7 @@ fun SettingsScreen(
                         )
                     }
                     Text(
-                        text = "Notifications fire only when the app is in background or not visible.",
+                        text = stringResource(R.string.notifications_footer),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -453,7 +453,7 @@ fun SettingsScreen(
                     modifier = Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Text(
+                        Text(
                         text = "View application logs",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -461,14 +461,14 @@ fun SettingsScreen(
                     Button(onClick = onNavigateToLogs, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.AutoMirrored.Filled.List, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text("Open Logs")
+                        Text(stringResource(R.string.open_logs))
                     }
                 }
             }
 
             // Leave Server section
             Text(
-                text = "Leave Server",
+                text = stringResource(R.string.leave_server_section),
                 style = MaterialTheme.typography.titleMedium,
             )
             Card(
@@ -481,27 +481,27 @@ fun SettingsScreen(
                 ) {
                     // Warning/info text appears above the action button
                     Text(
-                        text = "Leaving removes local data",
+                        text = stringResource(R.string.leaving_removes_local_data),
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "Disconnects and clears local database",
+                        text = stringResource(R.string.disconnects_and_clears_db),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "Clears stored server URL and password",
+                        text = stringResource(R.string.clears_server_settings),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "Deletes all local data (tables, fields, items)",
+                        text = stringResource(R.string.deletes_all_local),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     Text(
-                        text = "Returns to server setup screen",
+                        text = stringResource(R.string.returns_to_setup),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -524,9 +524,9 @@ fun SettingsScreen(
                                 strokeWidth = 2.dp,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Leaving...")
+                            Text(stringResource(R.string.leaving_progress))
                         } else {
-                            Text("Leave Server")
+                            Text(stringResource(R.string.leave_server))
                         }
                     }
                 }
@@ -536,12 +536,9 @@ fun SettingsScreen(
         if (showLeaveDialog) {
             AlertDialog(
                 onDismissRequest = { showLeaveDialog = false },
-                title = { Text("Leave Server?") },
+                title = { Text(stringResource(R.string.leave_server_dialog_title)) },
                 text = {
-                    Text(
-                        "All your data will be synced to the server before disconnecting. " +
-                            "After leaving, all local data will be deleted and you'll need to set up a new connection. " +
-                            "This action cannot be undone.",
+                    Text(stringResource(R.string.leave_server_dialog_body),
                     )
                 },
                 confirmButton = {
@@ -589,12 +586,12 @@ fun SettingsScreen(
                                 contentColor = MaterialTheme.colorScheme.error,
                             ),
                     ) {
-                        Text("Leave Server")
+                        Text(stringResource(R.string.leave_server))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showLeaveDialog = false }) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.cancel))
                     }
                 },
             )

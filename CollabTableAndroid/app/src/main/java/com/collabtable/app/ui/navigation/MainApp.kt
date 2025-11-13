@@ -74,10 +74,15 @@ fun MainApp() {
                 NavigationBarItem(
                     selected = currentRoute == Routes.TABLES || currentRoute?.startsWith("list/") == true,
                     onClick = {
-                        navController.navigate(Routes.TABLES) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+                        if (currentRoute?.startsWith("list/") == true) {
+                            // If we're in a list detail, pop back to the tables root instead of creating a new entry
+                            navController.popBackStack(Routes.TABLES, inclusive = false)
+                        } else if (currentRoute != Routes.TABLES) {
+                            navController.navigate(Routes.TABLES) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     },
                     icon = { androidx.compose.material3.Icon(Icons.Default.Home, contentDescription = null) },
@@ -87,10 +92,15 @@ fun MainApp() {
                     // Highlight settings tab for both Settings screen and Logs screen
                     selected = currentRoute == Routes.SETTINGS || currentRoute == Routes.LOGS,
                     onClick = {
-                        navController.navigate(Routes.SETTINGS) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
+                        if (currentRoute == Routes.LOGS) {
+                            // Return to Settings without rebuilding entire graph
+                            navController.popBackStack(Routes.SETTINGS, inclusive = false)
+                        } else if (currentRoute != Routes.SETTINGS) {
+                            navController.navigate(Routes.SETTINGS) {
+                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
                         }
                     },
                     icon = { androidx.compose.material3.Icon(Icons.Default.Settings, contentDescription = null) },

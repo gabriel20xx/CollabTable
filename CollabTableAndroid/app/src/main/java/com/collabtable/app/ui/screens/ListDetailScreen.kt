@@ -202,7 +202,13 @@ fun ListDetailScreen(
                     val localCtx = LocalContext.current
                     val localPrefs = remember { PreferencesManager.getInstance(localCtx) }
                     ConnectionStatusAction(prefs = localPrefs)
-                    IconButton(onClick = { showAddItemDialog = true }) {
+                    IconButton(onClick = {
+                        if (stableFields.isEmpty()) {
+                            showManageColumnsDialog = true
+                        } else {
+                            showAddItemDialog = true
+                        }
+                    }) {
                         Icon(Icons.Default.Add, contentDescription = stringResource(R.string.add_item))
                     }
                 },
@@ -253,7 +259,7 @@ fun ListDetailScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Text(
-                        text = "No fields yet. Add fields to get started!",
+                        text = "No columns yet. Add columns to get started!",
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -463,7 +469,7 @@ fun ListDetailScreen(
                                 }
                                 prefs.setColumnWidths(listId, fieldWidths.mapValues { it.value.value })
                             },
-                            label = { Text("Auto-fit") },
+                            label = { Text(stringResource(R.string.auto_fit)) },
                             leadingIcon = {
                                 Icon(
                                     Icons.Default.FitScreen,
@@ -476,128 +482,121 @@ fun ListDetailScreen(
 
                     // Header will be rendered as a stickyHeader inside the LazyColumn below
 
-                    // Items list with synchronized scrolling
-                    if (stableItems.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = stringResource(R.string.no_items),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    } else if (processedItems.isEmpty()) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = "No items match the current filter",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                TextButton(onClick = {
-                                    filterField = null
-                                    filterValue = ""
-                                }) {
-                                    Text("Clear Filter")
-                                }
+                    // Unified layout: always render headers, then content state/messages
+                    val listState = rememberLazyListState()
+                    LaunchedEffect(processedItems.size, pendingScrollToBottom) {
+                        if (pendingScrollToBottom && processedItems.isNotEmpty()) {
+                            val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
+                            try {
+                                listState.animateScrollToItem(lastIndex)
+                            } catch (_: Exception) {
+                                listState.scrollToItem(lastIndex)
                             }
+                            pendingScrollToBottom = false
                         }
-                    } else {
-                        val listState = rememberLazyListState()
-                        // If a new item was just added, scroll to bottom after composition
-                        LaunchedEffect(processedItems.size, pendingScrollToBottom) {
-                            if (pendingScrollToBottom) {
-                                // Scroll to the last real item index
-                                val lastIndex = (listState.layoutInfo.totalItemsCount - 1).coerceAtLeast(0)
-                                try {
-                                    listState.animateScrollToItem(lastIndex)
-                                } catch (_: Exception) {
-                                    listState.scrollToItem(lastIndex)
-                                }
-                                pendingScrollToBottom = false
-                            }
-                        }
-                        Column(
+                    }
+                    Column(
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .horizontalScroll(horizontalScrollState),
+                    ) {
+                        // Fixed header (always visible even with zero items)
+                        Row(
                             modifier =
                                 Modifier
-                                    .fillMaxSize()
-                                    .horizontalScroll(horizontalScrollState),
+                                    .fillMaxWidth()
+                                    .background(MaterialTheme.colorScheme.surface),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            // Fixed header (does not participate in vertical scroll)
-                            Row(
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.surface),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                stableFields.forEach { field ->
-                                    key(field.id) {
-                                        FieldHeader(
-                                            field = field,
-                                            width = fieldWidths[field.id] ?: 150.dp,
-                                            onWidthChange = { delta ->
-                                                val currentWidth = fieldWidths[field.id] ?: 150.dp
-                                                val newWidth = (currentWidth.value + delta).coerceAtLeast(100f)
-                                                fieldWidths[field.id] = newWidth.dp
-                                                prefs.setColumnWidths(
-                                                    listId,
-                                                    fieldWidths.mapValues { it.value.value },
-                                                )
-                                            },
-                                            scrollState = horizontalScrollState,
-                                            isLast = (field.id == stableFields.lastOrNull()?.id),
-                                            onHeaderClick = { showManageColumnsDialog = true },
-                                            alignment = columnAlignments[field.id] ?: "start",
-                                            onAlignmentChange = { newAlign ->
-                                                // Update local state and persist via ViewModel + cache to prefs for backward-compat
-                                                columnAlignments[field.id] = newAlign
-                                                viewModel.updateFieldAlignment(field.id, newAlign)
-                                                prefs.setColumnAlignments(listId, columnAlignments.toMap())
-                                            },
-                                        )
-                                    }
+                            stableFields.forEach { field ->
+                                key(field.id) {
+                                    FieldHeader(
+                                        field = field,
+                                        width = fieldWidths[field.id] ?: 150.dp,
+                                        onWidthChange = { delta ->
+                                            val currentWidth = fieldWidths[field.id] ?: 150.dp
+                                            val newWidth = (currentWidth.value + delta).coerceAtLeast(100f)
+                                            fieldWidths[field.id] = newWidth.dp
+                                            prefs.setColumnWidths(
+                                                listId,
+                                                fieldWidths.mapValues { it.value.value },
+                                            )
+                                        },
+                                        scrollState = horizontalScrollState,
+                                        isLast = (field.id == stableFields.lastOrNull()?.id),
+                                        onHeaderClick = { showManageColumnsDialog = true },
+                                        alignment = columnAlignments[field.id] ?: "start",
+                                        onAlignmentChange = { newAlign ->
+                                            columnAlignments[field.id] = newAlign
+                                            viewModel.updateFieldAlignment(field.id, newAlign)
+                                            prefs.setColumnAlignments(listId, columnAlignments.toMap())
+                                        },
+                                    )
                                 }
+                            }
+                        }
 
-                                // Loading overlay only while nothing is available to render yet
-                                if (isLoading && stableFields.isEmpty() && stableItems.isEmpty()) {
-                                    Box(
-                                        modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        androidx.compose.material3.CircularProgressIndicator()
+                        when {
+                            isLoading && stableItems.isEmpty() -> {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) { androidx.compose.material3.CircularProgressIndicator() }
+                            }
+                            stableItems.isEmpty() -> {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.no_items),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textAlign = TextAlign.Center,
+                                    )
+                                }
+                            }
+                            processedItems.isEmpty() -> {
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                        Text(
+                                            text = "No items match the current filter",
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        TextButton(onClick = {
+                                            filterField = null
+                                            filterValue = ""
+                                        }) { Text(stringResource(R.string.clear_filter)) }
                                     }
                                 }
                             }
-
-                            // Items list below the fixed header
-                            LazyColumn(
-                                modifier =
-                                    Modifier
-                                        .fillMaxSize(),
-                                state = listState,
-                                contentPadding = PaddingValues(0.dp),
-                            ) {
-                                groupedItems.entries.forEach { (_, groupItems) ->
-                                    // Show items in the group
-                                    items(
-                                        items = groupItems,
-                                        key = { it.item.id },
-                                        contentType = { "row" },
-                                    ) { itemWithValues ->
-                                        ItemRow(
-                                            fields = stableFields,
-                                            fieldWidths = fieldWidths,
-                                            fieldAlignments = columnAlignments,
-                                            itemWithValues = itemWithValues,
-                                            onClick = { itemToEdit = itemWithValues },
-                                        )
+                            else -> {
+                                LazyColumn(
+                                    modifier = Modifier.fillMaxSize(),
+                                    state = listState,
+                                    contentPadding = PaddingValues(0.dp),
+                                ) {
+                                    groupedItems.entries.forEach { (_, groupItems) ->
+                                        items(
+                                            items = groupItems,
+                                            key = { it.item.id },
+                                            contentType = { "row" },
+                                        ) { itemWithValues ->
+                                            ItemRow(
+                                                fields = stableFields,
+                                                fieldWidths = fieldWidths,
+                                                fieldAlignments = columnAlignments,
+                                                itemWithValues = itemWithValues,
+                                                onClick = { itemToEdit = itemWithValues },
+                                            )
+                                        }
                                     }
                                 }
                             }
