@@ -7,6 +7,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
+import com.collabtable.app.data.model.Field
+import com.collabtable.app.data.model.ItemWithValues
 import com.collabtable.app.data.repository.SyncRepository
 import com.collabtable.app.notifications.NotificationHelper
 import com.collabtable.app.utils.Logger
@@ -14,8 +16,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.UUID
+import java.util.Locale
 
 class ListsViewModel(
     private val database: CollabTableDatabase,
@@ -217,5 +224,59 @@ class ListsViewModel(
         if (prefs.notifyListRemoved.value && !isInForeground()) {
             NotificationHelper.showListRemoved(context, list.id, list.name)
         }
+    }
+
+    /**
+     * Export the specified list (its fields and row values) to a CSV file
+     * stored in the app's external files directory. Returns a Result containing
+     * the absolute file path on success.
+     */
+    suspend fun exportListToCsv(
+        listId: String,
+        listName: String,
+    ): Result<String> = try {
+        // Load fields (ordered) and items with values
+        val fields: List<Field> = database.fieldDao().getFieldsForList(listId).first()
+        val items: List<ItemWithValues> = database.itemDao().getItemsWithValuesForList(listId).first()
+
+        // Build header
+        val headers = fields.map { escapeCsv(it.name) }
+        val fieldIdOrder = fields.map { it.id }
+
+        val rows = items.map { iwv ->
+            val valueMap = iwv.values.associateBy { it.fieldId }
+            fieldIdOrder.joinToString(",") { fid ->
+                val raw = valueMap[fid]?.value ?: ""
+                escapeCsv(raw)
+            }
+        }
+
+        val csv = buildString {
+            append(headers.joinToString(","))
+            append('\n')
+            rows.forEachIndexed { idx, row ->
+                append(row)
+                if (idx != rows.lastIndex) append('\n')
+            }
+        }
+
+        val safeBase = listName.lowercase(Locale.US).replace("[^a-z0-9]+".toRegex(), "_").trim('_').ifBlank { "table" }
+        val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val fileName = "${safeBase}_${ts}.csv"
+        val dir = context.getExternalFilesDir(null) ?: context.filesDir
+        val file = File(dir, fileName)
+        file.writeText(csv)
+        Logger.i("Tables", "📤 Exported table '$listName' to CSV: ${file.absolutePath}")
+        Result.success(file.absolutePath)
+    } catch (e: Throwable) {
+        Logger.e("Tables", "❌ Export failed: ${e.message}")
+        Result.failure(e)
+    }
+
+    private fun escapeCsv(value: String): String {
+        if (value.isEmpty()) return ""
+        val needsQuotes = value.any { it == '"' || it == ',' || it == '\n' || it == '\r' }
+        val escaped = value.replace("\"", "\"\"")
+        return if (needsQuotes) "\"$escaped\"" else escaped
     }
 }

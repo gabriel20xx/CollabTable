@@ -83,4 +83,12 @@
     <string name="ft_image">Image</string>
     <string name="ft_file">File</string>
     <!-- Additional existing types could be added similarly -->
+    <!-- Export feature -->
+    <string name="export">Export</string>
+    <string name="export_list">Export Table</string>
+    <string name="export_format">Format</string>
+    <string name="format_csv">CSV</string>
+    <string name="exporting">Exporting…</string>
+    <string name="export_success">Exported to: %1$s</string>
+    <string name="export_error">Export failed</string>
 </resources>

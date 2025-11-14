@@ -93,6 +93,9 @@ app/src/main/java/com/collabtable/app/
 2. Fill in values for each field
 3. Values are saved automatically as you type
 
+### Exporting a Table
+In the Tables overview screen each table row includes an Export icon between Edit and Delete. Tap it to open a dialog, choose a format (currently only CSV), then confirm. A CSV file with all visible columns and item values is saved to the app-specific external files directory (`Android/data/<package>/files/`). A toast displays the full path. Additional formats (JSON, XLSX, etc.) can be added in the same dialog later.
+
 ### Performance Notes (Large Tables)
 For very large tables the app applies several optimizations:
 - Rows are kept in their original creation order rather than sorting by last update timestamp. This prevents the entire list from resorting after each edit and reduces scroll jank.
