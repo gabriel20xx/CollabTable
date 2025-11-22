@@ -179,6 +179,12 @@ class PreferencesManager(
         _notifyListContentUpdated.value = enabled
     }
 
+    fun hasPromptedNotifications(): Boolean = prefs.getBoolean(KEY_HAS_PROMPTED_NOTIFICATIONS, false)
+
+    fun setHasPromptedNotifications(prompted: Boolean) {
+        prefs.edit().putBoolean(KEY_HAS_PROMPTED_NOTIFICATIONS, prompted).apply()
+    }
+
     // Persist per-list column widths (fieldId -> widthDp)
     // Stored as a JSON object string in SharedPreferences under key: COLUMN_WIDTHS_PREFIX + listId
     fun getColumnWidths(listId: String): Map<String, Float> {
@@ -283,6 +289,7 @@ class PreferencesManager(
         private const val KEY_NOTIFY_LIST_REMOVED = "notify_list_removed"
         private const val KEY_NOTIFY_LIST_CONTENT_UPDATED = "notify_list_content_updated"
         private const val KEY_LAST_LIST_NOTIFY_CHECK_TS = "last_list_notify_check_ts"
+        private const val KEY_HAS_PROMPTED_NOTIFICATIONS = "has_prompted_notifications"
         private const val COLUMN_WIDTHS_PREFIX = "column_widths_" // + listId
         private const val COLUMN_ALIGN_PREFIX = "column_align_" // + listId
         private const val DEFAULT_SERVER_URL = "http://10.0.2.2:3000/api/"

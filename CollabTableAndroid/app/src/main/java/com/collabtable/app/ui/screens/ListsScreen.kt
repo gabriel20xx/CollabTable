@@ -119,6 +119,7 @@ fun ListsScreen(
                     var notifPrompted by remember { mutableStateOf(false) }
                     val permissionLauncher =
                         rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+                            prefsLocal.setHasPromptedNotifications(true)
                             // Mirror setup behavior: toggle all list notifications to granted state
                             prefsLocal.setNotifyListAddedEnabled(granted)
                             prefsLocal.setNotifyListEditedEnabled(granted)
@@ -132,7 +133,7 @@ fun ListsScreen(
                     ConnectionStatusAction(
                         prefs = prefsLocal,
                         onBecameConnected = {
-                            if (Build.VERSION.SDK_INT >= 33 && !notifPrompted) {
+                            if (Build.VERSION.SDK_INT >= 33 && !notifPrompted && !prefsLocal.hasPromptedNotifications()) {
                                 val granted =
                                     ContextCompat.checkSelfPermission(
                                         context,

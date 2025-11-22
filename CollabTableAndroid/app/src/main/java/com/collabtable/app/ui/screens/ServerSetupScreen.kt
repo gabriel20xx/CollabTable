@@ -68,6 +68,7 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
     fun finishOnce() {
         if (!completed) {
             completed = true
+            preferencesManager.setHasPromptedNotifications(true)
             onSetupComplete()
         }
     }
