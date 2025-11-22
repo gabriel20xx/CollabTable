@@ -29,6 +29,9 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Share
+import android.net.Uri
+import android.content.Intent
+import androidx.documentfile.provider.DocumentFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -105,6 +108,7 @@ fun ListsScreen(
     var listToDelete by remember { mutableStateOf<CollabList?>(null) }
     var listToEdit by remember { mutableStateOf<CollabList?>(null) }
     var listToExport by remember { mutableStateOf<CollabList?>(null) }
+    var exportTargetUri by remember { mutableStateOf<Uri?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
     Scaffold(
@@ -345,22 +349,38 @@ fun ListsScreen(
     }
     // Export dialog (top-level) separate from create/edit/delete dialogs
     listToExport?.let { list ->
+        val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri != null) {
+                // Take persistable permission for potential reuse during this session
+                try {
+                    val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    context.contentResolver.takePersistableUriPermission(uri, flags)
+                } catch (_: Exception) { }
+                exportTargetUri = uri
+            }
+        }
         ExportListDialog(
             list = list,
-            onDismiss = { listToExport = null },
+            selectedDirectoryLabel = exportTargetUri?.let { uri ->
+                DocumentFile.fromTreeUri(context, uri)?.name ?: uri.lastPathSegment ?: "(selected)"
+            } ?: "App storage (default)",
+            onSelectDirectory = { folderPicker.launch(null) },
+            onDismiss = { listToExport = null; exportTargetUri = null },
             onConfirmExport = { format ->
                 if (format == "CSV") {
                     coroutineScope.launch {
-                        val result = viewModel.exportListToCsv(list.id, list.name)
+                        val result = viewModel.exportListToCsv(list.id, list.name, exportTargetUri)
                         result.onSuccess { path ->
                             Toast.makeText(context, context.getString(R.string.export_success, path), Toast.LENGTH_LONG).show()
                         }.onFailure {
                             Toast.makeText(context, context.getString(R.string.export_error), Toast.LENGTH_LONG).show()
                         }
                         listToExport = null
+                        exportTargetUri = null
                     }
                 } else {
                     listToExport = null
+                    exportTargetUri = null
                 }
             },
         )
@@ -572,6 +592,8 @@ private fun SortMenu(prefs: PreferencesManager) {
 @Composable
 private fun ExportListDialog(
     list: CollabList,
+    selectedDirectoryLabel: String,
+    onSelectDirectory: () -> Unit,
     onDismiss: () -> Unit,
     onConfirmExport: (String) -> Unit,
 ) {
@@ -594,6 +616,9 @@ private fun ExportListDialog(
                         )
                     }
                 }
+                // Directory selection (optional, per export only)
+                Text("Directory: $selectedDirectoryLabel", style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = onSelectDirectory) { Text("Select Directory") }
             }
         },
         confirmButton = {
