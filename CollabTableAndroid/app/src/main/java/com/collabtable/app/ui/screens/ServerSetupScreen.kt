@@ -88,29 +88,17 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
             finishOnce()
         }
 
-    LaunchedEffect(validationResult) {
-        if (validationResult == true && !completed) {
-            // On Android 13+ prompt for notifications; otherwise default to enabled
-            if (Build.VERSION.SDK_INT >= 33) {
-                val granted =
-                    ContextCompat.checkSelfPermission(
-                        context,
-                        Manifest.permission.POST_NOTIFICATIONS,
-                    ) == PackageManager.PERMISSION_GRANTED
-                if (granted) {
-                    preferencesManager.setNotifyListAddedEnabled(true)
-                    preferencesManager.setNotifyListEditedEnabled(true)
-                    preferencesManager.setNotifyListRemovedEnabled(true)
-                    try {
-                        preferencesManager.setNotifyListContentUpdatedEnabled(true)
-                    } catch (_: Throwable) {
-                    }
-                    finishOnce()
-                } else {
-                    // Request permission; callback will complete
-                    permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                }
-            } else {
+    fun startCompletionFlow() {
+        if (completed) return
+
+        // On Android 13+ prompt for notifications; otherwise default to enabled
+        if (Build.VERSION.SDK_INT >= 33) {
+            val granted =
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS,
+                ) == PackageManager.PERMISSION_GRANTED
+            if (granted) {
                 preferencesManager.setNotifyListAddedEnabled(true)
                 preferencesManager.setNotifyListEditedEnabled(true)
                 preferencesManager.setNotifyListRemovedEnabled(true)
@@ -119,7 +107,25 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
                 } catch (_: Throwable) {
                 }
                 finishOnce()
+            } else {
+                // Request permission; callback will complete
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
+        } else {
+            preferencesManager.setNotifyListAddedEnabled(true)
+            preferencesManager.setNotifyListEditedEnabled(true)
+            preferencesManager.setNotifyListRemovedEnabled(true)
+            try {
+                preferencesManager.setNotifyListContentUpdatedEnabled(true)
+            } catch (_: Throwable) {
+            }
+            finishOnce()
+        }
+    }
+
+    LaunchedEffect(validationResult) {
+        if (validationResult == true && !completed) {
+            startCompletionFlow()
         }
     }
 
@@ -148,7 +154,10 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
 
             OutlinedTextField(
                 value = serverUrl,
-                onValueChange = { serverUrl = it },
+                onValueChange = {
+                    serverUrl = it
+                    viewModel.clearValidationState()
+                },
                 label = { Text("Server Hostname") },
                 placeholder = { Text("example.com or 10.0.2.2:3000") },
                 modifier = Modifier.fillMaxWidth(),
@@ -161,7 +170,7 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
                                 text = validationError ?: "",
                                 color = MaterialTheme.colorScheme.error,
                             )
-                        else -> Text("Hostname only. Port optional (80/443 default). No http://, no /api/")
+                        else -> Text("Server address (e.g. 192.168.1.5:3000)")
                     }
                 },
                 trailingIcon = {
@@ -189,7 +198,10 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
 
             OutlinedTextField(
                 value = serverPassword,
-                onValueChange = { serverPassword = it },
+                onValueChange = {
+                    serverPassword = it
+                    viewModel.clearValidationState()
+                },
                 label = { Text("Server Password") },
                 placeholder = { Text("Enter server password") },
                 modifier = Modifier.fillMaxWidth(),
@@ -208,9 +220,15 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
             )
 
             Button(
-                onClick = { viewModel.validateAndSaveServerUrl(serverUrl.trim(), serverPassword.trim()) },
+                onClick = {
+                    if (validationResult == true) {
+                        startCompletionFlow()
+                    } else {
+                        viewModel.validateAndSaveServerUrl(serverUrl.trim(), serverPassword.trim())
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = serverUrl.isNotBlank() && serverPassword.isNotBlank() && !isValidating,
+                enabled = (serverUrl.isNotBlank() && serverPassword.isNotBlank() && !isValidating) || validationResult == true,
             ) {
                 if (isValidating) {
                     CircularProgressIndicator(
@@ -220,6 +238,8 @@ fun ServerSetupScreen(onSetupComplete: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Validating...")
+                } else if (validationResult == true) {
+                    Text("Continue")
                 } else {
                     Text("Connect")
                 }
