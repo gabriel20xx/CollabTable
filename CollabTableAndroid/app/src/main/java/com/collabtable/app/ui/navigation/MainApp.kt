@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -47,9 +48,10 @@ private object Routes {
 fun MainApp() {
     val context = LocalContext.current
     val prefs = remember { PreferencesManager.getInstance(context) }
+    val isFirstRun by prefs.isFirstRunFlow.collectAsState()
 
     // Show setup flow until completed; then show main app with bottom nav
-    if (prefs.isFirstRun()) {
+    if (isFirstRun) {
         val navController = rememberNavController()
         NavHost(navController, startDestination = Routes.SETUP) {
             composable(Routes.SETUP) {
