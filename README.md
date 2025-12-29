@@ -443,6 +443,9 @@ Response:
 - Persists across container restarts
 - Backup database:
   ```bash
+  # Verify container name first
+  docker ps
+  # Then backup (default container name is collabtable-server)
   docker cp collabtable-server:/data/collabtable.db ./backup.db
   ```
 - Restore database:
