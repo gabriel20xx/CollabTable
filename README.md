@@ -506,7 +506,7 @@ DB_PATH=/data/collabtable.db       # SQLite path (in container)
 ```nginx
 server {
     listen 80;
-    server_name yourdomain.com;
+    server_name example.com;
     
     location / {
         proxy_pass http://localhost:3000;
