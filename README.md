@@ -184,7 +184,7 @@ Authorization: Bearer your_password_here
 
 ### Sync
 - `POST /api/sync` - Synchronize data (HTTP fallback)
-- `GET /api/ws` - WebSocket endpoint for real-time sync
+- `WebSocket /api/ws` - WebSocket endpoint for real-time sync
 
 ### Health
 - `GET /health` - Server health check
