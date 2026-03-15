@@ -47,6 +47,9 @@ interface FieldDao {
     @Query("SELECT * FROM fields WHERE updatedAt >= :since")
     suspend fun getFieldsUpdatedSince(since: Long): List<Field>
 
+    @Query("UPDATE fields SET `order` = :newOrder, updatedAt = :timestamp WHERE id = :fieldId")
+    suspend fun updateFieldOrder(fieldId: String, newOrder: Int, timestamp: Long)
+
     // Reorder fields in a single transaction for clarity and consistency
     @Transaction
     suspend fun reorderFieldsInTransaction(
@@ -54,12 +57,7 @@ interface FieldDao {
         timestamp: Long,
     ) {
         reorderedFields.forEachIndexed { index, field ->
-            updateField(
-                field.copy(
-                    order = index,
-                    updatedAt = timestamp,
-                ),
-            )
+            updateFieldOrder(field.id, index, timestamp)
         }
     }
 }

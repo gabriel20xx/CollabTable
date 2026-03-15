@@ -16,7 +16,8 @@ enum class FieldType {
     PERCENTAGE,
 
     // Selection types
-    DROPDOWN,
+    SELECT,
+    MULTI_SELECT,
     AUTOCOMPLETE,
     CHECKBOX,
     SWITCH,
@@ -77,6 +78,7 @@ data class Field(
         } catch (e: Exception) {
             // Handle legacy/synonym field types
             when (raw) {
+                "DROPDOWN" -> FieldType.SELECT
                 "STRING" -> FieldType.TEXT
                 "PRICE" -> FieldType.CURRENCY
                 "AMOUNT" -> FieldType.NUMBER
@@ -86,8 +88,8 @@ data class Field(
         }
     }
 
-    fun getDropdownOptions(): List<String> =
-        if (getType() == FieldType.DROPDOWN && fieldOptions.isNotBlank()) {
+    fun getSelectOptions(): List<String> =
+        if ((getType() == FieldType.SELECT || getType() == FieldType.MULTI_SELECT) && fieldOptions.isNotBlank()) {
             fieldOptions.split("|")
         } else {
             emptyList()

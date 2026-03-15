@@ -804,7 +804,8 @@ private fun getDisplayTextForMeasure(
         com.collabtable.app.data.model.FieldType.TEXT,
         com.collabtable.app.data.model.FieldType.MULTILINE_TEXT,
         com.collabtable.app.data.model.FieldType.NUMBER,
-        com.collabtable.app.data.model.FieldType.DROPDOWN,
+        com.collabtable.app.data.model.FieldType.SELECT,
+        com.collabtable.app.data.model.FieldType.MULTI_SELECT,
         com.collabtable.app.data.model.FieldType.AUTOCOMPLETE,
         com.collabtable.app.data.model.FieldType.DURATION,
         com.collabtable.app.data.model.FieldType.LOCATION,
@@ -848,7 +849,8 @@ private fun fieldTypeToLabel(type: String): String =
         "NUMBER" -> "Number"
         "CURRENCY", "PRICE" -> "Currency"
         "PERCENTAGE" -> "Percentage"
-        "DROPDOWN" -> "Dropdown"
+        "SELECT", "Select" -> "Select"
+        "MULTI_SELECT" -> "Multi-select"
         "AUTOCOMPLETE" -> "Autocomplete"
         "CHECKBOX" -> "Checkbox"
         "SWITCH" -> "Switch"
@@ -1102,7 +1104,8 @@ fun ItemRow(
                             )
                         }
 
-                        com.collabtable.app.data.model.FieldType.DROPDOWN -> {
+                        com.collabtable.app.data.model.FieldType.SELECT,
+                        com.collabtable.app.data.model.FieldType.MULTI_SELECT -> {
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -1576,9 +1579,16 @@ fun AddFieldDialog(
 
                         // Selection types
                         DropdownMenuItem(
-                            text = { Text("Dropdown") },
+                            text = { Text("Select") },
                             onClick = {
-                                selectedFieldType = "DROPDOWN"
+                                selectedFieldType = "SELECT"
+                                expanded = false
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Multi-select") },
+                            onClick = {
+                                selectedFieldType = "MULTI_SELECT"
                                 expanded = false
                             },
                         )
@@ -1725,14 +1735,14 @@ fun AddFieldDialog(
                 }
 
                 // Dropdown-specific options
-                if (selectedFieldType == "DROPDOWN") {
+                if (selectedFieldType == "SELECT" || selectedFieldType == "MULTI_SELECT") {
                     OutlinedTextField(
                         value = dropdownOptions,
                         onValueChange = { dropdownOptions = it },
                         label = { Text("Options (comma-separated)") },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("Option 1, Option 2, Option 3") },
-                        supportingText = { Text("Enter dropdown choices separated by commas") },
+                        supportingText = { Text("Enter select choices separated by commas") },
                     )
                 }
 
@@ -1770,7 +1780,7 @@ fun AddFieldDialog(
                         val options =
                             when (normalizedType) {
                                 "CURRENCY" -> currency.trim()
-                                "DROPDOWN" ->
+                                "SELECT", "MULTI_SELECT" ->
                                     dropdownOptions
                                         .split(",")
                                         .map { it.trim() }
@@ -1790,7 +1800,7 @@ fun AddFieldDialog(
                 },
                 enabled =
                     fieldName.isNotBlank() &&
-                        (selectedFieldType.uppercase() !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()),
+                        (selectedFieldType.uppercase() !in listOf("SELECT", "MULTI_SELECT", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()),
             ) {
                 Text(stringResource(R.string.add))
             }
@@ -1812,7 +1822,7 @@ fun EditFieldDialog(
 ) {
     var name by remember { mutableStateOf(field.name) }
     var selectedFieldType by remember { mutableStateOf(field.fieldType.uppercase()) }
-    var dropdownOptions by remember { mutableStateOf(field.getDropdownOptions().joinToString(", ")) }
+    var dropdownOptions by remember { mutableStateOf(field.getSelectOptions().joinToString(", ")) }
     var currency by remember { mutableStateOf(field.getCurrency()) }
     var expanded by remember { mutableStateOf(false) }
     // Alignment state persisted per list/field in PreferencesManager
@@ -1902,9 +1912,16 @@ fun EditFieldDialog(
 
                         // Selection types
                         DropdownMenuItem(
-                            text = { Text("Dropdown") },
+                            text = { Text("Select") },
                             onClick = {
-                                selectedFieldType = "DROPDOWN"
+                                selectedFieldType = "SELECT"
+                                expanded = false
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Multi-select") },
+                            onClick = {
+                                selectedFieldType = "MULTI_SELECT"
                                 expanded = false
                             },
                         )
@@ -2051,14 +2068,14 @@ fun EditFieldDialog(
                 }
 
                 // Dropdown-specific options
-                if (selectedFieldType == "DROPDOWN") {
+                if (selectedFieldType == "SELECT" || selectedFieldType == "MULTI_SELECT") {
                     OutlinedTextField(
                         value = dropdownOptions,
                         onValueChange = { dropdownOptions = it },
                         label = { Text("Options (comma-separated)") },
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("Option 1, Option 2, Option 3") },
-                        supportingText = { Text("Enter dropdown choices separated by commas") },
+                        supportingText = { Text("Enter select choices separated by commas") },
                     )
                 }
 
@@ -2113,7 +2130,7 @@ fun EditFieldDialog(
                     val options =
                         when (normalizedType) {
                             "CURRENCY", "PRICE" -> currency.trim()
-                            "DROPDOWN" ->
+                            "SELECT", "MULTI_SELECT" ->
                                 dropdownOptions
                                     .split(",")
                                     .map { it.trim() }
@@ -2139,7 +2156,7 @@ fun EditFieldDialog(
                         }
                     prefs.setColumnAlignments(field.listId, current)
                 },
-                enabled = name.isNotBlank() && (selectedFieldType !in listOf("DROPDOWN", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()),
+                enabled = name.isNotBlank() && (selectedFieldType !in listOf("SELECT", "MULTI_SELECT", "AUTOCOMPLETE") || dropdownOptions.isNotBlank()),
             ) {
                 Text("Update")
             }
@@ -2306,9 +2323,9 @@ fun FieldInput(
             }
         }
 
-        com.collabtable.app.data.model.FieldType.DROPDOWN -> {
-            val options = field.getDropdownOptions()
-            var dropdownExpanded by remember { mutableStateOf(false) }
+        com.collabtable.app.data.model.FieldType.SELECT -> {
+            val options = field.getSelectOptions()
+            var expanded by remember { mutableStateOf(false) }
 
             ExposedDropdownMenuBox(
                 expanded = dropdownExpanded,
@@ -2338,6 +2355,60 @@ fun FieldInput(
                             onClick = {
                                 onValueChange(option)
                                 dropdownExpanded = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
+        com.collabtable.app.data.model.FieldType.MULTI_SELECT -> {
+            val options = field.getSelectOptions()
+            var expanded by remember { mutableStateOf(false) }
+            val selectedOptions = remember(value) { 
+                value.split(", ").filter { it.isNotBlank() }.toSet() 
+            }
+
+            ExposedDropdownMenuBox(
+                expanded = dropdownExpanded,
+                onExpandedChange = { dropdownExpanded = !dropdownExpanded },
+            ) {
+                OutlinedTextField(
+                    value = value,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text(field.name) },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded)
+                    },
+                    modifier =
+                        Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                )
+
+                ExposedDropdownMenu(
+                    expanded = dropdownExpanded,
+                    onDismissRequest = { dropdownExpanded = false },
+                ) {
+                    options.forEach { option ->
+                        val isSelected = selectedOptions.contains(option)
+                        DropdownMenuItem(
+                            text = { 
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = isSelected, onCheckedChange = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(option) 
+                                }
+                            },
+                            onClick = {
+                                val newSelected = if (isSelected) {
+                                    selectedOptions - option
+                                } else {
+                                    selectedOptions + option
+                                }
+                                val orderedNewSelected = options.filter { it in newSelected }
+                                onValueChange(orderedNewSelected.joinToString(", "))
                             },
                         )
                     }
@@ -3070,8 +3141,10 @@ fun ColumnItem(
                         // Selection types
                         com.collabtable.app.data.model.FieldType.CHECKBOX -> "Checkbox"
                         com.collabtable.app.data.model.FieldType.SWITCH -> "Switch"
-                        com.collabtable.app.data.model.FieldType.DROPDOWN ->
-                            "Dropdown (${field.getDropdownOptions().size} options)"
+                        com.collabtable.app.data.model.FieldType.SELECT ->
+                            "Select (${field.getSelectOptions().size} options)"
+                        com.collabtable.app.data.model.FieldType.MULTI_SELECT ->
+                            "Multi-select (${field.getSelectOptions().size} options)"
                         com.collabtable.app.data.model.FieldType.AUTOCOMPLETE ->
                             "Autocomplete (${field.getAutocompleteOptions().size} options)"
 
@@ -4011,3 +4084,11 @@ private fun RenameListDialog(
         },
     )
 }
+
+
+
+
+
+
+
+
