@@ -639,8 +639,8 @@ fun ListDetailScreen(
                 onAddField = { name, fieldType, fieldOptions ->
                     viewModel.addField(name, fieldType, fieldOptions)
                 },
-                onUpdateField = { fieldId, name, fieldType, fieldOptions ->
-                    viewModel.updateField(fieldId, name, fieldType, fieldOptions)
+                onUpdateField = { fieldId, name, fieldType, fieldOptions, alignment ->
+                    viewModel.updateField(fieldId, name, fieldType, fieldOptions, alignment)
                 },
                 onUpdateAlignment = { fieldId, alignment ->
                     viewModel.updateFieldAlignment(fieldId, alignment)
@@ -2873,7 +2873,7 @@ fun ManageColumnsDialog(
     fields: List<Field>,
     onDismiss: () -> Unit,
     onAddField: (String, String, String) -> Unit,
-    onUpdateField: (String, String, String, String) -> Unit,
+    onUpdateField: (String, String, String, String, String) -> Unit,
     onUpdateAlignment: (String, String) -> Unit,
     onDeleteField: (String) -> Unit,
     onReorderFields: (List<Field>) -> Unit,
@@ -3063,8 +3063,7 @@ fun ManageColumnsDialog(
             field = field,
             onDismiss = { fieldToEdit = null },
             onUpdate = { name, fieldType, fieldOptions, selectedAlignment ->
-                onUpdateField(field.id, name, fieldType, fieldOptions)
-                onUpdateAlignment(field.id, selectedAlignment)
+                onUpdateField(field.id, name, fieldType, fieldOptions, selectedAlignment)
                 fieldToEdit = null
             },
         )

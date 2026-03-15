@@ -224,17 +224,25 @@ class ListDetailViewModel(
         name: String,
         fieldType: String,
         fieldOptions: String,
+        alignment: String,
     ) {
         viewModelScope.launch {
             val field = database.fieldDao().getFieldById(fieldId)
             if (field != null) {
                 val ts = System.currentTimeMillis()
+                val normalizedAlign =
+                    when (alignment.lowercase()) {
+                        "center" -> "center"
+                        "end", "right" -> "end"
+                        else -> "start"
+                    }
                 database.withTransaction {
                     database.fieldDao().updateField(
                         field.copy(
                             name = name,
                             fieldType = fieldType,
                             fieldOptions = fieldOptions,
+                            alignment = normalizedAlign,
                             updatedAt = ts,
                         ),
                     )
