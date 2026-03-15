@@ -2328,8 +2328,8 @@ fun FieldInput(
             var expanded by remember { mutableStateOf(false) }
 
             ExposedDropdownMenuBox(
-                expanded = dropdownExpanded,
-                onExpandedChange = { dropdownExpanded = !dropdownExpanded },
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
             ) {
                 OutlinedTextField(
                     value = value,
@@ -2337,7 +2337,7 @@ fun FieldInput(
                     readOnly = true,
                     label = { Text(field.name) },
                     trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded)
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                     },
                     modifier =
                         Modifier
@@ -2346,15 +2346,15 @@ fun FieldInput(
                 )
 
                 ExposedDropdownMenu(
-                    expanded = dropdownExpanded,
-                    onDismissRequest = { dropdownExpanded = false },
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
                 ) {
                     options.forEach { option ->
                         DropdownMenuItem(
                             text = { Text(option) },
                             onClick = {
                                 onValueChange(option)
-                                dropdownExpanded = false
+                                expanded = false
                             },
                         )
                     }
@@ -2370,8 +2370,8 @@ fun FieldInput(
             }
 
             ExposedDropdownMenuBox(
-                expanded = dropdownExpanded,
-                onExpandedChange = { dropdownExpanded = !dropdownExpanded },
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
             ) {
                 OutlinedTextField(
                     value = value,
@@ -2379,7 +2379,7 @@ fun FieldInput(
                     readOnly = true,
                     label = { Text(field.name) },
                     trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = dropdownExpanded)
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
                     },
                     modifier =
                         Modifier
@@ -2388,8 +2388,8 @@ fun FieldInput(
                 )
 
                 ExposedDropdownMenu(
-                    expanded = dropdownExpanded,
-                    onDismissRequest = { dropdownExpanded = false },
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false },
                 ) {
                     options.forEach { option ->
                         val isSelected = selectedOptions.contains(option)
