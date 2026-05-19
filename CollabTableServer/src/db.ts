@@ -296,8 +296,11 @@ export const dbAdapter: DBAdapter = clientType === 'postgres' || clientType === 
   : new SqliteAdapter();
 
 export async function initializeDatabase() {
-  const maxRetries = parseInt(process.env.DB_CONNECT_RETRIES || '10', 10);
-  const retryDelayMs = parseInt(process.env.DB_CONNECT_RETRY_DELAY_MS || '3000', 10);
+  const parsedRetries = parseInt(process.env.DB_CONNECT_RETRIES || '10', 10);
+  const maxRetries = Number.isNaN(parsedRetries) || parsedRetries < 1 ? 10 : parsedRetries;
+
+  const parsedDelay = parseInt(process.env.DB_CONNECT_RETRY_DELAY_MS || '3000', 10);
+  const retryDelayMs = Number.isNaN(parsedDelay) || parsedDelay < 0 ? 3000 : parsedDelay;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
