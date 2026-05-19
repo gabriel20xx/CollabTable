@@ -296,7 +296,31 @@ export const dbAdapter: DBAdapter = clientType === 'postgres' || clientType === 
   : new SqliteAdapter();
 
 export async function initializeDatabase() {
-  await dbAdapter.initialize();
+  const maxRetries = parseInt(process.env.DB_CONNECT_RETRIES || '10', 10);
+  const retryDelayMs = parseInt(process.env.DB_CONNECT_RETRY_DELAY_MS || '3000', 10);
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      await dbAdapter.initialize();
+      return;
+    } catch (err: any) {
+      const isConnectionError =
+        err?.code === 'ECONNREFUSED' ||
+        err?.code === 'ENOTFOUND' ||
+        err?.code === 'ETIMEDOUT' ||
+        err?.message?.includes('connect');
+
+      if (!isConnectionError || attempt === maxRetries) {
+        throw err;
+      }
+
+      const delay = retryDelayMs * attempt;
+      console.warn(
+        `Database connection attempt ${attempt}/${maxRetries} failed (${err.code || err.message}). Retrying in ${delay}ms...`
+      );
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
 }
 
 export type { DBAdapter };
