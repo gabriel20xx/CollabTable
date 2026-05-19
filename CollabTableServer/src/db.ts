@@ -307,14 +307,13 @@ export async function initializeDatabase() {
       const isConnectionError =
         err?.code === 'ECONNREFUSED' ||
         err?.code === 'ENOTFOUND' ||
-        err?.code === 'ETIMEDOUT' ||
-        err?.message?.includes('connect');
+        err?.code === 'ETIMEDOUT';
 
       if (!isConnectionError || attempt === maxRetries) {
         throw err;
       }
 
-      const delay = retryDelayMs * attempt;
+      const delay = retryDelayMs * Math.pow(2, attempt - 1);
       console.warn(
         `Database connection attempt ${attempt}/${maxRetries} failed (${err.code || err.message}). Retrying in ${delay}ms...`
       );
