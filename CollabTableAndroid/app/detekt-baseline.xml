@@ -1,0 +1,28 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:Logger.kt$Logger$last != null &amp;&amp; last.level == level &amp;&amp; last.tag == tag &amp;&amp; last.message == message &amp;&amp; (now - last.timestamp) &lt;= DEDUPE_WINDOW_MS</ID>
+    <ID>ExplicitItLambdaParameter:ListsScreen.kt${ _, it -&gt; it.id }</ID>
+    <ID>ReturnCount:ListsViewModel.kt$ListsViewModel$suspend fun exportListToCsv( listId: String, listName: String, targetTreeUri: Uri? = null, ): Result&lt;String&gt;</ID>
+    <ID>ReturnCount:SyncRepository.kt$SyncRepository$private fun isNetworkAvailable(): Boolean</ID>
+    <ID>SwallowedException:ApiClient.kt$ApiClient$e: Exception</ID>
+    <ID>SwallowedException:ConnectionStatus.kt$e: Exception</ID>
+    <ID>SwallowedException:Field.kt$Field$e: Exception</ID>
+    <ID>SwallowedException:ListChangeNotificationWorker.kt$ListChangeNotificationWorker$e: Exception</ID>
+    <ID>SwallowedException:ListDetailScreen.kt$e: Exception</ID>
+    <ID>SwallowedException:PreferencesManager.kt$PreferencesManager$e: Exception</ID>
+    <ID>SwallowedException:ServerSetupViewModel.kt$ServerSetupViewModel$e: ConnectException</ID>
+    <ID>SwallowedException:ServerSetupViewModel.kt$ServerSetupViewModel$e: Exception</ID>
+    <ID>SwallowedException:ServerSetupViewModel.kt$ServerSetupViewModel$e: NetworkOnMainThreadException</ID>
+    <ID>SwallowedException:ServerSetupViewModel.kt$ServerSetupViewModel$e: SocketTimeoutException</ID>
+    <ID>SwallowedException:ServerSetupViewModel.kt$ServerSetupViewModel$e: UnknownHostException</ID>
+    <ID>UnusedParameter:ListDetailScreen.kt$onAlignmentChange: (String) -&gt; Unit = {}</ID>
+    <ID>UnusedParameter:ListDetailScreen.kt$onUpdateAlignment: (String, String) -&gt; Unit</ID>
+    <ID>UnusedParameter:ListsScreen.kt$onNavigateToLogs: () -&gt; Unit = {}</ID>
+    <ID>UnusedParameter:ListsScreen.kt$onNavigateToSettings: () -&gt; Unit</ID>
+    <ID>UnusedParameter:SettingsScreen.kt$onNavigateBack: () -&gt; Unit</ID>
+    <ID>UnusedPrivateMember:ListDetailScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun FilterSortDialog( fields: List&lt;Field&gt;, currentSortField: Field?, currentSortAscending: Boolean, currentGroupByField: Field?, currentFilterField: Field?, currentFilterValue: String, onDismiss: () -&gt; Unit, onApply: (sortField: Field?, sortAscending: Boolean, groupByField: Field?, filterField: Field?, filterValue: String) -&gt; Unit, onClearAll: () -&gt; Unit, )</ID>
+    <ID>UnusedPrivateMember:ListDetailViewModel.kt$ListDetailViewModel$private fun isInForeground(): Boolean</ID>
+  </CurrentIssues>
+</SmellBaseline>

@@ -16,8 +16,8 @@ class PreferencesManager(
     private val _serverUrl = MutableStateFlow(getServerUrl())
     val serverUrl: StateFlow<String> = _serverUrl.asStateFlow()
 
-    private val _isFirstRun = MutableStateFlow(isFirstRun())
-    val isFirstRunFlow: StateFlow<Boolean> = _isFirstRun.asStateFlow()
+    private val _isFirstRunFlow = MutableStateFlow(isFirstRun())
+    val isFirstRunFlow: StateFlow<Boolean> = _isFirstRunFlow.asStateFlow()
 
     private val _themeMode = MutableStateFlow(getThemeMode())
     val themeMode: StateFlow<String> = _themeMode.asStateFlow()
@@ -67,7 +67,7 @@ class PreferencesManager(
 
     fun setIsFirstRun(isFirstRun: Boolean) {
         prefs.edit().putBoolean(KEY_FIRST_RUN, isFirstRun).apply()
-        _isFirstRun.value = isFirstRun
+        _isFirstRunFlow.value = isFirstRun
     }
 
     fun getServerPassword(): String? = prefs.getString(KEY_SERVER_PASSWORD, null)
@@ -272,7 +272,10 @@ class PreferencesManager(
     fun getDeviceId(): String {
         val existing = prefs.getString(KEY_DEVICE_ID, null)
         if (!existing.isNullOrBlank()) return existing
-        val id = java.util.UUID.randomUUID().toString()
+        val id =
+            java.util.UUID
+                .randomUUID()
+                .toString()
         prefs.edit().putString(KEY_DEVICE_ID, id).apply()
         return id
     }

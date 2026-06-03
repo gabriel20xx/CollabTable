@@ -167,7 +167,9 @@ router.post('/sync', async (req: Request, res: Response) => {
           try {
             const ev = list.isDeleted ? 'deleted' : (safeLastSyncTimestamp === 0 ? 'created' : 'updated');
             await enqueueNotification(tx, deviceId, ev, 'list', list.id, list.id, listTs.updatedAt);
-          } catch {}
+          } catch (notificationError) {
+            void notificationError;
+          }
           // If a list was deleted, cascade the deletion to child records on server
           // - mark fields and items as deleted (tombstones) so other clients learn about them
           // - remove item_values belonging to items under this list (no tombstone support for values)
@@ -201,7 +203,9 @@ router.post('/sync', async (req: Request, res: Response) => {
           try {
             const ev = field.isDeleted ? 'deleted' : (safeLastSyncTimestamp === 0 ? 'created' : 'updated');
             await enqueueNotification(tx, deviceId, ev, 'field', field.id, field.listId, fieldTs.updatedAt);
-          } catch {}
+          } catch (notificationError) {
+            void notificationError;
+          }
           if (field.isDeleted) {
             // Remove item_values for this field
             try {
@@ -239,7 +243,9 @@ router.post('/sync', async (req: Request, res: Response) => {
           try {
             const ev = item.isDeleted ? 'deleted' : (safeLastSyncTimestamp === 0 ? 'created' : 'updated');
             await enqueueNotification(tx, deviceId, ev, 'item', item.id, item.listId, itemTs.updatedAt);
-          } catch {}
+          } catch (notificationError) {
+            void notificationError;
+          }
           // If an item was deleted, remove its values (no tombstone support for values)
           if (item.isDeleted) {
             try {
@@ -324,7 +330,9 @@ router.post('/sync', async (req: Request, res: Response) => {
               if (lId) {
                 await enqueueNotification(tx, deviceId, 'listContentUpdated', 'value', value.id, lId, valueUpdatedAt);
               }
-            } catch {}
+            } catch (notificationError) {
+              void notificationError;
+            }
           } catch (err: any) {
             // Catch FK violation just in case race or deletion happened inside same sync
             if (err && err.code === '23503') {

@@ -3,7 +3,9 @@
 package com.collabtable.app.ui.screens
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -29,9 +31,6 @@ import androidx.compose.material.icons.filled.DragHandle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Share
-import android.net.Uri
-import android.content.Intent
-import androidx.documentfile.provider.DocumentFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -60,6 +59,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
+import androidx.documentfile.provider.DocumentFile
 import com.collabtable.app.R
 import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
@@ -349,32 +349,39 @@ fun ListsScreen(
     }
     // Export dialog (top-level) separate from create/edit/delete dialogs
     listToExport?.let { list ->
-        val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-            if (uri != null) {
-                // Take persistable permission for potential reuse during this session
-                try {
-                    val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    context.contentResolver.takePersistableUriPermission(uri, flags)
-                } catch (_: Exception) { }
-                exportTargetUri = uri
+        val folderPicker =
+            rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+                if (uri != null) {
+                    // Take persistable permission for potential reuse during this session
+                    try {
+                        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                        context.contentResolver.takePersistableUriPermission(uri, flags)
+                    } catch (_: Exception) {
+                    }
+                    exportTargetUri = uri
+                }
             }
-        }
         ExportListDialog(
             list = list,
-            selectedDirectoryLabel = exportTargetUri?.let { uri ->
-                DocumentFile.fromTreeUri(context, uri)?.name ?: uri.lastPathSegment ?: "(selected)"
-            } ?: "App storage (default)",
+            selectedDirectoryLabel =
+                exportTargetUri?.let { uri ->
+                    DocumentFile.fromTreeUri(context, uri)?.name ?: uri.lastPathSegment ?: "(selected)"
+                } ?: "App storage (default)",
             onSelectDirectory = { folderPicker.launch(null) },
-            onDismiss = { listToExport = null; exportTargetUri = null },
+            onDismiss = {
+                listToExport = null
+                exportTargetUri = null
+            },
             onConfirmExport = { format ->
                 if (format == "CSV") {
                     coroutineScope.launch {
                         val result = viewModel.exportListToCsv(list.id, list.name, exportTargetUri)
-                        result.onSuccess { path ->
-                            Toast.makeText(context, context.getString(R.string.export_success, path), Toast.LENGTH_LONG).show()
-                        }.onFailure {
-                            Toast.makeText(context, context.getString(R.string.export_error), Toast.LENGTH_LONG).show()
-                        }
+                        result
+                            .onSuccess { path ->
+                                Toast.makeText(context, context.getString(R.string.export_success, path), Toast.LENGTH_LONG).show()
+                            }.onFailure {
+                                Toast.makeText(context, context.getString(R.string.export_error), Toast.LENGTH_LONG).show()
+                            }
                         listToExport = null
                         exportTargetUri = null
                     }
@@ -500,7 +507,6 @@ fun CreateListDialog(
             }
         },
     )
-
 }
 
 @Composable
@@ -612,7 +618,10 @@ private fun ExportListDialog(
                     DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.format_csv)) },
-                            onClick = { selectedFormat = "CSV"; expanded = false },
+                            onClick = {
+                                selectedFormat = "CSV"
+                                expanded = false
+                            },
                         )
                     }
                 }

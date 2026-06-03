@@ -51,7 +51,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
@@ -226,6 +225,7 @@ fun ListDetailScreen(
         floatingActionButton = {},
     ) { padding ->
         // Apply filtering, sorting and grouping off the main thread and memoize the result
+        @Suppress("ProduceStateDoesNotAssignValue")
         val transformed by produceState(
             initialValue = TransformedItems(emptyList(), mapOf("_all" to emptyList())),
             stableItems,
@@ -235,7 +235,7 @@ fun ListDetailScreen(
             filterField,
             filterValue,
         ) {
-            value =
+            val transformedItems =
                 withContext(Dispatchers.Default) {
                     transformItems(
                         items = stableItems,
@@ -246,6 +246,7 @@ fun ListDetailScreen(
                         filterValue = filterValue,
                     )
                 }
+            value = transformedItems
         }
 
         val processedItems = transformed.processed
@@ -550,17 +551,19 @@ fun ListDetailScreen(
                         }
                         stableItems.isEmpty() -> {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxSize(),
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize(),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
                                     text = stringResource(R.string.no_items),
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 24.dp),
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 24.dp),
                                     textAlign = TextAlign.Center,
                                 )
                             }
@@ -1046,8 +1049,7 @@ fun ItemRow(
                             .border(
                                 width = 1.dp,
                                 color = MaterialTheme.colorScheme.outline,
-                            )
-                            .fillMaxHeight()
+                            ).fillMaxHeight()
                             // Consistent minimum top/bottom padding regardless of row height
                             .padding(horizontal = 8.dp, vertical = 8.dp),
                     // Center horizontally based on alignment while always vertically centering
@@ -1105,7 +1107,8 @@ fun ItemRow(
                         }
 
                         com.collabtable.app.data.model.FieldType.SELECT,
-                        com.collabtable.app.data.model.FieldType.MULTI_SELECT -> {
+                        com.collabtable.app.data.model.FieldType.MULTI_SELECT,
+                        -> {
                             Text(
                                 text = value?.value ?: "",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -2365,9 +2368,10 @@ fun FieldInput(
         com.collabtable.app.data.model.FieldType.MULTI_SELECT -> {
             val options = field.getSelectOptions()
             var expanded by remember { mutableStateOf(false) }
-            val selectedOptions = remember(value) { 
-                value.split(", ").filter { it.isNotBlank() }.toSet() 
-            }
+            val selectedOptions =
+                remember(value) {
+                    value.split(", ").filter { it.isNotBlank() }.toSet()
+                }
 
             ExposedDropdownMenuBox(
                 expanded = expanded,
@@ -2394,19 +2398,20 @@ fun FieldInput(
                     options.forEach { option ->
                         val isSelected = selectedOptions.contains(option)
                         DropdownMenuItem(
-                            text = { 
+                            text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Checkbox(checked = isSelected, onCheckedChange = null)
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(option) 
+                                    Text(option)
                                 }
                             },
                             onClick = {
-                                val newSelected = if (isSelected) {
-                                    selectedOptions - option
-                                } else {
-                                    selectedOptions + option
-                                }
+                                val newSelected =
+                                    if (isSelected) {
+                                        selectedOptions - option
+                                    } else {
+                                        selectedOptions + option
+                                    }
                                 val orderedNewSelected = options.filter { it in newSelected }
                                 onValueChange(orderedNewSelected.joinToString(", "))
                             },
@@ -4083,11 +4088,3 @@ private fun RenameListDialog(
         },
     )
 }
-
-
-
-
-
-
-
-

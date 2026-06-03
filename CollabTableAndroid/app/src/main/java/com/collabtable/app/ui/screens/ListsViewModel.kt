@@ -1,6 +1,8 @@
 package com.collabtable.app.ui.screens
 
 import android.content.Context
+import android.net.Uri
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.ViewModel
@@ -19,12 +21,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.File
-import android.net.Uri
-import androidx.documentfile.provider.DocumentFile
 import java.text.SimpleDateFormat
 import java.util.Date
-import java.util.UUID
 import java.util.Locale
+import java.util.UUID
 
 class ListsViewModel(
     private val database: CollabTableDatabase,
@@ -239,34 +239,41 @@ class ListsViewModel(
         targetTreeUri: Uri? = null,
     ): Result<String> {
         return try {
-        // Load fields (ordered) and items with values
-        val fields: List<Field> = database.fieldDao().getFieldsForList(listId).first()
-        val items: List<ItemWithValues> = database.itemDao().getItemsWithValuesForList(listId).first()
+            // Load fields (ordered) and items with values
+            val fields: List<Field> = database.fieldDao().getFieldsForList(listId).first()
+            val items: List<ItemWithValues> = database.itemDao().getItemsWithValuesForList(listId).first()
 
-        // Build header
-        val headers = fields.map { escapeCsv(it.name) }
-        val fieldIdOrder = fields.map { it.id }
+            // Build header
+            val headers = fields.map { escapeCsv(it.name) }
+            val fieldIdOrder = fields.map { it.id }
 
-        val rows = items.map { iwv ->
-            val valueMap = iwv.values.associateBy { it.fieldId }
-            fieldIdOrder.joinToString(",") { fid ->
-                val raw = valueMap[fid]?.value ?: ""
-                escapeCsv(raw)
-            }
-        }
+            val rows =
+                items.map { iwv ->
+                    val valueMap = iwv.values.associateBy { it.fieldId }
+                    fieldIdOrder.joinToString(",") { fid ->
+                        val raw = valueMap[fid]?.value ?: ""
+                        escapeCsv(raw)
+                    }
+                }
 
-        val csv = buildString {
-            append(headers.joinToString(","))
-            append('\n')
-            rows.forEachIndexed { idx, row ->
-                append(row)
-                if (idx != rows.lastIndex) append('\n')
-            }
-        }
+            val csv =
+                buildString {
+                    append(headers.joinToString(","))
+                    append('\n')
+                    rows.forEachIndexed { idx, row ->
+                        append(row)
+                        if (idx != rows.lastIndex) append('\n')
+                    }
+                }
 
-        val safeBase = listName.lowercase(Locale.US).replace("[^a-z0-9]+".toRegex(), "_").trim('_').ifBlank { "table" }
-        val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val fileName = "${safeBase}_${ts}.csv"
+            val safeBase =
+                listName
+                    .lowercase(Locale.US)
+                    .replace("[^a-z0-9]+".toRegex(), "_")
+                    .trim('_')
+                    .ifBlank { "table" }
+            val ts = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val fileName = "${safeBase}_$ts.csv"
             if (targetTreeUri != null) {
                 val docTree = DocumentFile.fromTreeUri(context, targetTreeUri)
                 if (docTree == null || !docTree.isDirectory || !docTree.canWrite()) {

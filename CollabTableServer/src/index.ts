@@ -26,7 +26,7 @@ function sleep(ms: number) {
 async function initializeDatabaseWithRetry() {
   let attempt = 0;
 
-  while (true) {
+  for (;;) {
     attempt += 1;
 
     try {

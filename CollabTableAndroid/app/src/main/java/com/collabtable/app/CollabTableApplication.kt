@@ -53,6 +53,7 @@ class CollabTableApplication : Application() {
                     NotificationHelper.clearListEventNotifications(this@CollabTableApplication)
                     NotificationPoller.start(this@CollabTableApplication)
                 }
+
                 override fun onStop(owner: LifecycleOwner) {
                     NotificationPoller.stop()
                 }

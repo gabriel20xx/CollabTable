@@ -453,7 +453,7 @@ fun SettingsScreen(
                     modifier = Modifier.padding(12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                        Text(
+                    Text(
                         text = "View application logs",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -538,7 +538,8 @@ fun SettingsScreen(
                 onDismissRequest = { showLeaveDialog = false },
                 title = { Text(stringResource(R.string.leave_server_dialog_title)) },
                 text = {
-                    Text(stringResource(R.string.leave_server_dialog_body),
+                    Text(
+                        stringResource(R.string.leave_server_dialog_body),
                     )
                 },
                 confirmButton = {

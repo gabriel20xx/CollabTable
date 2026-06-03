@@ -48,7 +48,11 @@ interface FieldDao {
     suspend fun getFieldsUpdatedSince(since: Long): List<Field>
 
     @Query("UPDATE fields SET `order` = :newOrder, updatedAt = :timestamp WHERE id = :fieldId")
-    suspend fun updateFieldOrder(fieldId: String, newOrder: Int, timestamp: Long)
+    suspend fun updateFieldOrder(
+        fieldId: String,
+        newOrder: Int,
+        timestamp: Long,
+    )
 
     // Reorder fields in a single transaction for clarity and consistency
     @Transaction

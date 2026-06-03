@@ -1,8 +1,12 @@
 package com.collabtable.app.notifications
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import com.collabtable.app.R
 
 object NotificationHelper {
@@ -34,6 +38,15 @@ object NotificationHelper {
         id: Int,
         builder: NotificationCompat.Builder,
     ) {
+        if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.POST_NOTIFICATIONS,
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         with(NotificationManagerCompat.from(context)) {
             notify(id, builder.build())
         }

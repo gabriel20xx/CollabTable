@@ -57,7 +57,9 @@ router.post('/values', async (req: Request, res: Response) => {
       if (listId) {
         await enqueueNotification(dbAdapter, (req as any).deviceId, 'listContentUpdated', 'value', id, listId, Date.now());
       }
-    } catch {}
+    } catch (notificationError) {
+      void notificationError;
+    }
     res.json(itemValue);
   } catch (error) {
     res.status(500).json({ error: 'Failed to save item value' });
@@ -101,7 +103,9 @@ router.delete('/:id', async (req: Request, res: Response) => {
       const item = await dbAdapter.queryOne('SELECT * FROM items WHERE id = ?', [req.params.id]);
       const listId = item ? ((item as any).listId ?? (item as any).listid) : undefined;
       await enqueueNotification(dbAdapter, (req as any).deviceId, 'deleted', 'item', req.params.id, listId, updatedAt);
-    } catch {}
+    } catch (notificationError) {
+      void notificationError;
+    }
     res.json({ message: 'Item deleted successfully' });
   } catch (error) {
     res.status(500).json({ error: 'Failed to delete item' });
