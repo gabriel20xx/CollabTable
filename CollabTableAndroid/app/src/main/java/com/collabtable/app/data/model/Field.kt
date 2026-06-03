@@ -73,18 +73,18 @@ data class Field(
 ) {
     fun getType(): FieldType {
         val raw = fieldType.ifBlank { "TEXT" }.uppercase()
-        return try {
-            FieldType.valueOf(raw)
-        } catch (e: Exception) {
-            // Handle legacy/synonym field types
-            when (raw) {
-                "DROPDOWN" -> FieldType.SELECT
-                "STRING" -> FieldType.TEXT
-                "PRICE" -> FieldType.CURRENCY
-                "AMOUNT" -> FieldType.NUMBER
-                "SIZE" -> FieldType.TEXT
-                else -> FieldType.TEXT
-            }
+        val exact = runCatching { FieldType.valueOf(raw) }.getOrNull()
+        if (exact != null) {
+            return exact
+        }
+        // Handle legacy/synonym field types
+        return when (raw) {
+            "DROPDOWN" -> FieldType.SELECT
+            "STRING" -> FieldType.TEXT
+            "PRICE" -> FieldType.CURRENCY
+            "AMOUNT" -> FieldType.NUMBER
+            "SIZE" -> FieldType.TEXT
+            else -> FieldType.TEXT
         }
     }
 

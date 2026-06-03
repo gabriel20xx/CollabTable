@@ -84,8 +84,13 @@ object Logger {
     ): Boolean {
         val now = System.currentTimeMillis()
         val last = _logs.value.lastOrNull()
+        val isDuplicateMessage =
+            last?.let { previous ->
+                previous.level == level && previous.tag == tag && previous.message == message
+            } ?: false
+        val withinDedupeWindow = last != null && (now - last.timestamp) <= DEDUPE_WINDOW_MS
         // Suppress exact duplicate consecutive logs within a short window
-        if (last != null && last.level == level && last.tag == tag && last.message == message && (now - last.timestamp) <= DEDUPE_WINDOW_MS) {
+        if (isDuplicateMessage && withinDedupeWindow) {
             return false
         }
         val entry = LogEntry(timestamp = now, level = level, tag = tag, message = message)

@@ -7,6 +7,7 @@ import com.collabtable.app.data.database.CollabTableDatabase
 import com.collabtable.app.data.model.CollabList
 import com.collabtable.app.data.preferences.PreferencesManager
 import com.collabtable.app.notifications.NotificationHelper
+import com.collabtable.app.utils.Logger
 
 class ListChangeNotificationWorker(
     appContext: Context,
@@ -28,7 +29,8 @@ class ListChangeNotificationWorker(
             // Update checkpoint regardless to avoid duplicate spam
             prefs.setLastListNotifyCheckTimestamp(now)
             Result.success()
-        } catch (e: Exception) {
+        } catch (error: Exception) {
+            Logger.w("ListNotifyWorker", "Background notification polling failed: ${error.message}")
             Result.retry()
         }
     }

@@ -194,7 +194,7 @@ class PreferencesManager(
     fun getColumnWidths(listId: String): Map<String, Float> {
         val key = COLUMN_WIDTHS_PREFIX + listId
         val raw = prefs.getString(key, null) ?: return emptyMap()
-        return try {
+        return runCatching {
             val json = JSONObject(raw)
             val map = mutableMapOf<String, Float>()
             val it = json.keys()
@@ -206,9 +206,7 @@ class PreferencesManager(
                 }
             }
             map
-        } catch (e: Exception) {
-            emptyMap()
-        }
+        }.getOrDefault(emptyMap())
     }
 
     fun setColumnWidths(
@@ -229,7 +227,7 @@ class PreferencesManager(
     fun getColumnAlignments(listId: String): Map<String, String> {
         val key = COLUMN_ALIGN_PREFIX + listId
         val raw = prefs.getString(key, null) ?: return emptyMap()
-        return try {
+        return runCatching {
             val json = JSONObject(raw)
             val map = mutableMapOf<String, String>()
             val it = json.keys()
@@ -245,9 +243,7 @@ class PreferencesManager(
                 map[fieldId] = normalized
             }
             map
-        } catch (e: Exception) {
-            emptyMap()
-        }
+        }.getOrDefault(emptyMap())
     }
 
     fun setColumnAlignments(

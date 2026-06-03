@@ -110,7 +110,8 @@ object ApiClient {
                 val ensuredApi = if (rawUrl.contains("/api")) rawUrl else rawUrl.trimEnd('/') + "/api/"
                 ensureTrailingSlash(ensuredApi)
             }
-        } catch (e: Exception) {
+        } catch (error: Exception) {
+            Logger.w("HTTP", "Failed to normalize API URL '$rawUrl': ${error.message}")
             ensureTrailingSlash(rawUrl)
         }
     }

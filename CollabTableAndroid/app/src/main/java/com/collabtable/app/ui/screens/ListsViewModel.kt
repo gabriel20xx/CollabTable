@@ -233,6 +233,7 @@ class ListsViewModel(
      * stored in the app's external files directory. Returns a Result containing
      * the absolute file path on success.
      */
+    @Suppress("ReturnCount")
     suspend fun exportListToCsv(
         listId: String,
         listName: String,

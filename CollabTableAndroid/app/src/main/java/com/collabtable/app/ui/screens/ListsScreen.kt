@@ -72,6 +72,7 @@ import org.burnoutcrew.reorderable.detectReorder
 import org.burnoutcrew.reorderable.rememberReorderableLazyListState
 import org.burnoutcrew.reorderable.reorderable
 
+@Suppress("UnusedParameter")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListsScreen(
@@ -276,7 +277,7 @@ fun ListsScreen(
                         contentPadding = PaddingValues(vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
-                        itemsIndexed(working, key = { _, it -> it.id }) { _, list ->
+                        itemsIndexed(working, key = { _, table -> table.id }) { _, list ->
                             ReorderableItem(reorderState, key = list.id) { _ ->
                                 Box(modifier = Modifier.animateItemPlacement()) {
                                     ListItem(

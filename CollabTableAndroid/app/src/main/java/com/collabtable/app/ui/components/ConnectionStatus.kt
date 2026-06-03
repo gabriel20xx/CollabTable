@@ -53,7 +53,7 @@ private fun isEmulator(): Boolean {
 
 private fun toHealthUrl(rawApiUrl: String): String {
     // Ensure we hit the unauthenticated /health endpoint and remap localhost on emulator
-    return try {
+    return runCatching {
         val uri = Uri.parse(rawApiUrl)
         val host = uri.host?.lowercase()
         val needsRemap = isEmulator() && (host == "localhost" || host == "127.0.0.1" || host == "host.docker.internal")
@@ -63,7 +63,7 @@ private fun toHealthUrl(rawApiUrl: String): String {
         val path = (uri.encodedPath ?: "/").trimEnd('/')
         val healthPath = if (path.endsWith("/api") || path.endsWith("/api/")) "/health" else "/health"
         base + healthPath
-    } catch (e: Exception) {
+    }.getOrElse {
         rawApiUrl.replace("/api/", "/health").replace("/api", "/health")
     }
 }
@@ -101,7 +101,7 @@ fun ConnectionStatusAction(
                     ok = false
                 }
                 resp.close()
-            } catch (e: Exception) {
+            } catch (ignored: Exception) {
                 ok = false
             }
             delay(intervalMs)

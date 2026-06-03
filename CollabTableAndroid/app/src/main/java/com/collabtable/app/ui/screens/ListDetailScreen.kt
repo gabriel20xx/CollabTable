@@ -1,4 +1,9 @@
-@file:Suppress("ktlint:standard:no-wildcard-imports")
+@file:Suppress(
+    "ktlint:standard:no-wildcard-imports",
+    "SwallowedException",
+    "UnusedParameter",
+    "UnusedPrivateMember",
+)
 @file:OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 
 package com.collabtable.app.ui.screens

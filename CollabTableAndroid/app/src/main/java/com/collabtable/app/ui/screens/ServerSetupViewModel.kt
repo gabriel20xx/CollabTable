@@ -1,3 +1,5 @@
+@file:Suppress("SwallowedException")
+
 package com.collabtable.app.ui.screens
 
 import android.net.Uri

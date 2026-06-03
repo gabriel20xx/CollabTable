@@ -1,8 +1,6 @@
 package com.collabtable.app.ui.screens
 
 import android.content.Context
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.withTransaction
@@ -121,11 +119,6 @@ class ListDetailViewModel(
 
     private suspend fun performSync() {
         syncRepository.performSync()
-    }
-
-    private fun isInForeground(): Boolean {
-        val state = ProcessLifecycleOwner.get().lifecycle.currentState
-        return state.isAtLeast(Lifecycle.State.STARTED)
     }
 
     // Local changes should not notify this same device; remote-change notification (future) will be triggered elsewhere.
