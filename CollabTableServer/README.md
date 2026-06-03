@@ -230,6 +230,10 @@ docker-compose up -d --build
 - `DB_PATH` - Path to SQLite database file (default: ./data/collabtable.db for local, /data/collabtable.db in Docker)
 - `DATABASE_URL` - PostgreSQL connection URL (optional alternative to PG* variables)
 - `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` - PostgreSQL connection parameters
+- `DB_INIT_RETRY_INTERVAL_MS` - Delay between DB init retries in ms (default: `5000`)
+- `DB_INIT_RETRY_MAX_ATTEMPTS` - Max DB init retries; `0` retries forever (default: `0`)
+- `AUTH_LOG_THROTTLE_MS` - Minimum interval before repeating the same auth warning log (default: `30000`)
+- `SYNC_MAX_FUTURE_SKEW_MS` - Allowed future timestamp skew from clients during sync (default: `0`)
 
 ## Data Persistence
 

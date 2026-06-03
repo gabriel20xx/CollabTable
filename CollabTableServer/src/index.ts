@@ -16,6 +16,39 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const DB_INIT_RETRY_INTERVAL_MS = Math.max(250, Number(process.env.DB_INIT_RETRY_INTERVAL_MS || 5000));
+const DB_INIT_RETRY_MAX_ATTEMPTS = Math.max(0, Number(process.env.DB_INIT_RETRY_MAX_ATTEMPTS || 0));
+
+function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function initializeDatabaseWithRetry() {
+  let attempt = 0;
+
+  while (true) {
+    attempt += 1;
+
+    try {
+      await initializeDatabase();
+      if (attempt > 1) {
+        console.log(`[DB] Connected after ${attempt} attempt(s)`);
+      }
+      return;
+    } catch (error) {
+      const reachedLimit = DB_INIT_RETRY_MAX_ATTEMPTS > 0 && attempt >= DB_INIT_RETRY_MAX_ATTEMPTS;
+
+      console.error(`[DB] Initialization attempt ${attempt} failed`, error);
+
+      if (reachedLimit) {
+        throw error;
+      }
+
+      console.log(`[DB] Retrying in ${DB_INIT_RETRY_INTERVAL_MS}ms...`);
+      await sleep(DB_INIT_RETRY_INTERVAL_MS);
+    }
+  }
+}
 
 // Middleware
 app.use(cors());
@@ -44,7 +77,7 @@ app.use('/', webRoutes);
 // Initialize database and start server
 (async () => {
   try {
-    await initializeDatabase();
+    await initializeDatabaseWithRetry();
     console.log('Database synchronized successfully');
     console.log('Database models loaded:');
     console.log('- Lists');

@@ -12,6 +12,36 @@ interface SyncRequest {
   itemValues: any[];
 }
 
+const SYNC_MAX_FUTURE_SKEW_MS = Math.max(0, Number(process.env.SYNC_MAX_FUTURE_SKEW_MS || 0));
+
+function normalizeTimestamp(raw: any, fallback: number, nowMs: number) {
+  const numeric = Number(raw);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return fallback;
+  }
+
+  let ts = Math.trunc(numeric);
+  if (ts < 1e12) {
+    ts *= 1000;
+  }
+
+  const maxAllowed = nowMs + SYNC_MAX_FUTURE_SKEW_MS;
+  if (ts > maxAllowed) {
+    return maxAllowed;
+  }
+
+  return ts;
+}
+
+function normalizeEntityTimestamps(createdAtRaw: any, updatedAtRaw: any, nowMs: number) {
+  const createdAt = normalizeTimestamp(createdAtRaw, nowMs, nowMs);
+  const updatedAt = normalizeTimestamp(updatedAtRaw, createdAt, nowMs);
+  return {
+    createdAt,
+    updatedAt: Math.max(createdAt, updatedAt)
+  };
+}
+
 // Stats tracking
 let syncStats = {
   totalSyncs: 0,
@@ -55,7 +85,7 @@ setInterval(() => {
       lastReset: Date.now()
     };
   }
-}, 60000); // Changed from 30s to 60s
+}, 60000).unref?.(); // Changed from 30s to 60s
 
 // Helper function to get prepared statements (lazy initialization)
 // We'll perform upserts with positional params for cross-DB portability
@@ -66,15 +96,23 @@ const UPSERT_ITEM_VALUE = 'INSERT INTO item_values (id, itemId, fieldId, value, 
 
 router.post('/sync', async (req: Request, res: Response) => {
   try {
-    const { lastSyncTimestamp, lists, fields, items, itemValues }: SyncRequest = req.body;
+    const {
+      lastSyncTimestamp,
+      lists = [],
+      fields = [],
+      items = [],
+      itemValues = []
+    }: Partial<SyncRequest> = req.body || {};
     const deviceId = (req as any).deviceId as string | undefined;
+    const nowMs = Date.now();
+    const safeLastSyncTimestamp = normalizeTimestamp(lastSyncTimestamp, 0, nowMs);
     
     // Track stats
     syncStats.totalSyncs++;
-    const incomingLists = lists?.length || 0;
-    const incomingFields = fields?.length || 0;
-    const incomingItems = items?.length || 0;
-    const incomingValues = itemValues?.length || 0;
+    const incomingLists = lists.length;
+    const incomingFields = fields.length;
+    const incomingItems = items.length;
+    const incomingValues = itemValues.length;
     
     syncStats.listsReceived += incomingLists;
     syncStats.fieldsReceived += incomingFields;
@@ -83,7 +121,7 @@ router.post('/sync', async (req: Request, res: Response) => {
     
     // Only log significant sync events (not empty syncs)
     const hasIncomingData = incomingLists > 0 || incomingFields > 0 || incomingItems > 0 || incomingValues > 0;
-    const isInitialSync = lastSyncTimestamp === 0;
+    const isInitialSync = safeLastSyncTimestamp === 0;
     
     if (hasIncomingData) {
       const timestamp = new Date().toLocaleTimeString();
@@ -92,7 +130,7 @@ router.post('/sync', async (req: Request, res: Response) => {
       if (incomingLists > 0) {
         console.log(`   [LISTS] ${incomingLists} list(s)`);
         lists.forEach(list => {
-          const action = list.isDeleted ? 'Deleted' : (lastSyncTimestamp === 0 ? 'Created' : 'Updated');
+          const action = list.isDeleted ? 'Deleted' : (safeLastSyncTimestamp === 0 ? 'Created' : 'Updated');
           console.log(`      ${action}: "${list.name}"`);
         });
       }
@@ -117,25 +155,26 @@ router.post('/sync', async (req: Request, res: Response) => {
     await dbAdapter.transaction(async (tx) => {
       if (lists && lists.length > 0) {
         for (const list of lists) {
+          const listTs = normalizeEntityTimestamps(list.createdAt, list.updatedAt, nowMs);
           await tx.execute(UPSERT_LIST, [
             list.id,
             list.name,
-            list.createdAt,
-            list.updatedAt,
+            listTs.createdAt,
+            listTs.updatedAt,
             list.isDeleted ? 1 : 0
           ]);
           // enqueue list-level notifications
           try {
-            const ev = list.isDeleted ? 'deleted' : (lastSyncTimestamp === 0 ? 'created' : 'updated');
-            await enqueueNotification(tx, deviceId, ev, 'list', list.id, list.id, list.updatedAt);
+            const ev = list.isDeleted ? 'deleted' : (safeLastSyncTimestamp === 0 ? 'created' : 'updated');
+            await enqueueNotification(tx, deviceId, ev, 'list', list.id, list.id, listTs.updatedAt);
           } catch {}
           // If a list was deleted, cascade the deletion to child records on server
           // - mark fields and items as deleted (tombstones) so other clients learn about them
           // - remove item_values belonging to items under this list (no tombstone support for values)
           if (list.isDeleted) {
             try {
-              await tx.execute('UPDATE fields SET isDeleted = 1, updatedAt = ? WHERE listId = ?', [list.updatedAt, list.id]);
-              await tx.execute('UPDATE items SET isDeleted = 1, updatedAt = ? WHERE listId = ?', [list.updatedAt, list.id]);
+              await tx.execute('UPDATE fields SET isDeleted = 1, updatedAt = ? WHERE listId = ?', [listTs.updatedAt, list.id]);
+              await tx.execute('UPDATE items SET isDeleted = 1, updatedAt = ? WHERE listId = ?', [listTs.updatedAt, list.id]);
               await tx.execute('DELETE FROM item_values WHERE itemId IN (SELECT id FROM items WHERE listId = ?)', [list.id]);
             } catch (err) {
               console.warn('[SYNC] Cascade delete for list failed:', String(err));
@@ -146,6 +185,7 @@ router.post('/sync', async (req: Request, res: Response) => {
 
       if (fields && fields.length > 0) {
         for (const field of fields) {
+          const fieldTs = normalizeEntityTimestamps(field.createdAt, field.updatedAt, nowMs);
           await tx.execute(UPSERT_FIELD, [
             field.id,
             field.name,
@@ -154,13 +194,13 @@ router.post('/sync', async (req: Request, res: Response) => {
             (field.alignment ?? 'start'),
             field.listId,
             field.order,
-            field.createdAt,
-            field.updatedAt,
+            fieldTs.createdAt,
+            fieldTs.updatedAt,
             field.isDeleted ? 1 : 0
           ]);
           try {
-            const ev = field.isDeleted ? 'deleted' : (lastSyncTimestamp === 0 ? 'created' : 'updated');
-            await enqueueNotification(tx, deviceId, ev, 'field', field.id, field.listId, field.updatedAt);
+            const ev = field.isDeleted ? 'deleted' : (safeLastSyncTimestamp === 0 ? 'created' : 'updated');
+            await enqueueNotification(tx, deviceId, ev, 'field', field.id, field.listId, fieldTs.updatedAt);
           } catch {}
           if (field.isDeleted) {
             // Remove item_values for this field
@@ -175,7 +215,7 @@ router.post('/sync', async (req: Request, res: Response) => {
               const remainingCount = remaining ? (remaining.cnt ?? remaining.CNT ?? remaining.count ?? 0) : 0;
               if (remainingCount === 0) {
                 // Soft delete items in this list and purge their values
-                await tx.execute('UPDATE items SET isDeleted = 1, updatedAt = ? WHERE listId = ?', [field.updatedAt, field.listId]);
+                await tx.execute('UPDATE items SET isDeleted = 1, updatedAt = ? WHERE listId = ?', [fieldTs.updatedAt, field.listId]);
                 await tx.execute('DELETE FROM item_values WHERE itemId IN (SELECT id FROM items WHERE listId = ?)', [field.listId]);
                 console.log('[SYNC] Last field deleted; cascaded item+value cleanup for list', field.listId);
               }
@@ -188,16 +228,17 @@ router.post('/sync', async (req: Request, res: Response) => {
 
       if (items && items.length > 0) {
         for (const item of items) {
+          const itemTs = normalizeEntityTimestamps(item.createdAt, item.updatedAt, nowMs);
           await tx.execute(UPSERT_ITEM, [
             item.id,
             item.listId,
-            item.createdAt,
-            item.updatedAt,
+            itemTs.createdAt,
+            itemTs.updatedAt,
             item.isDeleted ? 1 : 0
           ]);
           try {
-            const ev = item.isDeleted ? 'deleted' : (lastSyncTimestamp === 0 ? 'created' : 'updated');
-            await enqueueNotification(tx, deviceId, ev, 'item', item.id, item.listId, item.updatedAt);
+            const ev = item.isDeleted ? 'deleted' : (safeLastSyncTimestamp === 0 ? 'created' : 'updated');
+            await enqueueNotification(tx, deviceId, ev, 'item', item.id, item.listId, itemTs.updatedAt);
           } catch {}
           // If an item was deleted, remove its values (no tombstone support for values)
           if (item.isDeleted) {
@@ -220,9 +261,9 @@ router.post('/sync', async (req: Request, res: Response) => {
         // Helper to build IN clause placeholders (?,?,?) matching adapter's ? substitution
         const makeIn = (arr: string[]) => arr.map(() => '?').join(', ');
 
-  let existingItemIds = new Set<string>();
-  let existingFieldIds = new Set<string>();
-  const fieldToList: Record<string, string> = {};
+          let existingItemIds = new Set<string>();
+          let existingFieldIds = new Set<string>();
+          const fieldToList: Record<string, string> = {};
         try {
           if (distinctItemIds.length > 0) {
             const rows = await tx.queryAll(`SELECT id FROM items WHERE id IN (${makeIn(distinctItemIds)})`, distinctItemIds);
@@ -238,6 +279,7 @@ router.post('/sync', async (req: Request, res: Response) => {
         }
 
         for (const value of itemValues) {
+          const valueUpdatedAt = normalizeTimestamp(value.updatedAt, nowMs, nowMs);
           const hasItem = existingItemIds.has(value.itemId);
           const hasField = existingFieldIds.has(value.fieldId);
           if (!hasField) {
@@ -252,7 +294,7 @@ router.post('/sync', async (req: Request, res: Response) => {
               orphanValues.push({ id: value.id, itemId: value.itemId, fieldId: value.fieldId, reason: 'missingItemNoList' });
               continue;
             }
-            const ts = value.updatedAt ?? Date.now();
+            const ts = valueUpdatedAt;
             try {
               await tx.execute(UPSERT_ITEM, [
                 value.itemId,
@@ -274,13 +316,13 @@ router.post('/sync', async (req: Request, res: Response) => {
               value.itemId,
               value.fieldId,
               value.value,
-              value.updatedAt
+              valueUpdatedAt
             ]);
             // Coarse list content update notification
             try {
               const lId = fieldToList[value.fieldId];
               if (lId) {
-                await enqueueNotification(tx, deviceId, 'listContentUpdated', 'value', value.id, lId, value.updatedAt);
+                await enqueueNotification(tx, deviceId, 'listContentUpdated', 'value', value.id, lId, valueUpdatedAt);
               }
             } catch {}
           } catch (err: any) {
@@ -309,17 +351,17 @@ router.post('/sync', async (req: Request, res: Response) => {
     // IMPORTANT: Include deleted items so clients can sync deletions
     let serverLists, serverFields, serverItems, serverItemValues;
 
-    if (lastSyncTimestamp === 0) {
+    if (safeLastSyncTimestamp === 0) {
       // Include deleted rows on initial sync to propagate tombstones
       serverLists = await dbAdapter.queryAll('SELECT * FROM lists');
       serverFields = await dbAdapter.queryAll('SELECT * FROM fields');
       serverItems = await dbAdapter.queryAll('SELECT * FROM items');
       serverItemValues = await dbAdapter.queryAll('SELECT * FROM item_values');
     } else {
-      serverLists = await dbAdapter.queryAll('SELECT * FROM lists WHERE updatedAt >= ?', [lastSyncTimestamp]);
-      serverFields = await dbAdapter.queryAll('SELECT * FROM fields WHERE updatedAt >= ?', [lastSyncTimestamp]);
-      serverItems = await dbAdapter.queryAll('SELECT * FROM items WHERE updatedAt >= ?', [lastSyncTimestamp]);
-      serverItemValues = await dbAdapter.queryAll('SELECT * FROM item_values WHERE updatedAt >= ?', [lastSyncTimestamp]);
+      serverLists = await dbAdapter.queryAll('SELECT * FROM lists WHERE updatedAt >= ?', [safeLastSyncTimestamp]);
+      serverFields = await dbAdapter.queryAll('SELECT * FROM fields WHERE updatedAt >= ?', [safeLastSyncTimestamp]);
+      serverItems = await dbAdapter.queryAll('SELECT * FROM items WHERE updatedAt >= ?', [safeLastSyncTimestamp]);
+      serverItemValues = await dbAdapter.queryAll('SELECT * FROM item_values WHERE updatedAt >= ?', [safeLastSyncTimestamp]);
     }
 
     // Normalize output for clients (camelCase keys, ms timestamps, boolean isDeleted)
@@ -383,7 +425,7 @@ router.post('/sync', async (req: Request, res: Response) => {
     
     // Only log when sending significant data back
     const hasOutgoingData = (serverLists as any[]).length > 0 || (serverFields as any[]).length > 0 || (serverItems as any[]).length > 0 || (serverItemValues as any[]).length > 0;
-    if (hasOutgoingData && !isInitialSync) {
+    if (hasOutgoingData && !isInitialSync && hasIncomingData) {
       console.log(`   [OUT] Sending back: ${(serverLists as any[]).length} lists, ${(serverFields as any[]).length} fields, ${(serverItems as any[]).length} items, ${(serverItemValues as any[]).length} values`);
     } else if (isInitialSync && hasOutgoingData) {
       console.log(`   [OUT] Sending initial data: ${(serverLists as any[]).length} lists, ${(serverFields as any[]).length} fields, ${(serverItems as any[]).length} items, ${(serverItemValues as any[]).length} values`);
